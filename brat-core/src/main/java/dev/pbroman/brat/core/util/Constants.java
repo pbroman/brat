@@ -16,6 +16,7 @@ public class Constants {
     public static final String ENV = "env";
     public static final String VARS = "vars";
     public static final String RESPONSE = "response";
+    public static final String RESPONSE_VARS = "responseVars";
     public static final String STATUS_CODE = "statusCode";
     public static final String BODY = "body";
     public static final String RAW_BODY = "raw";

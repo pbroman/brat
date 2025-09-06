@@ -1,30 +1,51 @@
 package dev.pbroman.brat.core.data.runtime;
 
+import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
+import static dev.pbroman.brat.core.util.Constants.ENV;
+import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
+import static dev.pbroman.brat.core.util.Constants.VARS;
+
 import java.util.HashMap;
 import java.util.Map;
 
-import lombok.Data;
-
-@Data
 public class RuntimeData {
 
-    private Map<String, String> constants;
-    private Map<String, String> env;
-    private Map<String, Object> vars = new HashMap<>();
-    private Map<String, Object> responseVars = new HashMap<>();
+    private Map<String, Map<String, Object>> data;
 
-    public RuntimeData(Map<String, String> constants, Map<String, String> env) {
-        this.constants = constants;
-        this.env = env;
+    public RuntimeData(Map<String, Object> constants, Map<String, Object> env) {
+        data = new HashMap<>();
+        data.put(CONSTANTS, constants);
+        data.put(ENV, env);
     }
 
-    public RuntimeData(Map<String, String> constants,
-                       Map<String, String> env,
+    public RuntimeData(Map<String, Object> constants,
+                       Map<String, Object> env,
                        Map<String, Object> vars,
                        Map<String, Object> responseVars) {
         this(constants, env);
-        this.vars = vars;
-        this.responseVars = responseVars;
+        data.put(VARS, vars);
+        data.put(RESPONSE_VARS, responseVars);
     }
+
+    public Map<String, Object> getData(String key) {
+        return data.get(key);
+    }
+
+    public Map<String, Object> getConstants() {
+        return getData(CONSTANTS);
+    }
+
+    public Map<String, Object> getEnv() {
+        return getData(ENV);
+    }
+
+    public Map<String, Object> getVars() {
+        return getData(VARS);
+    }
+
+    public Map<String, Object> getResponseVars() {
+        return getData(RESPONSE_VARS);
+    }
+
 
 }

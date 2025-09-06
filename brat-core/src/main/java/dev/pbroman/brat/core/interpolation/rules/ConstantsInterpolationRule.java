@@ -1,6 +1,8 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
+import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
 import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
+import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
 import static java.util.Objects.requireNonNull;
 
 import dev.pbroman.brat.core.exception.ValidationException;
@@ -18,7 +20,7 @@ public class ConstantsInterpolationRule extends AbstractInterpolationRule {
 
     @Override
     public String interpolate(String input, RuntimeData runtimeData) throws ValidationException {
-        requireNonNull(runtimeData, "runtimeData must not be null");
+        checkInterpolationArgs(input, runtimeData, CONSTANTS);
         return simpleInterpolation(input, runtimeData.getConstants());
     }
 

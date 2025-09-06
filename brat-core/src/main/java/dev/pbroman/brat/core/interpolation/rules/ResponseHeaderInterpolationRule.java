@@ -1,7 +1,10 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
+import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
+import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
 import static dev.pbroman.brat.core.util.Constants.HEADERS;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_HEADER_SHORTHAND;
+import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
 import static java.util.Objects.requireNonNull;
 
 import java.util.Map;
@@ -21,8 +24,7 @@ public class ResponseHeaderInterpolationRule extends AbstractResponseInterpolati
     @SuppressWarnings({"unchecked", "rawtypes"})
     @Override
     public String interpolate(String input, RuntimeData runtimeData) throws ValidationException {
-        requireNonNull(runtimeData, "runtimeData must not be null");
-        requireNonNull(runtimeData.getResponseVars(), "Response headers must not be null");
+        checkInterpolationArgs(input, runtimeData, RESPONSE_VARS);
         if (runtimeData.getResponseVars().get(HEADERS) instanceof Map headers) {
             return simpleInterpolation(input, headers);
         }

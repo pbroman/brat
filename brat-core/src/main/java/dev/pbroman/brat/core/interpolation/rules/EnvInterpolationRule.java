@@ -1,5 +1,7 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
+import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
+import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
 import static dev.pbroman.brat.core.util.Constants.ENV;
 import static java.util.Objects.requireNonNull;
 
@@ -16,7 +18,7 @@ public class EnvInterpolationRule extends AbstractInterpolationRule {
 
     @Override
     public String interpolate(String input, RuntimeData runtimeData) throws ValidationException {
-        requireNonNull(runtimeData, "runtimeData must not be null");
+        checkInterpolationArgs(input, runtimeData, ENV);
         return simpleInterpolation(input, runtimeData.getEnv());
     }
 

@@ -1,5 +1,7 @@
 package dev.pbroman.brat.core.interpolation;
 
+import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
+import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
 import static java.util.Objects.requireNonNull;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
@@ -24,7 +26,7 @@ public class InterpolationHandler implements Interpolation {
      */
     @Override
     public String interpolate(String input, RuntimeData runtimeData) {
-        requireNonNull(runtimeData, "runtimeData must not be null");
+        checkInterpolationArgs(input, runtimeData);
         var matcher = tools.getVariablePattern().matcher(input);
         while (matcher.find()) {
             try {

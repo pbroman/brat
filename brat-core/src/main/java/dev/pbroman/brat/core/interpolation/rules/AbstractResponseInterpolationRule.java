@@ -1,5 +1,7 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
+import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
+import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
 import static dev.pbroman.brat.core.util.Constants.VARIABLE_GROUP_NAME;
 import static java.util.Objects.requireNonNull;
 
@@ -17,11 +19,7 @@ public abstract class AbstractResponseInterpolationRule extends AbstractInterpol
     }
 
     protected boolean isRequirementsNotMet(String input, RuntimeData runtimeData) {
-        requireNonNull(input, "The input must not be null");
-        requireNonNull(runtimeData, "The runtimeData must not be null");
-        if (runtimeData.getResponseVars() == null) {
-            throw new IllegalStateException("The response variables must not be null");
-        }
+        checkInterpolationArgs(input, runtimeData, RESPONSE_VARS);
         return !input.matches(tools.getRegexForVariable(interpolationKey));
     }
 

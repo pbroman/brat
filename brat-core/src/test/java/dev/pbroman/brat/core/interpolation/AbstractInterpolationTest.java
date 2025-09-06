@@ -44,17 +44,17 @@ public abstract class AbstractInterpolationTest {
     }
 
     @Test
-    void inputNull_throwsNullPointerException() {
+    void inputNull_throwsIllegalArgumentException() {
         assertThatThrownBy(() -> {
             underTest.interpolate(null, runtimeData);
-        }).isInstanceOf(NullPointerException.class);
+        }).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
-    void runtimeDataNull_throwsNullPointerException() {
+    void runtimeDataNull_throwsIllegalArgumentException() {
         assertThatThrownBy(() -> {
             underTest.interpolate("moo", null);
-        }).isInstanceOf(NullPointerException.class);
+        }).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

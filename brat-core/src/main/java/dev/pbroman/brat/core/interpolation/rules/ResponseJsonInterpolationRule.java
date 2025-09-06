@@ -1,7 +1,10 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
+import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
+import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
 import static dev.pbroman.brat.core.util.Constants.JSON;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_JSON_SHORTHAND;
+import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
 import static dev.pbroman.brat.core.util.Constants.VARIABLE_GROUP_NAME;
 import static java.util.Objects.requireNonNull;
 
@@ -53,9 +56,7 @@ public class ResponseJsonInterpolationRule extends AbstractInterpolationRule {
 
     @Override
     public String interpolate(String input, RuntimeData runtimeData) throws ValidationException {
-        requireNonNull(input, "The interpolation input must not be null");
-        requireNonNull(runtimeData, "runtimeData must not be null");
-        requireNonNull(runtimeData.getResponseVars(), "runtimeData.getResponseVars() must not be null");
+        checkInterpolationArgs(input, runtimeData, RESPONSE_VARS);
 
         var matcher = tools.getGroupingPatternForVariable(RESPONSE_JSON_SHORTHAND).matcher(input);
         if (!matcher.find()) {
