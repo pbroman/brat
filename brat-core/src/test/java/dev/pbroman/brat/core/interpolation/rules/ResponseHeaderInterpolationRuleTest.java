@@ -1,6 +1,5 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static dev.pbroman.brat.core.util.Constants.BODY;
 import static dev.pbroman.brat.core.util.Constants.HEADERS;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 

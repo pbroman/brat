@@ -1,13 +1,11 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
 import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
-import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
 import static dev.pbroman.brat.core.util.Constants.ENV;
-import static java.util.Objects.requireNonNull;
 
-import dev.pbroman.brat.core.exception.ValidationException;
 import dev.pbroman.brat.core.data.result.ValidationType;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.ValidationException;
 import dev.pbroman.brat.core.tools.InterpolationTools;
 
 public class EnvInterpolationRule extends AbstractInterpolationRule {

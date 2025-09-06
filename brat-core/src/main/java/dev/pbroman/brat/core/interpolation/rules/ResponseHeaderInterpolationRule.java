@@ -1,16 +1,14 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
 import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
-import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
 import static dev.pbroman.brat.core.util.Constants.HEADERS;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_HEADER_SHORTHAND;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
-import static java.util.Objects.requireNonNull;
 
 import java.util.Map;
 
-import dev.pbroman.brat.core.exception.ValidationException;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.ValidationException;
 import dev.pbroman.brat.core.tools.InterpolationTools;
 import lombok.extern.slf4j.Slf4j;
 

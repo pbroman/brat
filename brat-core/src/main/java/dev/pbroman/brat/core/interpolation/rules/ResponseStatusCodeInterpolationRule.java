@@ -1,12 +1,10 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static dev.pbroman.brat.core.util.Constants.BODY;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_STATUS_SHORTHAND;
 import static dev.pbroman.brat.core.util.Constants.STATUS_CODE;
-import static java.util.Objects.requireNonNull;
 
-import dev.pbroman.brat.core.exception.ValidationException;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.ValidationException;
 import dev.pbroman.brat.core.tools.InterpolationTools;
 import lombok.extern.slf4j.Slf4j;
 

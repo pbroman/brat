@@ -6,7 +6,6 @@ import static java.util.Objects.requireNonNull;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
-import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.ValidationException;
 import dev.pbroman.brat.core.tools.InterpolationTools;
 
