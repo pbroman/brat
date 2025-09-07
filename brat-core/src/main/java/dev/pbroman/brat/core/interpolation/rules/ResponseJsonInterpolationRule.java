@@ -20,7 +20,7 @@ import net.minidev.json.JSONArray;
 @Slf4j
 public class ResponseJsonInterpolationRule extends AbstractInterpolationRule {
 
-    protected Map<String, Function<Object, Object>> functionMap = new HashMap<>();
+    protected Map<String, Function<Object, Object>> functionMap;
 
     public ResponseJsonInterpolationRule(InterpolationTools tools) {
         super(RESPONSE_JSON_SHORTHAND, tools);
@@ -29,6 +29,7 @@ public class ResponseJsonInterpolationRule extends AbstractInterpolationRule {
 
     @SuppressWarnings("rawtypes")
     private void initFunctionMap() {
+        functionMap = new HashMap<>();
         functionMap.put("isArray", object -> object instanceof JSONArray);
         functionMap.put("isObject", object -> object instanceof Map);
         functionMap.put("isString", object -> object instanceof String);

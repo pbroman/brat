@@ -1,6 +1,11 @@
 package dev.pbroman.brat.core.util;
 
+import static org.apache.commons.lang3.BooleanUtils.FALSE;
+import static org.apache.commons.lang3.BooleanUtils.TRUE;
+
+import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 public class Constants {
 
@@ -45,6 +50,31 @@ public class Constants {
     public static final String AUTH_TYPE_BEARER = "bearer";
     public static final String AUTH_TYPE_APIKEY = "apikey";
     public static final String AUTH_TYPE_NONE = "none";
+
+    // Condition constants
+    public static final String NULL = "null";
+    public static final String EMPTY = "empty";
+    public static final String BLANK = "blank";
+    public static final String EQUALS = "equals";
+    public static final String EQUALS_IGNORE_CASE = "equalsignorecase";
+    public static final String CONTAINS = "contains";
+    public static final String STARTS_WITH = "startswith";
+    public static final String ENDS_WITH = "endswith";
+    public static final String MATCHES = "matches";
+
+    public static final String EQUAL_TO = "=";
+    public static final String GREATER_THAN_OR_EQUAL = ">=";
+    public static final String LESS_THAN_OR_EQUAL = "<=";
+    public static final String GREATER_THAN = ">";
+    public static final String LESS_THAN = "<";
+
+    public static final String IS_PREFIX = "is";
+
+    public static final String NEGATION_REGEX = "^(not|!)(.+)";
+    public static final Pattern NEGATION_PATTERN = Pattern.compile(NEGATION_REGEX);
+
+    public static final List<String> SINGLE_VALUE_OPERATIONS = List.of(NULL, EMPTY, BLANK, TRUE, FALSE);
+
 
     // COLORS
     public static final String COLOR_RESET = "\033[0m";
