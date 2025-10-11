@@ -25,31 +25,14 @@ public class BooleanConditionRuleResolver extends AbstractConditionResolverRule 
         extendFunctionMap();
     }
 
-    /**
-     * Override this method to extend the function map.
-     */
-    protected void extendFunctionMap() {
-    }
-
     @Override
     public Boolean resolve(Condition condition) {
         prepare(condition);
         if (functionMap.containsKey(function)) {
             return negate != functionMap.get(function)
-                    .apply(convertToBoolean(condition.getA()));
+                    .apply(Boolean.valueOf(String.valueOf(condition.getA())));
         }
         return null;
-    }
-
-    private Boolean convertToBoolean(Object value) {
-        if (value == null) {
-            return null;
-        }
-        return switch (value) {
-            case Boolean b -> b;
-            case String s -> Boolean.valueOf(s);
-            default -> null;
-        };
     }
 
 }

@@ -31,32 +31,15 @@ public class DoubleConditionRuleResolver extends AbstractConditionResolverRule {
         extendFunctionMap();
     }
 
-    /**
-     * Override this method to extend the function map.
-     */
-    protected void extendFunctionMap() {
-    }
-
     @Override
     public Boolean resolve(Condition condition) {
         prepare(condition);
         if (functionMap.containsKey(function)) {
             return negate != functionMap.get(function)
-                    .apply(convertToDouble(condition.getA()), convertToDouble(condition.getB()));
+                    .apply(Double.valueOf(String.valueOf(condition.getA())),
+                            Double.valueOf(String.valueOf(condition.getB())));
         }
         return null;
-    }
-
-    private Double convertToDouble(Object value) {
-        if (value == null) {
-            return null;
-        }
-        return switch (value) {
-            case Double d -> d;
-            case String s -> Double.parseDouble(s);
-            case Integer i -> Double.valueOf(i);
-            default -> throw new IllegalArgumentException("Unsupported number a: " + value);
-        };
     }
 
 }

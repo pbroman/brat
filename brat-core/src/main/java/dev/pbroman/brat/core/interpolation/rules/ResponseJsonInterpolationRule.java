@@ -7,6 +7,7 @@ import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
 import static dev.pbroman.brat.core.util.Constants.VARIABLE_GROUP_NAME;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -15,7 +16,6 @@ import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.ValidationException;
 import dev.pbroman.brat.core.tools.InterpolationTools;
 import lombok.extern.slf4j.Slf4j;
-import net.minidev.json.JSONArray;
 
 @Slf4j
 public class ResponseJsonInterpolationRule extends AbstractInterpolationRule {
@@ -30,13 +30,13 @@ public class ResponseJsonInterpolationRule extends AbstractInterpolationRule {
     @SuppressWarnings("rawtypes")
     private void initFunctionMap() {
         functionMap = new HashMap<>();
-        functionMap.put("isArray", object -> object instanceof JSONArray);
+        functionMap.put("isArray", object -> object instanceof List);
         functionMap.put("isObject", object -> object instanceof Map);
         functionMap.put("isString", object -> object instanceof String);
         functionMap.put("isInteger", object -> object instanceof Integer);
         functionMap.put("isDouble", object -> object instanceof Double);
         functionMap.put("length", object -> switch (object) {
-            case JSONArray array -> array.toArray().length;
+            case List list -> list.size();
             case Map map -> map.size();
             case String s -> s.length();
             case Integer ignored -> throw new IllegalArgumentException("Cannot get length of an integer");

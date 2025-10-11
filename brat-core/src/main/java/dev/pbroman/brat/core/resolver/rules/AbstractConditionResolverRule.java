@@ -15,6 +15,12 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
 
     protected String function;
 
+    /**
+     * Override this method to extend the function map.
+     */
+    protected void extendFunctionMap() {
+    }
+
     protected void prepare(Condition condition) {
         function = condition.getFunc().toLowerCase().trim();
         var matches = NEGATION_PATTERN.matcher(function);

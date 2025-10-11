@@ -40,27 +40,14 @@ public class StringConditionRuleResolver extends AbstractConditionResolverRule {
         extendFunctionMap();
     }
 
-    /**
-     * Override this method to extend the function map.
-     */
-    protected void extendFunctionMap() {
-    }
-
     @Override
     public Boolean resolve(Condition condition) {
         prepare(condition);
         if (functionMap.containsKey(function)) {
             return negate != functionMap.get(function)
-                    .apply(convertToString(condition.getA()), convertToString(condition.getB()));
+                    .apply(String.valueOf(condition.getA()), String.valueOf(condition.getB()));
         }
         return null;
-    }
-
-    private String convertToString(Object value) {
-        if (value == null) {
-            return null;
-        }
-        return value.toString();
     }
 
 }

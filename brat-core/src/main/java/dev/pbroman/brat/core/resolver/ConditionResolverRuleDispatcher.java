@@ -25,9 +25,9 @@ public class ConditionResolverRuleDispatcher implements ConditionResolver {
     public Boolean resolve(Condition condition) throws ValidationException {
         checkCondition(condition);
         for (var resolver : resolvers) {
-            var val = resolver.resolve(condition);
-            if (val != null) {
-                return val;
+            var result = resolver.resolve(condition);
+            if (result != null) {
+                return result;
             }
         }
         throw new ValidationException(String.format("The '%s' could not be resolved", condition), ValidationType.FAIL);
