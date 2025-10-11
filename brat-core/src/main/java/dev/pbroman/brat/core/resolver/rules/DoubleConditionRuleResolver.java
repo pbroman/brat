@@ -7,6 +7,7 @@ import static dev.pbroman.brat.core.util.Constants.LESS_THAN;
 import static dev.pbroman.brat.core.util.Constants.LESS_THAN_OR_EQUAL;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 
@@ -34,7 +35,9 @@ public class DoubleConditionRuleResolver extends AbstractConditionResolverRule {
     @Override
     public Boolean resolve(Condition condition) {
         prepare(condition);
+
         if (functionMap.containsKey(function)) {
+            nullCheckB(condition, List.of());
             return negate != functionMap.get(function)
                     .apply(Double.valueOf(String.valueOf(condition.getA())),
                             Double.valueOf(String.valueOf(condition.getB())));

@@ -2,7 +2,8 @@ package dev.pbroman.brat.core.resolver.rules;
 
 import static dev.pbroman.brat.core.util.Constants.IS_PREFIX;
 import static dev.pbroman.brat.core.util.Constants.NEGATION_PATTERN;
-import static dev.pbroman.brat.core.util.Constants.SINGLE_VALUE_OPERATIONS;
+
+import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -31,7 +32,10 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
         if (StringUtils.startsWithIgnoreCase(function, IS_PREFIX)) {
             function = StringUtils.substring(function, IS_PREFIX.length());
         }
-        if (condition.getB() == null && !SINGLE_VALUE_OPERATIONS.contains(function)) {
+    }
+
+    protected void nullCheckB(Condition condition, List<String> ignoredFunctions) {
+        if (condition.getB() == null && !ignoredFunctions.contains(function)) {
             throw new IllegalArgumentException("b may not be null for func: " + function);
         }
     }

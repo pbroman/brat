@@ -11,6 +11,7 @@ import static dev.pbroman.brat.core.util.Constants.NULL;
 import static dev.pbroman.brat.core.util.Constants.STARTS_WITH;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.BiFunction;
@@ -43,7 +44,9 @@ public class StringConditionRuleResolver extends AbstractConditionResolverRule {
     @Override
     public Boolean resolve(Condition condition) {
         prepare(condition);
+
         if (functionMap.containsKey(function)) {
+            nullCheckB(condition, List.of(NULL, EMPTY, BLANK));
             return negate != functionMap.get(function)
                     .apply(String.valueOf(condition.getA()), String.valueOf(condition.getB()));
         }
