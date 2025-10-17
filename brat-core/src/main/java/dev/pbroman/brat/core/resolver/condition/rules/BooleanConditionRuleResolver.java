@@ -1,4 +1,4 @@
-package dev.pbroman.brat.core.resolver.rules;
+package dev.pbroman.brat.core.resolver.condition.rules;
 
 import static org.apache.commons.lang3.BooleanUtils.FALSE;
 import static org.apache.commons.lang3.BooleanUtils.TRUE;

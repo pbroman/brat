@@ -2,7 +2,6 @@ package dev.pbroman.brat.core.api.resolver;
 
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.exception.ValidationException;
-import dev.pbroman.brat.core.interpolation.rules.ResponseShorthandInterpolationRule;
 
 public interface ConditionResolver {
 

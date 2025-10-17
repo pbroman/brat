@@ -1,4 +1,4 @@
-package dev.pbroman.brat.core.resolver;
+package dev.pbroman.brat.core.resolver.condition;
 
 import static dev.pbroman.brat.core.util.CheckUtils.checkCondition;
 

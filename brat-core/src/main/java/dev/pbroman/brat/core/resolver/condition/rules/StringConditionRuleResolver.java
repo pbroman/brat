@@ -1,4 +1,4 @@
-package dev.pbroman.brat.core.resolver.rules;
+package dev.pbroman.brat.core.resolver.condition.rules;
 
 import static dev.pbroman.brat.core.util.Constants.BLANK;
 import static dev.pbroman.brat.core.util.Constants.CONTAINS;

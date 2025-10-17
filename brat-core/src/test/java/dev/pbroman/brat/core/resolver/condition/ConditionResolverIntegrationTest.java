@@ -1,4 +1,4 @@
-package dev.pbroman.brat.core.resolver;
+package dev.pbroman.brat.core.resolver.condition;
 
 import static dev.pbroman.brat.core.util.Constants.BLANK;
 import static dev.pbroman.brat.core.util.Constants.CONTAINS;
@@ -18,7 +18,6 @@ import static org.apache.commons.lang3.BooleanUtils.FALSE;
 import static org.apache.commons.lang3.BooleanUtils.TRUE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.stream.Stream;
@@ -32,10 +31,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.result.ValidationType;
 import dev.pbroman.brat.core.exception.ValidationException;
-import dev.pbroman.brat.core.resolver.rules.BooleanConditionRuleResolver;
-import dev.pbroman.brat.core.resolver.rules.DoubleConditionRuleResolver;
-import dev.pbroman.brat.core.resolver.rules.NullConditionResolverRule;
-import dev.pbroman.brat.core.resolver.rules.StringConditionRuleResolver;
+import dev.pbroman.brat.core.resolver.condition.rules.BooleanConditionRuleResolver;
+import dev.pbroman.brat.core.resolver.condition.rules.DoubleConditionRuleResolver;
+import dev.pbroman.brat.core.resolver.condition.rules.NullConditionResolverRule;
+import dev.pbroman.brat.core.resolver.condition.rules.StringConditionRuleResolver;
 
 class ConditionResolverIntegrationTest {
 

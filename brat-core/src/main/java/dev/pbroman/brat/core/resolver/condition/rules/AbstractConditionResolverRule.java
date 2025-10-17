@@ -1,4 +1,4 @@
-package dev.pbroman.brat.core.resolver.rules;
+package dev.pbroman.brat.core.resolver.condition.rules;
 
 import static dev.pbroman.brat.core.util.Constants.IS_PREFIX;
 import static dev.pbroman.brat.core.util.Constants.NEGATION_PATTERN;
