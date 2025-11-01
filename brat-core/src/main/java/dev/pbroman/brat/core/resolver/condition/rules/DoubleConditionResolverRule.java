@@ -12,12 +12,13 @@ import java.util.Map;
 import java.util.function.BiFunction;
 
 import dev.pbroman.brat.core.data.Condition;
+import dev.pbroman.brat.core.exception.ValidationException;
 
-public class DoubleConditionRuleResolver extends AbstractConditionResolverRule {
+public class DoubleConditionResolverRule extends AbstractConditionResolverRule {
 
     protected Map<String, BiFunction<Double, Double, Boolean>> functionMap;
 
-    public DoubleConditionRuleResolver() {
+    public DoubleConditionResolverRule() {
         initFunctionMap();
     }
 
@@ -33,7 +34,7 @@ public class DoubleConditionRuleResolver extends AbstractConditionResolverRule {
     }
 
     @Override
-    public Boolean resolve(Condition condition) {
+    public Boolean resolve(Condition condition) throws ValidationException {
         prepare(condition);
 
         if (functionMap.containsKey(function)) {

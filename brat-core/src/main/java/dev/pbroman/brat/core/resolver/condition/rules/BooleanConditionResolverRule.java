@@ -8,12 +8,13 @@ import java.util.Map;
 import java.util.function.Function;
 
 import dev.pbroman.brat.core.data.Condition;
+import dev.pbroman.brat.core.exception.ValidationException;
 
-public class BooleanConditionRuleResolver extends AbstractConditionResolverRule {
+public class BooleanConditionResolverRule extends AbstractConditionResolverRule {
 
     protected Map<String, Function<Boolean, Boolean>> functionMap;
 
-    public BooleanConditionRuleResolver() {
+    public BooleanConditionResolverRule() {
         initFunctionMap();
     }
 
@@ -26,7 +27,7 @@ public class BooleanConditionRuleResolver extends AbstractConditionResolverRule 
     }
 
     @Override
-    public Boolean resolve(Condition condition) {
+    public Boolean resolve(Condition condition) throws ValidationException {
         prepare(condition);
         if (functionMap.containsKey(function)) {
             return negate != functionMap.get(function)

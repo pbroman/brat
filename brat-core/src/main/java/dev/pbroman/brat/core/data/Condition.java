@@ -40,9 +40,9 @@ public class Condition extends ConfigData {
     public String toString() {
         return String.format("%s %s%s %s%s",
                 a,
-                a.equals(originalA) ? "" : String.format("(original: %s) ", originalA),
+                String.valueOf(a).equals(String.valueOf(originalA)) ? "" : String.format("(original: %s) ", originalA),
                 func,
                 b == null ? "" : b,
-                b == null || b.equals(originalB) ? "" : String.format(" (original: %s)", originalB));
+                b == null || String.valueOf(b).equals(String.valueOf(originalB)) ? "" : String.format(" (original: %s)", originalB));
     }
 }

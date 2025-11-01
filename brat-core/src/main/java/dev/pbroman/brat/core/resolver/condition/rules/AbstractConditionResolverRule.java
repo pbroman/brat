@@ -1,5 +1,6 @@
 package dev.pbroman.brat.core.resolver.condition.rules;
 
+import static dev.pbroman.brat.core.util.CheckUtils.checkCondition;
 import static dev.pbroman.brat.core.util.Constants.IS_PREFIX;
 import static dev.pbroman.brat.core.util.Constants.NEGATION_PATTERN;
 
@@ -9,6 +10,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.data.Condition;
+import dev.pbroman.brat.core.exception.ValidationException;
 
 public abstract class AbstractConditionResolverRule implements ConditionResolverRule {
 
@@ -22,7 +24,8 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
     protected void extendFunctionMap() {
     }
 
-    protected void prepare(Condition condition) {
+    protected void prepare(Condition condition) throws ValidationException {
+        checkCondition(condition);
         function = condition.getFunc().toLowerCase().trim();
         var matches = NEGATION_PATTERN.matcher(function);
         if (matches.find()) {

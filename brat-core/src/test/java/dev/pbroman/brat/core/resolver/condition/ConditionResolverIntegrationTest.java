@@ -31,10 +31,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.result.ValidationType;
 import dev.pbroman.brat.core.exception.ValidationException;
-import dev.pbroman.brat.core.resolver.condition.rules.BooleanConditionRuleResolver;
-import dev.pbroman.brat.core.resolver.condition.rules.DoubleConditionRuleResolver;
+import dev.pbroman.brat.core.resolver.condition.rules.BooleanConditionResolverRule;
+import dev.pbroman.brat.core.resolver.condition.rules.DoubleConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.NullConditionResolverRule;
-import dev.pbroman.brat.core.resolver.condition.rules.StringConditionRuleResolver;
+import dev.pbroman.brat.core.resolver.condition.rules.StringConditionResolverRule;
 
 class ConditionResolverIntegrationTest {
 
@@ -43,10 +43,10 @@ class ConditionResolverIntegrationTest {
     @BeforeEach
     void setUp() {
         ruleDispatcher = new ConditionResolverRuleDispatcher(List.of(
-                new BooleanConditionRuleResolver(),
-                new DoubleConditionRuleResolver(),
+                new BooleanConditionResolverRule(),
+                new DoubleConditionResolverRule(),
                 new NullConditionResolverRule(),
-                new StringConditionRuleResolver()
+                new StringConditionResolverRule()
         ));
     }
 

@@ -7,7 +7,9 @@ import java.util.List;
 import org.apache.logging.log4j.util.Strings;
 
 import dev.pbroman.brat.core.data.Condition;
+import dev.pbroman.brat.core.data.result.ValidationType;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.ValidationException;
 import io.micrometer.common.util.StringUtils;
 
 public class CheckUtils {
@@ -39,15 +41,14 @@ public class CheckUtils {
         }
     }
 
-    public static void checkCondition(Condition condition) {
-        var messages = new ArrayList<String>();
+    public static void checkCondition(Condition condition) throws ValidationException {
         if (condition == null) {
-            messages.add("The condition is null");
-        } else {
-            if (condition.getFunc() == null) {
-                messages.add("The condition function is null");
-            }
+            throw new ValidationException("The condition may not be null", ValidationType.FAIL);
         }
-        checkMessages(messages);
+        if (condition.getFunc() == null) {
+            var message = "A condition function may not be null. If you want the func null in the yaml config, " +
+                    "you must put it in quotes: 'null' or \"null\", or use isNull";
+            throw new ValidationException(message, ValidationType.FAIL);
+        }
     }
 }

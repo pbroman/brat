@@ -17,19 +17,20 @@ import java.util.Objects;
 import java.util.function.BiFunction;
 
 import dev.pbroman.brat.core.data.Condition;
+import dev.pbroman.brat.core.exception.ValidationException;
 
-public class StringConditionRuleResolver extends AbstractConditionResolverRule {
+public class StringConditionResolverRule extends AbstractConditionResolverRule {
 
     protected Map<String, BiFunction<String, String, Boolean>> functionMap;
 
-    public StringConditionRuleResolver() {
+    public StringConditionResolverRule() {
         initFunctionMap();
     }
 
     @SuppressWarnings("rawtypes")
     private void initFunctionMap() {
         functionMap = new HashMap<>();
-        functionMap.put(NULL, (a, b) -> false);
+        functionMap.put(NULL, (a, b) -> NULL.equals(a));
         functionMap.put(EQUALS, Object::equals);
         functionMap.put(EQUALS_IGNORE_CASE, String::equalsIgnoreCase);
         functionMap.put(BLANK, (a, b) -> a.isBlank());
@@ -42,7 +43,7 @@ public class StringConditionRuleResolver extends AbstractConditionResolverRule {
     }
 
     @Override
-    public Boolean resolve(Condition condition) {
+    public Boolean resolve(Condition condition)  throws ValidationException {
         prepare(condition);
 
         if (functionMap.containsKey(function)) {
