@@ -39,8 +39,12 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
         prepare(condition);
         if (functionMap.containsKey(function)) {
             nullCheckB(condition);
-            return negate != functionMap.get(function)
-                    .apply(condition.getA(), condition.getB());
+            try {
+                return negate != functionMap.get(function).apply(condition.getA(), condition.getB());
+            } catch (RuntimeException re) {
+                throw new ValidationException(String.format("Unable to resolve condition %s", condition),
+                        ValidationType.FAIL, re);
+            }
         }
         return null;
     }

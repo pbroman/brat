@@ -76,6 +76,12 @@ public class Constants {
     public static final String GREATER_THAN = ">";
     public static final String LESS_THAN = "<";
 
+    public static final String BEFORE = "before";
+    public static final String AFTER = "after";
+    public static final String EQUAL = "equal";
+    public static final String PAST = "past";
+    public static final String FUTURE = "future";
+
     public static final String IS_PREFIX = "is";
 
     public static final String NEGATION_REGEX = "^(not|!)(.+)";

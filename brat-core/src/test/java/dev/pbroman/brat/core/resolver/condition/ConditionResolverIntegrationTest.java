@@ -1,18 +1,23 @@
 package dev.pbroman.brat.core.resolver.condition;
 
+import static dev.pbroman.brat.core.util.Constants.AFTER;
+import static dev.pbroman.brat.core.util.Constants.BEFORE;
 import static dev.pbroman.brat.core.util.Constants.BLANK;
 import static dev.pbroman.brat.core.util.Constants.CONTAINS;
 import static dev.pbroman.brat.core.util.Constants.EMPTY;
 import static dev.pbroman.brat.core.util.Constants.ENDS_WITH;
+import static dev.pbroman.brat.core.util.Constants.EQUAL;
 import static dev.pbroman.brat.core.util.Constants.EQUALS;
 import static dev.pbroman.brat.core.util.Constants.EQUALS_IGNORE_CASE;
 import static dev.pbroman.brat.core.util.Constants.EQUAL_TO;
+import static dev.pbroman.brat.core.util.Constants.FUTURE;
 import static dev.pbroman.brat.core.util.Constants.GREATER_THAN;
 import static dev.pbroman.brat.core.util.Constants.GREATER_THAN_OR_EQUAL;
 import static dev.pbroman.brat.core.util.Constants.LESS_THAN;
 import static dev.pbroman.brat.core.util.Constants.LESS_THAN_OR_EQUAL;
 import static dev.pbroman.brat.core.util.Constants.MATCHES;
 import static dev.pbroman.brat.core.util.Constants.NULL;
+import static dev.pbroman.brat.core.util.Constants.PAST;
 import static dev.pbroman.brat.core.util.Constants.STARTS_WITH;
 import static org.apache.commons.lang3.BooleanUtils.FALSE;
 import static org.apache.commons.lang3.BooleanUtils.TRUE;
@@ -32,6 +37,7 @@ import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.result.ValidationType;
 import dev.pbroman.brat.core.exception.ValidationException;
 import dev.pbroman.brat.core.resolver.condition.rules.BooleanConditionResolverRule;
+import dev.pbroman.brat.core.resolver.condition.rules.DateConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.NullConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.NumberConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.StringConditionResolverRule;
@@ -46,6 +52,7 @@ class ConditionResolverIntegrationTest {
                 new BooleanConditionResolverRule(),
                 new NumberConditionResolverRule(),
                 new NullConditionResolverRule(),
+                new DateConditionResolverRule(),
                 new StringConditionResolverRule()
         ));
     }
@@ -131,8 +138,17 @@ class ConditionResolverIntegrationTest {
                 Arguments.of(new Condition(EQUALS, 1.0, "1.0")),
                 Arguments.of(new Condition(EQUAL_TO, 1.0, "1.0")),
                 Arguments.of(new Condition(EQUAL_TO, 1.0, 1)),
-                Arguments.of(new Condition(TRUE, "true", null))
+                Arguments.of(new Condition(TRUE, "true", null)),
 
+                // Date conditions
+                Arguments.of(new Condition(EQUAL,"2000-02-01", "2000-02-01")),
+                Arguments.of(new Condition(EQUAL,"2000-02-01", "02/01/2000")),
+                Arguments.of(new Condition(EQUAL,"2000-02-01", "01.02.2000")),
+                Arguments.of(new Condition(EQUAL,"02/01/2000", "01.02.2000")),
+                Arguments.of(new Condition(BEFORE, "2000-01-01", "2000-02-01")),
+                Arguments.of(new Condition(AFTER, "2000-03-01", "2000-02-01")),
+                Arguments.of(new Condition(PAST, "2000-02-01", null)),
+                Arguments.of(new Condition(FUTURE, "3000-02-01", null))
         );
     }
 }
