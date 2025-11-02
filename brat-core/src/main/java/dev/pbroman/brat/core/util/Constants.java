@@ -40,6 +40,14 @@ public class Constants {
             JSON, RESPONSE_JSON_SHORTHAND
     );
 
+    public static final String NUMBER_CONDITION = "Number";
+    public static final String STRING_CONDITION = "String";
+    public static final String BOOLEAN_CONDITION = "Boolean";
+    public static final String NULL_CONDITION = "Null";
+    public static final String DATE_CONDITION = "Date";
+    public static final String TIME_CONDITION = "Time";
+    public static final String DATETIME_CONDITION = "DateTime";
+
     public static final String DEFAULT_TIMEOUT_MS = "30000";
 
     public static final Integer DEFAULT_MAX_ATTEMPTS = 3;

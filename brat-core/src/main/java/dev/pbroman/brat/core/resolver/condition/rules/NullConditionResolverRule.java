@@ -2,6 +2,7 @@ package dev.pbroman.brat.core.resolver.condition.rules;
 
 import static dev.pbroman.brat.core.util.Constants.IS_PREFIX;
 import static dev.pbroman.brat.core.util.Constants.NULL;
+import static dev.pbroman.brat.core.util.Constants.NULL_CONDITION;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -14,6 +15,11 @@ public class NullConditionResolverRule implements ConditionResolverRule {
     @Override
     public int priority() {
         return Integer.MAX_VALUE - 100;
+    }
+
+    @Override
+    public String category() {
+        return NULL_CONDITION;
     }
 
     /**

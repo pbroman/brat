@@ -9,11 +9,11 @@ import org.junit.jupiter.params.provider.CsvSource;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.exception.ValidationException;
 
-class DoubleConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
+class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
 
     @BeforeEach
     void setUp() {
-        resolver = new DoubleConditionResolverRule();
+        resolver = new NumberConditionResolverRule();
     }
 
     @ParameterizedTest
