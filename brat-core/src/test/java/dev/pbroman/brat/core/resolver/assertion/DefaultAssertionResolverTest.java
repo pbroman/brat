@@ -16,6 +16,7 @@ import dev.pbroman.brat.core.api.resolver.AssertionResolver;
 import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.data.Assertion;
 import dev.pbroman.brat.core.data.ChainedAssertion;
+import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.ValidationException;
 
@@ -44,7 +45,8 @@ class DefaultAssertionResolverTest {
         var result = assertionResolver.resolve(assertion, runtimeData);
 
         // then
-        assertThat(result).isEmpty();
+        assertThat(result).hasSize(2);
+        assertThat(result.stream().filter(AssertionResult::passed).count()).isEqualTo(2);
     }
 
     @Test
@@ -59,8 +61,10 @@ class DefaultAssertionResolverTest {
         var result = assertionResolver.resolve(assertion, runtimeData);
 
         // then
-        assertThat(result).hasSize(1);
+        assertThat(result).hasSize(2);
+        assertThat(result.getFirst().passed()).isFalse();
         assertThat(result.getFirst().message()).isEqualTo("primaryFail");
+        assertThat(result.getLast().passed()).isTrue();
     }
 
     @Test

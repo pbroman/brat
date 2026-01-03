@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * A condition is a function 'a func b' that can be evaluated to true of false.
+ * A condition is a function 'a func b' that can be evaluated to true or false.
  */
 @Getter
 @Setter
@@ -40,9 +40,9 @@ public class Condition extends ConfigData {
     public String toString() {
         return String.format("%s %s%s %s%s",
                 a,
-                String.valueOf(a).equals(String.valueOf(originalA)) ? "" : String.format("(original: %s) ", originalA),
+                originalA == null || String.valueOf(a).equals(String.valueOf(originalA)) ? "" : String.format("(original: %s) ", originalA),
                 func,
                 b == null ? "" : b,
-                b == null || String.valueOf(b).equals(String.valueOf(originalB)) ? "" : String.format(" (original: %s)", originalB));
+                b == null || originalB == null || String.valueOf(b).equals(String.valueOf(originalB)) ? "" : String.format(" (original: %s)", originalB));
     }
 }

@@ -9,7 +9,7 @@ import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.data.Assertion;
 import dev.pbroman.brat.core.data.ChainedAssertion;
 import dev.pbroman.brat.core.data.Condition;
-import dev.pbroman.brat.core.data.result.AssertionFail;
+import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.ValidationException;
 
@@ -24,30 +24,36 @@ public class DefaultAssertionResolver implements AssertionResolver {
     }
 
     @Override
-    public List<AssertionFail> resolve(Assertion assertion, RuntimeData runtimeData) throws ValidationException {
-        var failedConditions = new ArrayList<AssertionFail>();
-        resolve(assertion, failedConditions, assertion.getMessage());
+    public List<AssertionResult> resolve(Assertion assertion, RuntimeData runtimeData) {
+        var assertionResults = new ArrayList<AssertionResult>();
+        resolve(assertion, assertionResults, assertion.getMessage());
 
         for (ChainedAssertion chained : assertion.getChain()) {
-            var condition = createCondition(assertion.getA(), chained.getFunc(), chained.getB(), runtimeData);
+            var condition = new Condition(chained.getFunc(), assertion.getA(), chained.getB());
             var message = chained.getMessage() != null ? chained.getMessage() : assertion.getMessage();
-            resolve(condition, failedConditions, message);
+            try {
+                condition.interpolate(interpolation, runtimeData);
+                resolve(condition, assertionResults, message);
+            } catch (ValidationException e) {
+                addValidationFailAssertionResult(condition, assertionResults, message, e);
+            }
         }
-        return failedConditions;
+        return assertionResults;
     }
 
-    protected Condition createCondition(Object a, String func, Object b, RuntimeData runtimeData)
-            throws ValidationException {
-        var condition = new Condition(func, a, b);
-        condition.interpolate(interpolation, runtimeData);
-        return condition;
+    protected void resolve(Condition condition, List<AssertionResult> assertionResults, String message) {
+        try {
+            assertionResults.add(new AssertionResult(condition, message, conditionResolver.resolve(condition)));
+        } catch (ValidationException e) {
+            addValidationFailAssertionResult(condition, assertionResults, message, e);
+        }
     }
 
-    protected void resolve(Condition condition, List<AssertionFail> failedConditions, String message)
-            throws ValidationException {
-        if (!conditionResolver.resolve(condition)) {
-            failedConditions.add(new AssertionFail(condition, message));
-        }
-
+    private void addValidationFailAssertionResult(Condition condition,
+                                    List<AssertionResult> assertionResults,
+                                    String message,
+                                    Exception e) {
+        var validationMessage = String.format("Validation failed for assertion: %s, message: %s", message, e.getMessage());
+        assertionResults.add(new AssertionResult(condition, validationMessage, false));
     }
 }

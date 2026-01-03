@@ -1,12 +1,14 @@
 package dev.pbroman.brat.core.data;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * A chained assertion is an extension of an assertion in that it defines an additional condition to the assertions
  * primary {@link Condition}.
  */
-@Data
+@Getter
+@Setter
 public class ChainedAssertion {
 
     private final String func;
