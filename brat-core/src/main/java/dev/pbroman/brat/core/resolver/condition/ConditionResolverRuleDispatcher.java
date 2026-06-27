@@ -8,8 +8,7 @@ import java.util.List;
 import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.data.Condition;
-import dev.pbroman.brat.core.data.result.ValidationType;
-import dev.pbroman.brat.core.exception.ValidationException;
+import dev.pbroman.brat.core.exception.BratException;
 
 public class ConditionResolverRuleDispatcher implements ConditionResolver {
 
@@ -22,7 +21,7 @@ public class ConditionResolverRuleDispatcher implements ConditionResolver {
     }
 
     @Override
-    public Boolean resolve(Condition condition) throws ValidationException {
+    public Boolean resolve(Condition condition) {
         checkCondition(condition);
         for (var resolver : resolvers) {
             var result = resolver.resolve(condition);
@@ -30,6 +29,6 @@ public class ConditionResolverRuleDispatcher implements ConditionResolver {
                 return result;
             }
         }
-        throw new ValidationException(String.format("The '%s' could not be resolved", condition), ValidationType.FAIL);
+        throw new BratException(String.format("The condition '%s' could not be resolved", condition));
     }
 }

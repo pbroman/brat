@@ -5,6 +5,7 @@ import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
 
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.tools.InterpolationTools;
+import io.micrometer.common.util.StringUtils;
 
 public abstract class AbstractResponseInterpolationRule extends AbstractInterpolationRule {
 
@@ -14,7 +15,7 @@ public abstract class AbstractResponseInterpolationRule extends AbstractInterpol
 
     protected boolean isRequirementsNotMet(String input, RuntimeData runtimeData) {
         checkInterpolationArgs(input, runtimeData, RESPONSE_VARS);
-        return !input.matches(tools.getRegexForVariable(interpolationKey));
+        return StringUtils.isBlank(input) || !input.matches(tools.getRegexForVariable(interpolationKey));
     }
 
 }

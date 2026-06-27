@@ -2,6 +2,7 @@ package dev.pbroman.brat.core.handler;
 
 import static org.apache.commons.lang3.BooleanUtils.TRUE;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -17,9 +18,8 @@ import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.data.Assertion;
 import dev.pbroman.brat.core.data.ResponseActions;
-import dev.pbroman.brat.core.data.result.ValidationType;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.exception.ValidationException;
+import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.resolver.assertion.DefaultAssertionResolver;
 
 class DefaultResponseHandlerTest {
@@ -61,7 +61,7 @@ class DefaultResponseHandlerTest {
     }
 
     @Test
-    void setVars_extendsRuntimeData() throws ValidationException {
+    void setVars_extendsRuntimeData() {
         // given
         var responseActions = new ResponseActions(List.of(), Map.of("moo", "baa"));
         var runtimeData = new RuntimeData(Map.of(), Map.of());
@@ -77,20 +77,17 @@ class DefaultResponseHandlerTest {
     }
 
     @Test
-    void setVars_catchesValidationException() throws ValidationException {
+    void setVars_propagatesBratException() {
         // given
         var responseActions = new ResponseActions(List.of(), Map.of("moo", "baa"));
         var runtimeData = new RuntimeData(Map.of(), Map.of());
         when(interpolation.interpolate(anyString(), eq(runtimeData)))
-                .thenThrow(new ValidationException("bollocks", ValidationType.FAIL));
+                .thenThrow(new BratException("bollocks"));
 
-        // when
-        underTest.handleResponse(responseActions, runtimeData);
-
-        // then
-        assertThat(runtimeData.getVars()).isEmpty();
-        assertThat(runtimeData.getValidations()).isNotEmpty();
-        assertThat(runtimeData.getValidations().getFirst().validationType()).isEqualTo(ValidationType.FAIL);
+        // when / then
+        assertThatThrownBy(() -> underTest.handleResponse(responseActions, runtimeData))
+                .isInstanceOf(BratException.class)
+                .hasMessage("bollocks");
     }
 
 }

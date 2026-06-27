@@ -10,7 +10,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import dev.pbroman.brat.core.data.Condition;
-import dev.pbroman.brat.core.exception.ValidationException;
+import dev.pbroman.brat.core.exception.BratException;
 
 class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
 
@@ -30,7 +30,7 @@ class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
             "<=,1,2",
             "<,1,2",
     })
-    void trueConditions(String func, String a, String b) throws ValidationException {
+    void trueConditions(String func, String a, String b) {
         // given
         var condition = new Condition(func, a, b);
 
@@ -49,7 +49,7 @@ class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
             "<=,2,1",
             "<,2,1",
     })
-    void falseConditions(String func, String a, String b) throws ValidationException {
+    void falseConditions(String func, String a, String b) {
         // given
         var condition = new Condition(func, a, b);
 
@@ -67,7 +67,7 @@ class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
 
         // then
         assertThatThrownBy(() -> resolver.resolve(condition))
-                .isInstanceOf(ValidationException.class);
+                .isInstanceOf(BratException.class);
     }
 
 }

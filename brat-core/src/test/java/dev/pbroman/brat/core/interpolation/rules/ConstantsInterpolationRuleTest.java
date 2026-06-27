@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import dev.pbroman.brat.core.exception.ValidationException;
+import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.AbstractInterpolationTest;
 
 class ConstantsInterpolationRuleTest extends AbstractInterpolationTest {
@@ -17,7 +17,7 @@ class ConstantsInterpolationRuleTest extends AbstractInterpolationTest {
     }
 
     @Test
-    void happyPath() throws Exception {
+    void happyPath() {
         // given
         var input = "${constants.moo}";
         var expected = "baa";
@@ -30,13 +30,13 @@ class ConstantsInterpolationRuleTest extends AbstractInterpolationTest {
     }
 
     @Test
-    void onMissingReplacement_throwsValidationException() throws Exception {
+    void onMissingReplacement_throwsBratException() {
         // given
         var input = "${constants.missing}";
 
         // then
         assertThatThrownBy(() -> underTest.interpolate(input, runtimeData))
-                .isInstanceOf(ValidationException.class);
+                .isInstanceOf(BratException.class);
     }
 
 }

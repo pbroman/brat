@@ -10,7 +10,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import dev.pbroman.brat.core.data.Condition;
-import dev.pbroman.brat.core.exception.ValidationException;
+import dev.pbroman.brat.core.exception.BratException;
 
 class DateConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
 
@@ -32,7 +32,7 @@ class DateConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
             "!after,2002-12-21,2002-12-22",
             "!before,2002-12-22,2002-12-21",
     })
-    void trueConditions(String func, String a, String b) throws ValidationException {
+    void trueConditions(String func, String a, String b) {
         // given
         var condition = new Condition(func, a, b);
 
@@ -50,7 +50,7 @@ class DateConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
 
         // then
         assertThatThrownBy(() -> resolver.resolve(condition))
-                .isInstanceOf(ValidationException.class);
+                .isInstanceOf(BratException.class);
     }
 
 }

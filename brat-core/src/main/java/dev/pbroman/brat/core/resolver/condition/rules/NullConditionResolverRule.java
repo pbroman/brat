@@ -8,7 +8,6 @@ import org.apache.commons.lang3.StringUtils;
 
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.data.Condition;
-import dev.pbroman.brat.core.exception.ValidationException;
 
 public class NullConditionResolverRule implements ConditionResolverRule {
 
@@ -29,7 +28,7 @@ public class NullConditionResolverRule implements ConditionResolverRule {
      * @return the result of the null check of a, or null, if a is not null.
      */
     @Override
-    public Boolean resolve(Condition condition) throws ValidationException {
+    public Boolean resolve(Condition condition) {
         if (condition.getA() == null) {
             return NULL.equals(condition.getFunc())
                     || StringUtils.equalsIgnoreCase(IS_PREFIX + NULL, condition.getFunc());

@@ -4,8 +4,8 @@ import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.exception.ValidationException;
 import dev.pbroman.brat.core.tools.InterpolationTools;
+import io.micrometer.common.util.StringUtils;
 
 public class InterpolationHandler implements Interpolation {
 
@@ -24,15 +24,14 @@ public class InterpolationHandler implements Interpolation {
      */
     @Override
     public String interpolate(String input, RuntimeData runtimeData) {
+        if (StringUtils.isBlank(input)) {
+            return input;
+        }
         checkInterpolationArgs(input, runtimeData);
         var matcher = tools.getVariablePattern().matcher(input);
         while (matcher.find()) {
-            try {
-                var interpolation = dispatcher.interpolate(matcher.group(0), runtimeData);
-                input = input.replace(matcher.group(0), interpolation);
-            } catch (ValidationException e) {
-                // TODO: add validation to runtime data
-            }
+            var result = dispatcher.interpolate(matcher.group(0), runtimeData);
+            input = input.replace(matcher.group(0), result);
         }
         return input;
     }

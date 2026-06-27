@@ -13,8 +13,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.data.Condition;
-import dev.pbroman.brat.core.data.result.ValidationType;
-import dev.pbroman.brat.core.exception.ValidationException;
+import dev.pbroman.brat.core.exception.BratException;
 
 public abstract class AbstractConditionResolverRule implements ConditionResolverRule {
 
@@ -34,7 +33,7 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
     }
 
     @Override
-    public Boolean resolve(Condition condition) throws ValidationException {
+    public Boolean resolve(Condition condition) {
         checkCondition(condition);
         prepare(condition);
         if (functionMap.containsKey(function)) {
@@ -42,8 +41,7 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
             try {
                 return negate != functionMap.get(function).apply(condition.getA(), condition.getB());
             } catch (RuntimeException re) {
-                throw new ValidationException(String.format("Unable to resolve condition %s", condition),
-                        ValidationType.FAIL, re);
+                throw new BratException(String.format("Unable to resolve condition %s", condition), re);
             }
         }
         return null;
@@ -61,8 +59,8 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
     }
 
     /**
-     * Override this to return a list of functions that does not need the b argument.
-     * @return a list of functions ignored by this method
+     * Override this to return a list of functions that do not require the b argument.
+     * @return a list of function names skipped by the null check
      */
     protected List<String> ignoreBNullCheck() {
         return List.of();
@@ -80,10 +78,9 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
         }
     }
 
-    protected void nullCheckB(Condition condition) throws ValidationException {
+    protected void nullCheckB(Condition condition) {
         if (condition.getB() == null && !ignoreBNullCheck().contains(function)) {
-            throw new ValidationException(String.format("b may not be null for %s function '%s'", category(), function),
-                    ValidationType.FAIL);
+            throw new BratException(String.format("b may not be null for %s function '%s'", category(), function));
         }
     }
 }

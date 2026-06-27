@@ -4,7 +4,6 @@ import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
 import static dev.pbroman.brat.core.util.Constants.VARS;
 
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.exception.ValidationException;
 import dev.pbroman.brat.core.tools.InterpolationTools;
 import lombok.extern.slf4j.Slf4j;
 
@@ -16,7 +15,7 @@ public class VarsInterpolationRule extends AbstractInterpolationRule {
     }
 
     @Override
-    public String interpolate(String input, RuntimeData runtimeData) throws ValidationException {
+    public String interpolate(String input, RuntimeData runtimeData) {
         checkInterpolationArgs(input, runtimeData, VARS);
         return simpleInterpolation(input, runtimeData.getVars());
     }

@@ -12,8 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
-import dev.pbroman.brat.core.properties.InterpolationProperties;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.properties.InterpolationProperties;
 import dev.pbroman.brat.core.tools.InterpolationTools;
 
 public abstract class AbstractInterpolationTest {
@@ -33,7 +33,7 @@ public abstract class AbstractInterpolationTest {
     protected Interpolation underTest;
 
     @BeforeEach
-    void basicSetUp() throws Exception {
+    void basicSetUp() {
         when(mockRule.interpolate(Mockito.anyString(), Mockito.any())).thenReturn(mockResult);
         when(mockRule.interpolate(eq(nonMatchingPattern), Mockito.any())).thenReturn(nonMatchingPattern);
         runtimeData = setUpRuntimeData();
@@ -44,10 +44,12 @@ public abstract class AbstractInterpolationTest {
     }
 
     @Test
-    void inputNull_throwsIllegalArgumentException() {
-        assertThatThrownBy(() -> {
-            underTest.interpolate(null, runtimeData);
-        }).isInstanceOf(IllegalArgumentException.class);
+    void inputNull_returnsNull() {
+        // when
+        var result = underTest.interpolate(null, runtimeData);
+
+        // then
+        assertThat(result).isNull();
     }
 
     @Test
@@ -58,7 +60,7 @@ public abstract class AbstractInterpolationTest {
     }
 
     @Test
-    void noMatchingPattern_returnsInput() throws Exception{
+    void noMatchingPattern_returnsInput() {
         // given
         var input = "${bollocks}";
 

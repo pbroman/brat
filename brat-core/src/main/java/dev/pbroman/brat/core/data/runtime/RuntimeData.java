@@ -6,12 +6,9 @@ import static dev.pbroman.brat.core.util.Constants.MISC;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
 import static dev.pbroman.brat.core.util.Constants.VARS;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import dev.pbroman.brat.core.data.result.Validation;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -19,8 +16,6 @@ import lombok.Setter;
 public class RuntimeData {
 
     private final Map<String, Map<String, Object>> data;
-    //private final List<RequestResult> requestResults;
-    private final List<Validation> validations;
     @Setter
     private String currentPath;
     @Setter
@@ -34,7 +29,6 @@ public class RuntimeData {
         data.put(MISC, new HashMap<>());
         data.put(VARS, new HashMap<>());
         data.put(RESPONSE_VARS, new HashMap<>());
-        validations = new ArrayList<>();
     }
 
     public RuntimeData(Map<String, Object> constants,
@@ -65,6 +59,5 @@ public class RuntimeData {
     public Map<String, Object> getResponseVars() {
         return getData(RESPONSE_VARS);
     }
-
 
 }

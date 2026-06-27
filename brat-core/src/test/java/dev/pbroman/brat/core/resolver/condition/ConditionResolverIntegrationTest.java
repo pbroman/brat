@@ -34,8 +34,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import dev.pbroman.brat.core.data.Condition;
-import dev.pbroman.brat.core.data.result.ValidationType;
-import dev.pbroman.brat.core.exception.ValidationException;
+import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.resolver.condition.rules.BooleanConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.DateConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.NullConditionResolverRule;
@@ -59,7 +58,7 @@ class ConditionResolverIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("happyPaths")
-    void conditionIsTrue(Condition condition) throws ValidationException {
+    void conditionIsTrue(Condition condition) {
         assertThat(ruleDispatcher.resolve(condition)).isTrue();
     }
 
@@ -67,8 +66,7 @@ class ConditionResolverIntegrationTest {
     void functionNotFound() {
         assertThatThrownBy(
                 () -> ruleDispatcher.resolve(new Condition("bollocks", 1, 2))
-        ).isInstanceOf(ValidationException.class)
-                .hasFieldOrPropertyWithValue("validationType", ValidationType.FAIL);
+        ).isInstanceOf(BratException.class);
     }
 
     private static Stream<Arguments> happyPaths() {

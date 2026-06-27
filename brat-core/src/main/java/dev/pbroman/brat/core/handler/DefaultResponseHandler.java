@@ -3,14 +3,12 @@ package dev.pbroman.brat.core.handler;
 import java.util.ArrayList;
 import java.util.List;
 
-import dev.pbroman.brat.core.api.ResponseHandler;
+import dev.pbroman.brat.core.api.handler.ResponseHandler;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.resolver.AssertionResolver;
 import dev.pbroman.brat.core.data.ResponseActions;
 import dev.pbroman.brat.core.data.result.AssertionResult;
-import dev.pbroman.brat.core.data.result.Validation;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.exception.ValidationException;
 
 public class DefaultResponseHandler implements ResponseHandler {
 
@@ -32,13 +30,7 @@ public class DefaultResponseHandler implements ResponseHandler {
         );
 
         responseActions.getSetVars().forEach((key, value) -> {
-            try {
-                runtimeData.getVars().put(key, interpolation.interpolate(value, runtimeData));
-            } catch (ValidationException e) {
-                runtimeData.getValidations().add(
-                        new Validation(String.format("Interpolation of %s failed, message: %s", value, e.getMessage()), e.getValidationType())
-                );
-            }
+            runtimeData.getVars().put(key, interpolation.interpolate(value, runtimeData));
         });
 
         return assertionResults;

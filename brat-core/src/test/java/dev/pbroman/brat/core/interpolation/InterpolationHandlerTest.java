@@ -7,8 +7,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import dev.pbroman.brat.core.exception.ValidationException;
-import dev.pbroman.brat.core.data.result.ValidationType;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import dev.pbroman.brat.core.exception.BratException;
 
 class InterpolationHandlerTest extends AbstractInterpolationTest {
 
@@ -56,23 +57,15 @@ class InterpolationHandlerTest extends AbstractInterpolationTest {
     }
 
     @Test
-    void interpolate_inputWithException() throws Exception {
+    void interpolate_inputWithException() {
         // given
         when(mockRule.interpolate(Mockito.anyString(), Mockito.any()))
-                .thenThrow(new ValidationException("mock", ValidationType.FAIL));
+                .thenThrow(new BratException("mock"));
         var input = "this is a ${mock}";
 
-        // when
-        var result = underTest.interpolate(input, runtimeData);
-
-        // then
-        assertThat(result).isEqualTo(input);
-        /* TODO
-        assertThat(runtimeData.validations())
-                .isNotNull()
-                .hasSize(1);
-
-         */
+        // when / then
+        assertThatThrownBy(() -> underTest.interpolate(input, runtimeData))
+                .isInstanceOf(BratException.class);
     }
 
 

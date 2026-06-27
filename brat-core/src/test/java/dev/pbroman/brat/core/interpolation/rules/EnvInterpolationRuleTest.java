@@ -9,7 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.exception.ValidationException;
+import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.AbstractInterpolationTest;
 
 class EnvInterpolationRuleTest extends AbstractInterpolationTest {
@@ -24,7 +24,7 @@ class EnvInterpolationRuleTest extends AbstractInterpolationTest {
     }
 
     @Test
-    void happyPath() throws Exception {
+    void happyPath() {
         // given
         var input = "${env.moo}";
         var expected = "baa";
@@ -37,13 +37,13 @@ class EnvInterpolationRuleTest extends AbstractInterpolationTest {
     }
 
     @Test
-    void onMissingReplacement_throwsValidationException() throws Exception {
+    void onMissingReplacement_throwsBratException() {
         // given
         var input = "${env.missing}";
 
         // then
         assertThatThrownBy(() -> underTest.interpolate(input, runtimeData))
-                .isInstanceOf(ValidationException.class);
+                .isInstanceOf(BratException.class);
     }
 
 }

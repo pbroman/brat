@@ -6,14 +6,13 @@ import org.junit.jupiter.api.Test;
 
 import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.data.Condition;
-import dev.pbroman.brat.core.exception.ValidationException;
 
 class NullConditionResolverRuleTest {
 
     ConditionResolver resolver = new NullConditionResolverRule();
 
     @Test
-    void isTrue() throws ValidationException {
+    void isTrue() {
         // when
         var result = resolver.resolve(new Condition("isNull", null, null));
 
@@ -22,7 +21,7 @@ class NullConditionResolverRuleTest {
     }
 
     @Test
-    void isFalse() throws ValidationException {
+    void isFalse() {
         // when
         var result = resolver.resolve(new Condition("!null", null, null));
 
@@ -31,7 +30,7 @@ class NullConditionResolverRuleTest {
     }
 
     @Test
-    void isNotForMe() throws ValidationException {
+    void isNotForMe() {
         // when
         var result = resolver.resolve(new Condition("null", "nonNullValue", null));
 

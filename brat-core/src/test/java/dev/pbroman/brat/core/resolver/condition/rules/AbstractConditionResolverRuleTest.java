@@ -7,15 +7,14 @@ import org.junit.jupiter.api.Test;
 
 import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.data.Condition;
-import dev.pbroman.brat.core.data.result.ValidationType;
-import dev.pbroman.brat.core.exception.ValidationException;
+import dev.pbroman.brat.core.exception.BratException;
 
 abstract class AbstractConditionResolverRuleTest {
 
     protected ConditionResolver resolver;
 
     @Test
-    void isNotForMe() throws ValidationException {
+    void isNotForMe() {
         // when
         var result = resolver.resolve(new Condition("isBollocks", false, null));
 
@@ -25,10 +24,8 @@ abstract class AbstractConditionResolverRuleTest {
 
     @Test
     void checksConditionIsNotNull() {
-        assertThatThrownBy(() -> {
-            resolver.resolve(null);
-        }).isInstanceOf(ValidationException.class)
-                .extracting("validationType").isEqualTo(ValidationType.FAIL);
+        assertThatThrownBy(() -> resolver.resolve(null))
+                .isInstanceOf(BratException.class);
     }
 
 }

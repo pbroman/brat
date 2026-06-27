@@ -6,7 +6,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import dev.pbroman.brat.core.data.Condition;
-import dev.pbroman.brat.core.exception.ValidationException;
 
 class BooleanConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
 
@@ -16,7 +15,7 @@ class BooleanConditionResolverRuleTest extends AbstractConditionResolverRuleTest
     }
 
     @Test
-    void isTrue() throws ValidationException {
+    void isTrue() {
         // when
         var result = resolver.resolve(new Condition("isTrue", true, null));
 
@@ -25,7 +24,7 @@ class BooleanConditionResolverRuleTest extends AbstractConditionResolverRuleTest
     }
 
     @Test
-    void isFalse() throws ValidationException {
+    void isFalse() {
         // when
         var result = resolver.resolve(new Condition("isFalse", false, null));
 

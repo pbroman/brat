@@ -8,7 +8,6 @@ import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
 import java.util.Map;
 
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.exception.ValidationException;
 import dev.pbroman.brat.core.tools.InterpolationTools;
 import lombok.extern.slf4j.Slf4j;
 
@@ -21,7 +20,7 @@ public class ResponseHeaderInterpolationRule extends AbstractResponseInterpolati
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     @Override
-    public String interpolate(String input, RuntimeData runtimeData) throws ValidationException {
+    public String interpolate(String input, RuntimeData runtimeData) {
         checkInterpolationArgs(input, runtimeData, RESPONSE_VARS);
         if (runtimeData.getResponseVars().get(HEADERS) instanceof Map headers) {
             return simpleInterpolation(input, headers);
@@ -30,7 +29,7 @@ public class ResponseHeaderInterpolationRule extends AbstractResponseInterpolati
     }
 
     @Override
-    protected String onMissingReplacement(String placeholder, String input) throws ValidationException {
+    protected String onMissingReplacement(String placeholder, String input) {
         log.warn("The header {} is not in the response", placeholder);
         return super.onMissingReplacement(placeholder, input);
     }

@@ -7,7 +7,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import dev.pbroman.brat.core.data.Condition;
-import dev.pbroman.brat.core.exception.ValidationException;
 
 class StringConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
 
@@ -28,7 +27,7 @@ class StringConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
             "empty,'',",
             "blank,' ',",
     })
-    void trueConditions(String func, String a, String b) throws ValidationException {
+    void trueConditions(String func, String a, String b) {
         // given
         var condition = new Condition(func, a, b);
 
@@ -51,7 +50,7 @@ class StringConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
             "empty,' ',",
             "blank,test,",
     })
-    void falseConditions(String func, String a, String b) throws ValidationException {
+    void falseConditions(String func, String a, String b) {
         // given
         var condition = new Condition(func, a, b);
 

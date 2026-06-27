@@ -13,8 +13,8 @@ import java.util.function.Function;
 
 import com.jayway.jsonpath.JsonPath;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.exception.ValidationException;
 import dev.pbroman.brat.core.tools.InterpolationTools;
+import io.micrometer.common.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -46,15 +46,14 @@ public class ResponseJsonInterpolationRule extends AbstractInterpolationRule {
         extendFunctionMap();
     }
 
-    /**
-     * Override this method to extend the function map.
-     */
     protected void extendFunctionMap() {
-
     }
 
     @Override
-    public String interpolate(String input, RuntimeData runtimeData) throws ValidationException {
+    public String interpolate(String input, RuntimeData runtimeData) {
+        if (StringUtils.isBlank(input)) {
+            return input;
+        }
         checkInterpolationArgs(input, runtimeData, RESPONSE_VARS);
 
         var matcher = tools.getGroupingPatternForVariable(RESPONSE_JSON_SHORTHAND).matcher(input);

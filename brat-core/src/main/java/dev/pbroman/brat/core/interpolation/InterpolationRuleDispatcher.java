@@ -6,7 +6,6 @@ import java.util.List;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.exception.ValidationException;
 
 public class InterpolationRuleDispatcher implements Interpolation {
 
@@ -17,7 +16,7 @@ public class InterpolationRuleDispatcher implements Interpolation {
     }
 
     @Override
-    public String interpolate(String input, RuntimeData runtimeData) throws ValidationException {
+    public String interpolate(String input, RuntimeData runtimeData) {
         for (var rule : rules) {
             input = rule.interpolate(input, runtimeData);
         }

@@ -5,8 +5,9 @@ import static java.util.Objects.requireNonNull;
 
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
+
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
-import dev.pbroman.brat.core.exception.ValidationException;
 import dev.pbroman.brat.core.tools.InterpolationTools;
 
 public abstract class AbstractInterpolationRule implements InterpolationRule {
@@ -21,8 +22,10 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
         this.tools = tools;
     }
 
-    protected String simpleInterpolation(String input, Map<String, ?> values) throws ValidationException {
-        requireNonNull(input, "The interpolation input must not be null");
+    protected String simpleInterpolation(String input, Map<String, ?> values) {
+        if (StringUtils.isBlank(input)) {
+            return input;
+        }
         var matcher = tools.getGroupingPatternForVariable(interpolationKey).matcher(input);
         if (values == null || !matcher.find()) {
             return input;
@@ -34,11 +37,7 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
         return values.get(placeholder).toString();
     }
 
-    /**
-     * 
-     * Override this for logging or exceptions if a map doesn't contain the placeholder to replace.
-     */
-    protected String onMissingReplacement(String placeholder, String input) throws ValidationException {
+    protected String onMissingReplacement(String placeholder, String input) {
         return input;
     }
 

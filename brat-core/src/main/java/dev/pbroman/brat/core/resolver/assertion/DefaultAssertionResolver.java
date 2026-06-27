@@ -11,7 +11,7 @@ import dev.pbroman.brat.core.data.ChainedAssertion;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.exception.ValidationException;
+import dev.pbroman.brat.core.exception.BratException;
 
 public class DefaultAssertionResolver implements AssertionResolver {
 
@@ -26,25 +26,21 @@ public class DefaultAssertionResolver implements AssertionResolver {
     @Override
     public List<AssertionResult> resolve(Assertion assertion, RuntimeData runtimeData) {
         var assertionResults = new ArrayList<AssertionResult>();
-        resolve(assertion, assertionResults, assertion.getMessage());
+        resolve(assertion, assertionResults, assertion.getMessage(), runtimeData);
 
         for (ChainedAssertion chained : assertion.getChain()) {
             var condition = new Condition(chained.getFunc(), assertion.getA(), chained.getB());
             var message = chained.getMessage() != null ? chained.getMessage() : assertion.getMessage();
-            try {
-                condition.interpolate(interpolation, runtimeData);
-                resolve(condition, assertionResults, message);
-            } catch (ValidationException e) {
-                addValidationFailAssertionResult(condition, assertionResults, message, e);
-            }
+            resolve(condition, assertionResults, message, runtimeData);
         }
         return assertionResults;
     }
 
-    protected void resolve(Condition condition, List<AssertionResult> assertionResults, String message) {
+    protected void resolve(Condition condition, List<AssertionResult> assertionResults, String message, RuntimeData runtimeData) {
         try {
-            assertionResults.add(new AssertionResult(condition, message, conditionResolver.resolve(condition)));
-        } catch (ValidationException e) {
+            var interpolatedCondition = condition.interpolated(interpolation, runtimeData);
+            assertionResults.add(new AssertionResult(interpolatedCondition, message, conditionResolver.resolve(interpolatedCondition)));
+        } catch (BratException e) {
             addValidationFailAssertionResult(condition, assertionResults, message, e);
         }
     }

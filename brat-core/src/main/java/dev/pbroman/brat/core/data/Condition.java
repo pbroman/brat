@@ -2,7 +2,6 @@ package dev.pbroman.brat.core.data;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.exception.ValidationException;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -13,36 +12,44 @@ import lombok.Setter;
 @Setter
 public class Condition extends ConfigData {
 
-    private final String func;
+    private String func;
     private Object a;
     private Object b;
-    private Object originalA;
-    private Object originalB;
+    private final Condition nonInterpolated;
 
-    public Condition(String func, Object a, Object b) {
+    public Condition(String func, Object a, Object b, Condition nonInterpolated) {
         this.func = func;
         this.a = a;
         this.b = b;
+        this.nonInterpolated = nonInterpolated;
+    }
+
+    public Condition(String func, Object a, Object b) {
+        this(func, a, b, null);
     }
 
     public Condition(String func, Object a) {
-        this(func, a, null);
+        this(func, a, null, null);
     }
 
     @Override
-    public void interpolate(Interpolation interpolation, RuntimeData runtimeData) throws ValidationException {
-        originalA = a;
-        originalB = b;
-        a = interpolation.interpolate(String.valueOf(a), runtimeData);
-        b = interpolation.interpolate(String.valueOf(b), runtimeData);
+    public Condition interpolated(Interpolation interpolation, RuntimeData runtimeData) {
+        if (nonInterpolated != null) {
+            throw new IllegalStateException(String.format("This Condition (%s) is already an interpolated copy", this));
+        }
+        return new Condition(func,
+                interpolation.interpolate(String.valueOf(a), runtimeData),
+                interpolation.interpolate(String.valueOf(b), runtimeData),
+                this);
     }
+
 
     public String toString() {
         return String.format("%s %s%s %s%s",
                 a,
-                originalA == null || String.valueOf(a).equals(String.valueOf(originalA)) ? "" : String.format("(original: %s) ", originalA),
+                getNonInterpolatedStringForMessage(nonInterpolated == null ? null : nonInterpolated.getA(), a),
                 func,
                 b == null ? "" : b,
-                b == null || originalB == null || String.valueOf(b).equals(String.valueOf(originalB)) ? "" : String.format(" (original: %s)", originalB));
+                getNonInterpolatedStringForMessage(nonInterpolated == null ? null : nonInterpolated.getB(), b));
     }
 }

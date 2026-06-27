@@ -1,4 +1,4 @@
-package dev.pbroman.brat.core.api;
+package dev.pbroman.brat.core.api.handler;
 
 import java.util.List;
 

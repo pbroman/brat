@@ -7,10 +7,8 @@ import java.util.List;
 import org.apache.logging.log4j.util.Strings;
 
 import dev.pbroman.brat.core.data.Condition;
-import dev.pbroman.brat.core.data.result.ValidationType;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.exception.ValidationException;
-import io.micrometer.common.util.StringUtils;
+import dev.pbroman.brat.core.exception.BratException;
 
 public class CheckUtils {
 
@@ -20,9 +18,6 @@ public class CheckUtils {
 
     public static void checkInterpolationArgs(String input, RuntimeData data, String ... dataKeys) {
         var messages = new ArrayList<String>();
-        if (StringUtils.isBlank(input)) {
-            messages.add(" The interpolation input is blank");
-        }
         if (data == null) {
             messages.add(" The runtime data for the interpolation is null");
         } else {
@@ -41,14 +36,9 @@ public class CheckUtils {
         }
     }
 
-    public static void checkCondition(Condition condition) throws ValidationException {
+    public static void checkCondition(Condition condition) {
         if (condition == null) {
-            throw new ValidationException("The condition may not be null", ValidationType.FAIL);
-        }
-        if (condition.getFunc() == null) {
-            var message = "A condition function may not be null. If you want the func null in the yaml config, " +
-                    "you must put it in quotes: 'null' or \"null\", or use isNull";
-            throw new ValidationException(message, ValidationType.FAIL);
+            throw new BratException("The condition may not be null");
         }
     }
 }
