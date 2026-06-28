@@ -5,6 +5,8 @@ import static org.apache.commons.lang3.BooleanUtils.FALSE;
 import static org.apache.commons.lang3.BooleanUtils.TRUE;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.BiPredicate;
 
 public class BooleanConditionResolverRule extends AbstractConditionResolverRule {
 
@@ -18,9 +20,9 @@ public class BooleanConditionResolverRule extends AbstractConditionResolverRule 
     }
 
     @Override
-    protected void initFunctionMap() {
-        functionMap.put(TRUE, (a, b) -> parse(a));
-        functionMap.put(FALSE, (a, b) -> !parse(a));
+    protected void initPredicateMap(Map<String, BiPredicate<Object, Object>> predicateMap) {
+        predicateMap.put(TRUE, (a, b) -> parse(a));
+        predicateMap.put(FALSE, (a, b) -> !parse(a));
     }
 
     @Override

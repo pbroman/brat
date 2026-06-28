@@ -1,5 +1,8 @@
 package dev.pbroman.brat.core.resolver.condition.rules;
 
+import java.util.Map;
+import java.util.function.BiPredicate;
+
 import static dev.pbroman.brat.core.util.Constants.EQUAL_TO;
 import static dev.pbroman.brat.core.util.Constants.GREATER_THAN;
 import static dev.pbroman.brat.core.util.Constants.GREATER_THAN_OR_EQUAL;
@@ -19,12 +22,12 @@ public class NumberConditionResolverRule extends AbstractConditionResolverRule {
     }
 
     @Override
-    protected void initFunctionMap() {
-        functionMap.put(EQUAL_TO, (a, b) -> parse(a).equals(parse(b)));
-        functionMap.put(GREATER_THAN, (a, b) -> parse(a).compareTo(parse(b)) > 0);
-        functionMap.put(LESS_THAN, (a, b) -> parse(a).compareTo(parse(b)) < 0);
-        functionMap.put(GREATER_THAN_OR_EQUAL, (a, b) -> parse(a).compareTo(parse(b)) >= 0);
-        functionMap.put(LESS_THAN_OR_EQUAL, (a, b) -> parse(a).compareTo(parse(b)) <= 0);
+    protected void initPredicateMap(Map<String, BiPredicate<Object, Object>> predicateMap) {
+        predicateMap.put(EQUAL_TO, (a, b) -> parse(a).equals(parse(b)));
+        predicateMap.put(GREATER_THAN, (a, b) -> parse(a).compareTo(parse(b)) > 0);
+        predicateMap.put(LESS_THAN, (a, b) -> parse(a).compareTo(parse(b)) < 0);
+        predicateMap.put(GREATER_THAN_OR_EQUAL, (a, b) -> parse(a).compareTo(parse(b)) >= 0);
+        predicateMap.put(LESS_THAN_OR_EQUAL, (a, b) -> parse(a).compareTo(parse(b)) <= 0);
     }
 
     private Double parse(Object value) {

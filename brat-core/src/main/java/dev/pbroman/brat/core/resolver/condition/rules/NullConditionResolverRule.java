@@ -8,6 +8,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.data.Condition;
+import org.apache.commons.lang3.Strings;
 
 public class NullConditionResolverRule implements ConditionResolverRule {
 
@@ -31,7 +32,7 @@ public class NullConditionResolverRule implements ConditionResolverRule {
     public Boolean resolve(Condition condition) {
         if (condition.getA() == null) {
             return NULL.equals(condition.getFunc())
-                    || StringUtils.equalsIgnoreCase(IS_PREFIX + NULL, condition.getFunc());
+                    || Strings.CI.startsWith(IS_PREFIX + NULL, condition.getFunc());
         }
         return null;
     }

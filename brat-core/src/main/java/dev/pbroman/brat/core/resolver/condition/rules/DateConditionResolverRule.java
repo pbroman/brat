@@ -11,6 +11,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.List;
+import java.util.Map;
+import java.util.function.BiPredicate;
 
 public class DateConditionResolverRule extends AbstractConditionResolverRule {
 
@@ -29,12 +31,12 @@ public class DateConditionResolverRule extends AbstractConditionResolverRule {
     }
 
     @Override
-    protected void initFunctionMap() {
-        functionMap.put(BEFORE, (a, b) -> parse(a).isBefore(parse(b)));
-        functionMap.put(AFTER, (a, b) -> parse(a).isAfter(parse(b)));
-        functionMap.put(EQUAL, (a, b) -> parse(a).isEqual(parse(b)));
-        functionMap.put(PAST, (a, b) -> parse(a).isBefore(LocalDate.now()));
-        functionMap.put(FUTURE, (a, b) -> parse(a).isAfter(LocalDate.now()));
+    protected void initPredicateMap(Map<String, BiPredicate<Object, Object>> predicateMap) {
+        predicateMap.put(BEFORE, (a, b) -> parse(a).isBefore(parse(b)));
+        predicateMap.put(AFTER, (a, b) -> parse(a).isAfter(parse(b)));
+        predicateMap.put(EQUAL, (a, b) -> parse(a).isEqual(parse(b)));
+        predicateMap.put(PAST, (a, b) -> parse(a).isBefore(LocalDate.now()));
+        predicateMap.put(FUTURE, (a, b) -> parse(a).isAfter(LocalDate.now()));
     }
 
     @Override

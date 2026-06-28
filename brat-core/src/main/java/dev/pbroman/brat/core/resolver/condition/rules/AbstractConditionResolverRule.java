@@ -7,39 +7,40 @@ import static dev.pbroman.brat.core.util.Constants.NEGATION_PATTERN;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 
 import org.apache.commons.lang3.StringUtils;
 
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.exception.BratException;
+import org.apache.commons.lang3.Strings;
 
+/**
+ * Abstract implementation of the {@link ConditionResolverRule} providing basic functionality.
+ */
 public abstract class AbstractConditionResolverRule implements ConditionResolverRule {
 
-    protected Map<String, BiFunction<Object, Object, Boolean>> functionMap;
-
-    protected boolean negate = false;
-
-    protected String function;
+    private final Map<String, BiPredicate<Object, Object>> predicateMap;
 
     /**
      * Constructor initializing the function map.
      */
     protected AbstractConditionResolverRule() {
-        functionMap = new HashMap<>();
-        initFunctionMap();
-        extendFunctionMap();
+        var map = new HashMap<String, BiPredicate<Object, Object>>();
+        initPredicateMap(map);
+        this.predicateMap = Map.copyOf(map);
     }
 
     @Override
     public Boolean resolve(Condition condition) {
         checkCondition(condition);
-        prepare(condition);
-        if (functionMap.containsKey(function)) {
-            nullCheckB(condition);
+        var prepared = prepare(condition.getFunc());
+        if (predicateMap.containsKey(prepared.function())) {
+            nullCheckB(condition, prepared.function());
             try {
-                return negate != functionMap.get(function).apply(condition.getA(), condition.getB());
+                return prepared.negate() != predicateMap.get(prepared.function())
+                        .test(condition.getA(), condition.getB());
             } catch (RuntimeException re) {
                 throw new BratException(String.format("Unable to resolve condition %s", condition), re);
             }
@@ -50,13 +51,7 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
     /**
      * Implement this to initialize the function map.
      */
-    protected abstract void initFunctionMap();
-
-    /**
-     * Override this method to extend the function map.
-     */
-    protected void extendFunctionMap() {
-    }
+    protected abstract void initPredicateMap(Map<String, BiPredicate<Object, Object>> predicateMap);
 
     /**
      * Override this to return a list of functions that do not require the b argument.
@@ -66,21 +61,25 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
         return List.of();
     }
 
-    protected void prepare(Condition condition) {
-        function = condition.getFunc().toLowerCase().trim();
-        var matches = NEGATION_PATTERN.matcher(function);
+    private PreparedFunction prepare(String func) {
+        var f = func.toLowerCase().trim();
+        var matches = NEGATION_PATTERN.matcher(f);
+        boolean negate = false;
         if (matches.find()) {
-            function = matches.group(2);
+            f = matches.group(2);
             negate = true;
         }
-        if (StringUtils.startsWithIgnoreCase(function, IS_PREFIX)) {
-            function = StringUtils.substring(function, IS_PREFIX.length());
+        if (Strings.CI.startsWith(f, IS_PREFIX)) {
+            f = StringUtils.substring(f, IS_PREFIX.length());
         }
+        return new PreparedFunction(f, negate);
     }
 
-    protected void nullCheckB(Condition condition) {
+    private void nullCheckB(Condition condition, String function) {
         if (condition.getB() == null && !ignoreBNullCheck().contains(function)) {
             throw new BratException(String.format("b may not be null for %s function '%s'", category(), function));
         }
     }
+
+    record PreparedFunction(String function, boolean negate) {}
 }
