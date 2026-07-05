@@ -41,15 +41,9 @@ public class DefaultAssertionResolver implements AssertionResolver {
             var interpolatedCondition = condition.interpolated(interpolation, runtimeData);
             assertionResults.add(new AssertionResult(interpolatedCondition, message, conditionResolver.resolve(interpolatedCondition)));
         } catch (BratException e) {
-            addValidationFailAssertionResult(condition, assertionResults, message, e);
+            var failMessage = String.format("Error interpolating assertion: %s, message: %s", message, e.getMessage());
+            assertionResults.add(new AssertionResult(condition, failMessage, false));
         }
     }
 
-    private void addValidationFailAssertionResult(Condition condition,
-                                    List<AssertionResult> assertionResults,
-                                    String message,
-                                    Exception e) {
-        var validationMessage = String.format("Validation failed for assertion: %s, message: %s", message, e.getMessage());
-        assertionResults.add(new AssertionResult(condition, validationMessage, false));
-    }
 }

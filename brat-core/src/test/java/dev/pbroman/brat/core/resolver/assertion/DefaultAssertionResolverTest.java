@@ -77,7 +77,7 @@ class DefaultAssertionResolverTest {
 
         // then
         assertThat(result).hasSize(2)
-                .allMatch(assertionResult -> assertionResult.message().startsWith("Validation failed"));
+                .allMatch(assertionResult -> assertionResult.message().startsWith("Error interpolating"));
     }
 
     @Test

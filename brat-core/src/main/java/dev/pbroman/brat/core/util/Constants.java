@@ -13,15 +13,11 @@ public class Constants {
         // utility class
     }
 
-    public static final String PROTOCOL_LOGGER = "simple-api-tester-protocol";
-    public static final String VALIDATION_LOGGER = "simple-api-tester-validation";
-
     public static final String CONSTANTS = "constants";
     public static final String HEADERS = "headers";
     public static final String ENV = "env";
     public static final String VARS = "vars";
     public static final String MISC = "misc";
-    public static final String VALIDATIONS = "validations";
     public static final String REQUEST_RESULTS = "requestResults";
     public static final String RESPONSE = "response";
     public static final String RESPONSE_VARS = "responseVars";
