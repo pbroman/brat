@@ -4,11 +4,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.apache.logging.log4j.util.Strings;
 
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
+import org.apache.commons.lang3.StringUtils;
 
 public class CheckUtils {
 
@@ -32,7 +32,7 @@ public class CheckUtils {
 
     private static void checkMessages(List<String> messages) {
         if (!messages.isEmpty()) {
-            throw new IllegalArgumentException(Strings.join(messages, ','));
+            throw new IllegalArgumentException(StringUtils.join(messages, ','));
         }
     }
 

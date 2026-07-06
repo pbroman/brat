@@ -1,12 +1,11 @@
 package dev.pbroman.brat.core.api.handler;
 
-import org.springframework.http.ResponseEntity;
+import dev.pbroman.brat.core.data.HttpRequestDefinition;
+import dev.pbroman.brat.core.data.result.HttpResponse;
 
-import dev.pbroman.brat.core.data.RequestDefinition;
-
-public interface HttpRequestHandler extends RequestHandler {
+public interface HttpRequestHandler extends RequestHandler<HttpRequestDefinition> {
 
     @Override
-    ResponseEntity<String> performRequest(RequestDefinition requestDefinition);
+    HttpResponse performRequest(HttpRequestDefinition requestDefinition);
 
 }

@@ -1,9 +1,9 @@
 package dev.pbroman.brat.core.api.handler;
 
-import dev.pbroman.brat.core.data.RequestDefinition;
+import dev.pbroman.brat.core.api.RequestDefinition;
 
-public interface RequestHandler {
+public interface RequestHandler<T extends RequestDefinition> {
 
-    Object performRequest(RequestDefinition requestDefinition);
+    Object performRequest(T requestDefinition);
 
 }

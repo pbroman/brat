@@ -1,23 +1,23 @@
 package dev.pbroman.brat.core.data;
 
-import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
-import static dev.pbroman.brat.core.util.Constants.FILE_BODY;
-import static dev.pbroman.brat.core.util.Constants.RAW_BODY;
-
-import java.util.Map;
-
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-
+import dev.pbroman.brat.core.api.RequestDefinition;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.util.ResourceReader;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.Map;
+
+import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
+import static dev.pbroman.brat.core.util.Constants.FILE_BODY;
+import static dev.pbroman.brat.core.util.Constants.RAW_BODY;
+import static org.apache.hc.core5.http.ContentType.APPLICATION_FORM_URLENCODED;
+import static org.apache.hc.core5.http.HttpHeaders.CONTENT_TYPE;
+
 @Getter
 @Setter
-public class RequestDefinition extends ConfigData {
+public class HttpRequestDefinition extends ConfigData implements RequestDefinition {
 
     private String url;
     private String method;
@@ -25,15 +25,15 @@ public class RequestDefinition extends ConfigData {
     private Map<String, String> body;
     private Map<String, String> headers;
     private Auth auth;
-    private final RequestDefinition nonInterpolated;
+    private final HttpRequestDefinition nonInterpolated;
 
-    public RequestDefinition(String url,
-                             String method,
-                             String timeout,
-                             Map<String, String> body,
-                             Map<String, String> headers,
-                             Auth auth,
-                             RequestDefinition nonInterpolated) {
+    public HttpRequestDefinition(String url,
+                                 String method,
+                                 String timeout,
+                                 Map<String, String> body,
+                                 Map<String, String> headers,
+                                 Auth auth,
+                                 HttpRequestDefinition nonInterpolated) {
         this.url = url;
         this.method = method;
         this.timeout = timeout;
@@ -44,7 +44,7 @@ public class RequestDefinition extends ConfigData {
         prepare();
     }
 
-    public RequestDefinition(String url, String method, String timeout, Map<String, String> body, Map<String, String> headers, Auth auth) {
+    public HttpRequestDefinition(String url, String method, String timeout, Map<String, String> body, Map<String, String> headers, Auth auth) {
         this(url, method, timeout, body, headers, auth, null);
     }
 
@@ -59,7 +59,7 @@ public class RequestDefinition extends ConfigData {
                 var bodyFromFile = ResourceReader.readFileToString(body.get(FILE_BODY));
                 body.put(BODY_STRING, bodyFromFile);
             }
-            if ( headers.get(HttpHeaders.CONTENT_TYPE).startsWith(MediaType.APPLICATION_FORM_URLENCODED_VALUE)) {
+            if ( headers.get(CONTENT_TYPE).startsWith(APPLICATION_FORM_URLENCODED.getMimeType())) {
                 if (!body.isEmpty() && body.get(BODY_STRING) == null) {
                     body.put(BODY_STRING, body.entrySet().stream()
                             .map(e -> e.getKey() + "=" + e.getValue())
@@ -71,11 +71,11 @@ public class RequestDefinition extends ConfigData {
     }
 
     @Override
-    public RequestDefinition interpolated(Interpolation interpolation, RuntimeData runtimeData) {
+    public HttpRequestDefinition interpolated(Interpolation interpolation, RuntimeData runtimeData) {
         if (nonInterpolated != null) {
             throw new IllegalStateException(String.format("This RequestDefinition (%s) is already an interpolated copy", this));
         }
-        return new RequestDefinition(
+        return new HttpRequestDefinition(
                 interpolation.interpolate(url, runtimeData),
                 interpolation.interpolate(method, runtimeData),
                 interpolation.interpolate(timeout, runtimeData),

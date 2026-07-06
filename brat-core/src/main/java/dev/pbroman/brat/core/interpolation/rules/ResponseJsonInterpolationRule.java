@@ -14,7 +14,7 @@ import java.util.function.Function;
 import com.jayway.jsonpath.JsonPath;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.tools.InterpolationTools;
-import io.micrometer.common.util.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j

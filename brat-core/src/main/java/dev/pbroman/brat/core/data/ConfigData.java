@@ -10,8 +10,6 @@ public abstract class ConfigData {
 
     /**
      * Gets an interpolated version of this object.
-     * <p>
-     * The interpolated version should contain the original.
      *
      * @param interpolation - the interpolation implementation
      * @param runtimeData - the runtime data
