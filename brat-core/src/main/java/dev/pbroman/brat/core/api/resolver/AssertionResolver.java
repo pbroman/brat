@@ -6,6 +6,9 @@ import dev.pbroman.brat.core.data.Assertion;
 import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 
+/**
+ * Interface for assertion resolvers.
+ */
 public interface AssertionResolver {
 
     /**

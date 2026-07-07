@@ -10,6 +10,12 @@ import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.exception.BratException;
 
+/**
+ * Dispatcher of {@link ConditionResolverRule condition resolver rules}.
+ * <p>
+ * The dispatcher receives a list of {@link ConditionResolverRule condition resolver rules}, sorts them according to
+ * priority and returns the result of the first matching resolver. If none is found, a {@link BratException} is thrown.
+ */
 public class ConditionResolverRuleDispatcher implements ConditionResolver {
 
     protected final List<ConditionResolverRule> resolvers;

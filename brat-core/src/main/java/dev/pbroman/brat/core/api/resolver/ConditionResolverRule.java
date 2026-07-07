@@ -1,5 +1,8 @@
 package dev.pbroman.brat.core.api.resolver;
 
+/**
+ * Interface for condition resolver rules, extending the {@link ConditionResolver} interface.
+ */
 public interface ConditionResolverRule extends ConditionResolver {
 
     /**

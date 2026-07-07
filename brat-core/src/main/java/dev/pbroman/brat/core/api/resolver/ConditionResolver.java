@@ -2,6 +2,9 @@ package dev.pbroman.brat.core.api.resolver;
 
 import dev.pbroman.brat.core.data.Condition;
 
+/**
+ * Main interface for all condition resolvers.
+ */
 public interface ConditionResolver {
 
     /**

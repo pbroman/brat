@@ -1,8 +1,12 @@
 package dev.pbroman.brat.core.resolver.condition.rules;
 
+import static dev.pbroman.brat.core.util.Constants.EQUAL;
 import static dev.pbroman.brat.core.util.Constants.PAST;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,6 +54,32 @@ class DateConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
 
         // then
         assertThatThrownBy(() -> resolver.resolve(condition))
+                .isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void customDateTimeFormatterIsHonored() {
+        // given
+        var customFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.ENGLISH);
+        var resolverWithCustomFormatter = new DateConditionResolverRule(customFormatter);
+        var condition = new Condition(EQUAL, "Dec 21, 2002", "Dec 21, 2002");
+
+        // when
+        var result = resolverWithCustomFormatter.resolve(condition);
+
+        // then
+        assertThat(result).isTrue();
+    }
+
+    @Test
+    void customDateTimeFormatterRejectsDefaultPatterns() {
+        // given
+        var customFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.ENGLISH);
+        var resolverWithCustomFormatter = new DateConditionResolverRule(customFormatter);
+        var condition = new Condition(PAST, "2002-12-21", null);
+
+        // then
+        assertThatThrownBy(() -> resolverWithCustomFormatter.resolve(condition))
                 .isInstanceOf(BratException.class);
     }
 

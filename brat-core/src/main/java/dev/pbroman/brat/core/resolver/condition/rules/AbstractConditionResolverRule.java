@@ -1,20 +1,18 @@
 package dev.pbroman.brat.core.resolver.condition.rules;
 
-import static dev.pbroman.brat.core.util.CheckUtils.checkCondition;
-import static dev.pbroman.brat.core.util.Constants.IS_PREFIX;
-import static dev.pbroman.brat.core.util.Constants.NEGATION_PATTERN;
+import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
+import dev.pbroman.brat.core.data.Condition;
+import dev.pbroman.brat.core.exception.BratException;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiPredicate;
 
-import org.apache.commons.lang3.StringUtils;
-
-import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
-import dev.pbroman.brat.core.data.Condition;
-import dev.pbroman.brat.core.exception.BratException;
-import org.apache.commons.lang3.Strings;
+import static dev.pbroman.brat.core.util.CheckUtils.checkCondition;
+import static dev.pbroman.brat.core.util.Constants.IS_PREFIX;
+import static dev.pbroman.brat.core.util.Constants.NEGATION_PATTERN;
 
 /**
  * Abstract implementation of the {@link ConditionResolverRule} providing basic functionality.
@@ -24,12 +22,10 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
     private final Map<String, BiPredicate<Object, Object>> predicateMap;
 
     /**
-     * Constructor initializing the function map.
+     * Constructor receiving a predicate map from extending classes.
      */
-    protected AbstractConditionResolverRule() {
-        var map = new HashMap<String, BiPredicate<Object, Object>>();
-        initPredicateMap(map);
-        this.predicateMap = Map.copyOf(map);
+    protected AbstractConditionResolverRule(Map<String, BiPredicate<Object, Object>> predicates) {
+        this.predicateMap = Map.copyOf(predicates);
     }
 
     @Override
@@ -47,11 +43,6 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
         }
         return null;
     }
-
-    /**
-     * Implement this to initialize the function map.
-     */
-    protected abstract void initPredicateMap(Map<String, BiPredicate<Object, Object>> predicateMap);
 
     /**
      * Override this to return a list of functions that do not require the b argument.

@@ -1,17 +1,32 @@
 package dev.pbroman.brat.core.resolver.condition.rules;
 
-import static dev.pbroman.brat.core.util.Constants.BOOLEAN_CONDITION;
-import static org.apache.commons.lang3.BooleanUtils.FALSE;
-import static org.apache.commons.lang3.BooleanUtils.TRUE;
-
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiPredicate;
 
-public class BooleanConditionResolverRule extends AbstractConditionResolverRule {
+import static dev.pbroman.brat.core.util.Constants.BOOLEAN_CONDITION;
+import static org.apache.commons.lang3.BooleanUtils.FALSE;
+import static org.apache.commons.lang3.BooleanUtils.TRUE;
+
+/**
+ * Core resolver for boolean conditions.
+ */
+public final class BooleanConditionResolverRule extends AbstractConditionResolverRule {
 
     public BooleanConditionResolverRule() {
-        super();
+        super(predicates());
+    }
+
+    private static Map<String, BiPredicate<Object, Object>> predicates() {
+        var predicates = new HashMap<String, BiPredicate<Object, Object>>();
+        predicates.put(TRUE, (a, b) -> parse(a));
+        predicates.put(FALSE, (a, b) -> !parse(a));
+        return predicates;
+    }
+
+    private static Boolean parse(Object value) {
+        return Boolean.valueOf(String.valueOf(value));
     }
 
     @Override
@@ -20,18 +35,8 @@ public class BooleanConditionResolverRule extends AbstractConditionResolverRule 
     }
 
     @Override
-    protected void initPredicateMap(Map<String, BiPredicate<Object, Object>> predicateMap) {
-        predicateMap.put(TRUE, (a, b) -> parse(a));
-        predicateMap.put(FALSE, (a, b) -> !parse(a));
-    }
-
-    @Override
     protected List<String> ignoreBNullCheck() {
         return List.of(TRUE, FALSE);
-    }
-
-    private Boolean parse(Object value) {
-        return Boolean.valueOf(String.valueOf(value));
     }
 
 }
