@@ -6,6 +6,9 @@ import java.util.Map;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 
+/**
+ * Base class for BRAT's interpolatable, YAML-authored domain objects.
+ */
 public abstract class ConfigData {
 
     /**
