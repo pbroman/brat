@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+        "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+        "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<!--
+    brat-core checkstyle ruleset. Written for IntelliJ's CheckStyle-IDEA plugin (point it at
+    this file, no Maven checkstyle-plugin binding assumed).
+
+    Scope: this ruleset is brat-core-specific (e.g. the Spring/Jakarta import ban). Future
+    modules needs its own ruleset without that ban, not this one.
+-->
+<module name="Checker">
+    <property name="charset" value="UTF-8"/>
+
+    <!-- Javadoc conventions are about brat-core's production types, not test classes - exempt src/test entirely
+         rather than relying on IDE scope configuration. -->
+    <module name="SuppressionSingleFilter">
+        <property name="checks" value="MissingJavadocType|MissingJavadocMethod|JavadocMethod|SummaryJavadoc"/>
+        <property name="files" value="[\\/]src[\\/]test[\\/]"/>
+    </module>
+
+    <module name="TreeWalker">
+
+        <!-- "Every public or protected type ... gets a Javadoc block" -->
+        <module name="MissingJavadocType">
+            <property name="scope" value="protected"/>
+        </module>
+
+        <!-- "Every method on an api.* interface gets full contract documentation";
+             "@Override implementations are undocumented by default" (Override is exempt by
+             default); "Constructors are undocumented by default when ... self-evident" (the
+             default minLineCount=2 skips trivial one-line bodies - a rough proxy only, expect
+             some over-flagging on longer-but-still-simple constructors). -->
+        <module name="MissingJavadocMethod">
+            <property name="scope" value="protected"/>
+            <property name="allowedAnnotations" value="Override"/>
+        </module>
+
+        <!-- For whatever Javadoc *is* written: every actual parameter gets a matching @param,
+             every non-void return gets @return - "Use @param/@return/@throws tags, not just
+             prose." Unchecked-exception @throws (BratException et al.) isn't verified here -
+             Checkstyle's own @throws validation targets declared/checked exceptions, which
+             this codebase deliberately has none of (single-exception-type convention). -->
+        <module name="JavadocMethod">
+            <property name="accessModifiers" value="public, protected"/>
+            <property name="allowedAnnotations" value="Override"/>
+        </module>
+
+        <!-- "the first sentence states what the type/method is or does" - structural check
+             only (a summary sentence exists and is well-formed), not a semantic one. -->
+        <module name="SummaryJavadoc"/>
+
+        <!-- Tags that exist must have actual descriptions, not "@param interpolation" with
+             nothing after it. -->
+        <module name="NonEmptyAtclauseDescription"/>
+
+        <!-- "brat-core depends on nothing but the JDK and small, framework-neutral libraries
+             ... Spring, Jakarta, or any DI/web framework - not fine" -->
+        <module name="IllegalImport">
+            <property name="illegalPkgs" value="org.springframework, jakarta"/>
+        </module>
+
+        <!-- "String utils: org.apache.commons.lang3 only" -->
+        <module name="IllegalImport">
+            <property name="illegalClasses"
+                      value="io.micrometer.common.util.StringUtils, org.apache.logging.log4j.util.Strings"/>
+        </module>
+
+        <!-- "AssertJ only for assertions - never JUnit Jupiter's Assertions..., never Hamcrest" -->
+        <module name="IllegalImport">
+            <property name="illegalClasses" value="org.junit.jupiter.api.Assertions"/>
+            <property name="illegalPkgs" value="org.hamcrest"/>
+        </module>
+
+    </module>
+</module>
