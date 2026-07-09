@@ -19,7 +19,7 @@ class InterpolationHandlerTest extends AbstractInterpolationTest {
     }
 
     @Test
-    void interpolate_inputWithNoVariables() throws Exception {
+    void interpolate_inputWithNoVariables() {
         // given
         var input = "this is a test";
 
@@ -31,7 +31,7 @@ class InterpolationHandlerTest extends AbstractInterpolationTest {
     }
 
     @Test
-    void interpolate_inputWithOneVariables() throws Exception {
+    void interpolate_inputWithOneVariables() {
         // given
         var input = "this is a ${mock}";
         var expected = "this is a " + mockResult;
@@ -44,7 +44,7 @@ class InterpolationHandlerTest extends AbstractInterpolationTest {
     }
 
     @Test
-    void interpolate_inputWithTwoVariables() throws Exception {
+    void interpolate_inputWithTwoVariables() {
         // given
         var input = "this ${some.var} is a ${mock}";
         var expected = String.format("this %s is a %s", mockResult, mockResult);
@@ -59,7 +59,7 @@ class InterpolationHandlerTest extends AbstractInterpolationTest {
     @Test
     void interpolate_inputWithException() {
         // given
-        when(mockRule.interpolate(Mockito.anyString(), Mockito.any()))
+        when(mockRule.outcome(Mockito.anyString(), Mockito.any()))
                 .thenThrow(new BratException("mock"));
         var input = "this is a ${mock}";
 
@@ -67,6 +67,5 @@ class InterpolationHandlerTest extends AbstractInterpolationTest {
         assertThatThrownBy(() -> underTest.interpolate(input, runtimeData))
                 .isInstanceOf(BratException.class);
     }
-
 
 }

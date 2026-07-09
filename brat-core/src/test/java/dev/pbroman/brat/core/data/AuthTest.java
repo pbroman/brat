@@ -26,10 +26,10 @@ class AuthTest extends AbstractConfigDataTest {
         var interpolated = authBasic.interpolated(interpolation, runtimeData);
 
         // then
-        assertThat(interpolated.getType()).isEqualTo(AUTH_TYPE_BASIC);
+        assertThat(interpolated.getType()).isEqualTo("interpolated");
         assertThat(interpolated.getUsername()).isEqualTo("interpolated");
         assertThat(interpolated.getPassword()).isEqualTo("interpolated");
-        assertThat(interpolated.getNonInterpolated()).isEqualTo(authBasic);
+        assertThat(interpolated.getReportingString()).isNotNull();
     }
 
     @Test
@@ -38,9 +38,9 @@ class AuthTest extends AbstractConfigDataTest {
         var interpolated = authBearer.interpolated(interpolation, runtimeData);
 
         // then
-        assertThat(interpolated.getType()).isEqualTo(AUTH_TYPE_BEARER);
+        assertThat(interpolated.getType()).isEqualTo("interpolated");
         assertThat(interpolated.getToken()).isEqualTo("interpolated");
-        assertThat(interpolated.getNonInterpolated()).isEqualTo(authBearer);
+        assertThat(interpolated.getReportingString()).isNotNull();
     }
 
     @Test
@@ -49,9 +49,9 @@ class AuthTest extends AbstractConfigDataTest {
         var interpolated = authApiKey.interpolated(interpolation, runtimeData);
 
         // then
-        assertThat(interpolated.getType()).isEqualTo(AUTH_TYPE_APIKEY);
+        assertThat(interpolated.getType()).isEqualTo("interpolated");
         assertThat(interpolated.getToken()).isEqualTo("interpolated");
-        assertThat(interpolated.getNonInterpolated()).isEqualTo(authApiKey);
+        assertThat(interpolated.getReportingString()).isNotNull();
     }
 
     @ParameterizedTest

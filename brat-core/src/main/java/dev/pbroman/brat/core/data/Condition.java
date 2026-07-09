@@ -2,6 +2,7 @@ package dev.pbroman.brat.core.data;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -15,41 +16,49 @@ public class Condition extends ConfigData {
     private String func;
     private Object a;
     private Object b;
-    private final Condition nonInterpolated;
+    private String reportingString;
 
-    public Condition(String func, Object a, Object b, Condition nonInterpolated) {
+    public Condition(String func, Object a, Object b, String reportingString) {
         this.func = func;
         this.a = a;
         this.b = b;
-        this.nonInterpolated = nonInterpolated;
+        this.reportingString = reportingString;
     }
 
+    /**
+     * {@code reportingString} defaults to {@code null} (not yet an interpolated copy).
+     *
+     * @param func the function name
+     * @param a the first operand
+     * @param b the second operand
+     */
     public Condition(String func, Object a, Object b) {
         this(func, a, b, null);
     }
 
+    /**
+     * {@code b} and {@code reportingString} default to {@code null} — for unary funcs
+     * (e.g. {@code isNull}) that don't need a second operand.
+     *
+     * @param func the function name
+     * @param a the first operand
+     */
     public Condition(String func, Object a) {
         this(func, a, null, null);
     }
 
     @Override
     public Condition interpolated(Interpolation interpolation, RuntimeData runtimeData) {
-        if (nonInterpolated != null) {
-            throw new IllegalStateException(String.format("This Condition (%s) is already an interpolated copy", this));
+        if (reportingString != null) {
+            throw new BratException(String.format("This Condition (%s) is already an interpolated copy", this));
         }
-        return new Condition(func,
-                interpolation.interpolate(String.valueOf(a), runtimeData),
-                interpolation.interpolate(String.valueOf(b), runtimeData),
-                this);
+        var aOutcome = interpolation.outcome(String.valueOf(a), runtimeData);
+        var bOutcome = interpolation.outcome(String.valueOf(b), runtimeData);
+        var report = String.format("a: %s, b: %s", aOutcome.reportingString(), bOutcome.reportingString());
+        return new Condition(func, aOutcome.value(), bOutcome.value(), report);
     }
 
-
     public String toString() {
-        return String.format("%s %s%s %s%s",
-                a,
-                getNonInterpolatedStringForMessage(nonInterpolated == null ? null : nonInterpolated.getA(), a),
-                func,
-                b == null ? "" : b,
-                getNonInterpolatedStringForMessage(nonInterpolated == null ? null : nonInterpolated.getB(), b));
+        return String.format("%s %s %s", a, func, b == null ? "" : b);
     }
 }

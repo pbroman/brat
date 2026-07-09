@@ -3,25 +3,35 @@ package dev.pbroman.brat.core.interpolation.rules;
 import static dev.pbroman.brat.core.util.Constants.BODY;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_BODY_SHORTHAND;
 
+import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.tools.InterpolationTools;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
-public class ResponseBodyInterpolationRule extends AbstractResponseInterpolationRule {
+/**
+ * An {@link InterpolationRule} for a response body.
+ */
+public final class ResponseBodyInterpolationRule extends AbstractResponseInterpolationRule {
 
+    /**
+     * Constructs an {@link InterpolationRule} for a response body.
+     *
+     * @param tools the {@link InterpolationTools}
+     */
     public ResponseBodyInterpolationRule(InterpolationTools tools) {
         super(RESPONSE_BODY_SHORTHAND, tools);
     }
 
     @Override
-    public String interpolate(String input, RuntimeData runtimeData) {
+    public String resolve(String input, RuntimeData runtimeData) {
         if (isRequirementsNotMet(input, runtimeData)) {
             return input;
         }
-        return runtimeData.getResponseVars().get(BODY) == null
-                ? null
-                : runtimeData.getResponseVars().get(BODY).toString();
+        var body = runtimeData.getResponseVars().get(BODY);
+        if (body == null) {
+            throw new BratException("The response body is not present.");
+        }
+        return body.toString();
     }
 
 }

@@ -9,7 +9,9 @@ import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.BeforeEach;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
+import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 
 abstract class AbstractConfigDataTest {
 
@@ -19,7 +21,8 @@ abstract class AbstractConfigDataTest {
     @BeforeEach
     void setUp() {
         interpolation = mock(Interpolation.class);
-        when(interpolation.interpolate(anyString(), any())).thenReturn("interpolated");
+        when(interpolation.outcome(anyString(), any()))
+                .thenReturn(new InterpolationOutcome("interpolated", "interpolated"));
         runtimeData = mock(RuntimeData.class);
     }
 
@@ -29,7 +32,7 @@ abstract class AbstractConfigDataTest {
 
         // then
         assertThatThrownBy(() -> interpolated.interpolated(interpolation, runtimeData))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(BratException.class);
     }
 
 }

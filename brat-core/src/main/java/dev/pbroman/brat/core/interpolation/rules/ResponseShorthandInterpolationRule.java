@@ -6,17 +6,26 @@ import static dev.pbroman.brat.core.util.Constants.RESPONSE;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_HEADER_SHORTHAND;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_SHORTHAND;
 
+import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.tools.InterpolationTools;
 import org.apache.commons.lang3.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * An {@link InterpolationRule} for shorthand response variables.
+ */
 @Slf4j
-public class ResponseShorthandInterpolationRule extends AbstractInterpolationRule {
+public final class ResponseShorthandInterpolationRule extends AbstractInterpolationRule {
 
     public static final int RESPONSE_SHORTHAND_PRIORITY = 10;
 
+    /**
+     * Constructs an {@link InterpolationRule} translating response variables to shorthand.
+     *
+     * @param tools the {@link InterpolationTools}
+     */
     public ResponseShorthandInterpolationRule(InterpolationTools tools) {
         super(RESPONSE, tools);
     }
@@ -35,7 +44,7 @@ public class ResponseShorthandInterpolationRule extends AbstractInterpolationRul
      * @return a shorthand version of the variable, if present, otherwise the original variable
      */
     @Override
-    public String interpolate(String input, RuntimeData runtimeData) {
+    public String resolve(String input, RuntimeData runtimeData) {
         if (StringUtils.isBlank(input)) {
             return input;
         }

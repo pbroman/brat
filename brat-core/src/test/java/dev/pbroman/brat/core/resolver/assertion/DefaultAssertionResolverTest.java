@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
+import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.resolver.AssertionResolver;
 import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.data.Assertion;
@@ -30,7 +31,7 @@ class DefaultAssertionResolverTest {
     @BeforeEach
     void setUp() {
         // This is just to avoid a NPE
-        when(interpolation.interpolate(any(), any())).thenReturn("something");
+        when(interpolation.outcome(any(), any())).thenReturn(new InterpolationOutcome("something", "something"));
     }
 
     @Test
@@ -70,7 +71,7 @@ class DefaultAssertionResolverTest {
         var chain = List.of(new ChainedAssertion("!equals", "c", "chainedFail"));
         var assertion = new Assertion("equals", "a",  "b", chain, "primaryFail");
         when(conditionResolver.resolve(any())).thenReturn(true);
-        when(interpolation.interpolate(any(), any())).thenThrow(new BratException("interpolation failed"));
+        when(interpolation.outcome(any(), any())).thenThrow(new BratException("interpolation failed"));
 
         // when
         var result = assertionResolver.resolve(assertion, runtimeData);
@@ -86,7 +87,7 @@ class DefaultAssertionResolverTest {
         var chain = List.of(new ChainedAssertion("!equals", "c", "chainedFail"));
         var assertion = new Assertion("equals", "a",  "b", chain, "primaryFail");
         when(conditionResolver.resolve(any())).thenReturn(true);
-        when(interpolation.interpolate(any(), any())).thenReturn("interpolated");
+        when(interpolation.outcome(any(), any())).thenReturn(new InterpolationOutcome("interpolated", "interpolated"));
 
         // when
         var result = assertionResolver.resolve(assertion, runtimeData);

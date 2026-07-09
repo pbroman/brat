@@ -1,13 +1,13 @@
 package dev.pbroman.brat.core.data.result;
 
-import static java.util.Objects.requireNonNull;
-
 import dev.pbroman.brat.core.data.Condition;
+
+import static dev.pbroman.brat.core.util.ExceptionUtil.bratExceptionOnNull;
 
 public record AssertionResult(Condition condition, String message, boolean passed) {
 
     public AssertionResult {
-        requireNonNull(condition, "The condition cannot be null");
+        bratExceptionOnNull(condition, "The condition cannot be null");
     }
 
     @Override

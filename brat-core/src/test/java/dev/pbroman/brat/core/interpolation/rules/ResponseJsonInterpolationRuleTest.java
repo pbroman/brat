@@ -13,7 +13,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import dev.pbroman.brat.core.interpolation.AbstractInterpolationTest;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.tools.InterpolationTools;
 
 public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest {
 
@@ -48,19 +47,18 @@ public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest
                 Arguments.of("${rj.array[0]._length}", "1"),
                 Arguments.of("${rj.object._length}", "0"),
                 Arguments.of("${rj.integer._isInteger}", "true"),
-                Arguments.of("${rj.double._isDouble}", "true"),
-                Arguments.of("${rj.id._isEmpty}", "false")
+                Arguments.of("${rj.double._isDouble}", "true")
         );
     }
 
     @BeforeEach
     void setup() {
-        underTest = new ExtendedResponseJsonInterpolationRule(tools);
+        underTest = new ResponseJsonInterpolationRule(tools);
     }
 
     @ParameterizedTest
     @MethodSource("jsonPaths")
-    void simpleJsonPathsTests(String input, String expected) throws Exception{
+    void simpleJsonPathsTests(String input, String expected) throws Exception {
         // when
         var result = underTest.interpolate(input, runtimeData);
 
@@ -68,14 +66,4 @@ public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest
         assertThat(result).isEqualTo(expected);
     }
 
-    static class ExtendedResponseJsonInterpolationRule extends ResponseJsonInterpolationRule {
-        public ExtendedResponseJsonInterpolationRule(InterpolationTools tools) {
-            super(tools);
-        }
-
-        @Override
-        protected void extendFunctionMap() {
-            functionMap.put("isEmpty", object -> object instanceof String && ((String) object).isEmpty());
-        }
-    }
 }

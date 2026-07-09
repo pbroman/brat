@@ -2,6 +2,7 @@ package dev.pbroman.brat.core.interpolation.rules;
 
 import static dev.pbroman.brat.core.util.Constants.BODY;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Map;
 
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.AbstractInterpolationTest;
 
 class ResponseBodyInterpolationRuleTest extends AbstractInterpolationTest {
@@ -37,15 +39,13 @@ class ResponseBodyInterpolationRuleTest extends AbstractInterpolationTest {
     }
 
     @Test
-    void bodyIsNotPresent_returnsNull() throws Exception {
+    void bodyIsNotPresent_throwsException() throws Exception {
         // given
         runtimeData = new RuntimeData(Map.of(), Map.of(), Map.of(), Map.of());
 
-        // when
-        var result = underTest.interpolate(input, runtimeData);
-
-        //then
-        assertThat(result).isNull();
+        // then
+        assertThatThrownBy(() -> underTest.interpolate(input, runtimeData))
+                .isInstanceOf(BratException.class);
     }
 
 }

@@ -12,7 +12,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
+import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.properties.InterpolationProperties;
 import dev.pbroman.brat.core.tools.InterpolationTools;
 
@@ -34,8 +36,10 @@ public abstract class AbstractInterpolationTest {
 
     @BeforeEach
     void basicSetUp() {
-        when(mockRule.interpolate(Mockito.anyString(), Mockito.any())).thenReturn(mockResult);
-        when(mockRule.interpolate(eq(nonMatchingPattern), Mockito.any())).thenReturn(nonMatchingPattern);
+        when(mockRule.outcome(Mockito.anyString(), Mockito.any()))
+                .thenReturn(new InterpolationOutcome(mockResult, mockResult));
+        when(mockRule.outcome(eq(nonMatchingPattern), Mockito.any()))
+                .thenReturn(new InterpolationOutcome(nonMatchingPattern, nonMatchingPattern));
         runtimeData = setUpRuntimeData();
     }
 
@@ -44,12 +48,10 @@ public abstract class AbstractInterpolationTest {
     }
 
     @Test
-    void inputNull_returnsNull() {
-        // when
-        var result = underTest.interpolate(null, runtimeData);
-
+    void inputNull_throwsException() {
         // then
-        assertThat(result).isNull();
+        assertThatThrownBy(() -> underTest.interpolate(null, runtimeData))
+                .isInstanceOf(BratException.class);
     }
 
     @Test

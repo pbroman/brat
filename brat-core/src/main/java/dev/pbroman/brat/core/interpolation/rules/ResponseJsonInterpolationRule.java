@@ -12,16 +12,24 @@ import java.util.Map;
 import java.util.function.Function;
 
 import com.jayway.jsonpath.JsonPath;
+import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.tools.InterpolationTools;
 import org.apache.commons.lang3.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
-public class ResponseJsonInterpolationRule extends AbstractInterpolationRule {
+/**
+ * An {@link InterpolationRule} for response json.
+ */
+public final class ResponseJsonInterpolationRule extends AbstractInterpolationRule {
 
     protected Map<String, Function<Object, Object>> functionMap;
 
+    /**
+     * Constructs an {@link InterpolationRule} for response json.
+     *
+     * @param tools the {@link InterpolationTools}
+     */
     public ResponseJsonInterpolationRule(InterpolationTools tools) {
         super(RESPONSE_JSON_SHORTHAND, tools);
         this.initFunctionMap();
@@ -43,14 +51,10 @@ public class ResponseJsonInterpolationRule extends AbstractInterpolationRule {
             case Double ignored -> throw new IllegalArgumentException("Cannot get length of a double value");
             case null, default -> throw new IllegalArgumentException("Cannot get length of an unknown object");
         });
-        extendFunctionMap();
-    }
-
-    protected void extendFunctionMap() {
     }
 
     @Override
-    public String interpolate(String input, RuntimeData runtimeData) {
+    public String resolve(String input, RuntimeData runtimeData) {
         if (StringUtils.isBlank(input)) {
             return input;
         }

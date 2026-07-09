@@ -19,9 +19,7 @@ class ConditionTest extends AbstractConfigDataTest {
         assertThat(interpolated.getFunc()).isEqualTo("func");
         assertThat(interpolated.getA()).isEqualTo("interpolated");
         assertThat(interpolated.getB()).isEqualTo("interpolated");
-        assertThat(interpolated.getNonInterpolated()).isEqualTo(validCondition);
-        assertThat(interpolated.getNonInterpolated().getA()).isEqualTo("a");
-        assertThat(interpolated.getNonInterpolated().getB()).isEqualTo("b");
+        assertThat(interpolated.getReportingString()).isNotNull();
     }
 
     @Test
