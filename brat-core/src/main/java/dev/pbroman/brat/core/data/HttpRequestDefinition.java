@@ -1,14 +1,11 @@
 package dev.pbroman.brat.core.data;
 
 import dev.pbroman.brat.core.api.RequestDefinition;
-import dev.pbroman.brat.core.api.interpolation.Interpolation;
-import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.util.ResourceReader;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
@@ -30,7 +27,6 @@ public class HttpRequestDefinition extends ConfigData implements RequestDefiniti
     private Map<String, String> body;
     private Map<String, String> headers;
     private Auth auth;
-    private String reportingString;
 
     public HttpRequestDefinition(String url,
                                  String method,
@@ -38,19 +34,19 @@ public class HttpRequestDefinition extends ConfigData implements RequestDefiniti
                                  Map<String, String> body,
                                  Map<String, String> headers,
                                  Auth auth,
-                                 String reportingString) {
+                                 Map<String, InterpolationOutcome> outcomes) {
+        super(outcomes);
         this.url = url;
         this.method = method;
         this.timeout = timeout;
         this.body = body;
         this.headers = headers;
         this.auth = auth;
-        this.reportingString = reportingString;
         prepare();
     }
 
     /**
-     * {@code reportingString} defaults to {@code null} (not yet an interpolated copy).
+     * {@code outcomes} defaults to {@code null} (not yet an interpolated copy).
      *
      * @param url the request URL
      * @param method the HTTP method
@@ -83,42 +79,6 @@ public class HttpRequestDefinition extends ConfigData implements RequestDefiniti
                 }
             }
         }
-    }
-
-    @Override
-    public HttpRequestDefinition interpolated(Interpolation interpolation, RuntimeData runtimeData) {
-        if (reportingString != null) {
-            throw new BratException(String.format("This RequestDefinition (%s) is already an interpolated copy", this));
-        }
-        var urlOutcome = interpolation.outcome(url, runtimeData);
-        var methodOutcome = interpolation.outcome(method, runtimeData);
-        var timeoutOutcome = timeout == null ? null : interpolation.outcome(timeout, runtimeData);
-        var bodyOutcomes = interpolateMapWithOutcomes(interpolation, runtimeData, body);
-        var headerOutcomes = interpolateMapWithOutcomes(interpolation, runtimeData, headers);
-        var interpolatedAuth = auth.interpolated(interpolation, runtimeData);
-
-        var report = new StringBuilder("url: ").append(urlOutcome.reportingString());
-        report.append(", method: ").append(methodOutcome.reportingString());
-        if (timeoutOutcome != null) {
-            report.append(", timeout: ").append(timeoutOutcome.reportingString());
-        }
-        bodyOutcomes.forEach((key, outcome) -> report.append(", body.").append(key).append(": ").append(outcome.reportingString()));
-        headerOutcomes.forEach((key, outcome) -> report.append(", header.").append(key).append(": ").append(outcome.reportingString()));
-        report.append(", auth: ").append(interpolatedAuth.getReportingString());
-
-        var resolvedBody = new LinkedHashMap<String, String>();
-        bodyOutcomes.forEach((key, outcome) -> resolvedBody.put(key, outcome.asString()));
-        var resolvedHeaders = new LinkedHashMap<String, String>();
-        headerOutcomes.forEach((key, outcome) -> resolvedHeaders.put(key, outcome.asString()));
-
-        return new HttpRequestDefinition(
-                urlOutcome.asString(),
-                methodOutcome.asString(),
-                timeoutOutcome == null ? null : timeoutOutcome.asString(),
-                resolvedBody,
-                resolvedHeaders,
-                interpolatedAuth,
-                report.toString());
     }
 
 }

@@ -19,6 +19,7 @@ import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.data.Assertion;
+import dev.pbroman.brat.core.data.ConditionInterpolation;
 import dev.pbroman.brat.core.data.ResponseActions;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
@@ -35,7 +36,7 @@ class DefaultResponseHandlerTest {
         // This is just to avoid a NPE
         when(interpolation.outcome(any(), any())).thenReturn(new InterpolationOutcome("something", "something"));
         var conditionResolver = mock(ConditionResolver.class);
-        var assertionResolver = new DefaultAssertionResolver(interpolation, conditionResolver);
+        var assertionResolver = new DefaultAssertionResolver(interpolation, conditionResolver, new ConditionInterpolation());
         underTest = new DefaultResponseHandler(interpolation, assertionResolver);
     }
 

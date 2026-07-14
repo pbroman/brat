@@ -3,6 +3,7 @@ package dev.pbroman.brat.core.resolver.assertion;
 import java.util.ArrayList;
 import java.util.List;
 
+import dev.pbroman.brat.core.api.data.ConfigDataInterpolation;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.resolver.AssertionResolver;
 import dev.pbroman.brat.core.api.resolver.ConditionResolver;
@@ -17,10 +18,13 @@ public class DefaultAssertionResolver implements AssertionResolver {
 
     private final Interpolation interpolation;
     private final ConditionResolver conditionResolver;
+    private final ConfigDataInterpolation<Condition> conditionInterpolation;
 
-    public DefaultAssertionResolver(Interpolation interpolation, ConditionResolver conditionResolver) {
+    public DefaultAssertionResolver(Interpolation interpolation, ConditionResolver conditionResolver,
+            ConfigDataInterpolation<Condition> conditionInterpolation) {
         this.interpolation = interpolation;
         this.conditionResolver = conditionResolver;
+        this.conditionInterpolation = conditionInterpolation;
     }
 
     @Override
@@ -38,7 +42,7 @@ public class DefaultAssertionResolver implements AssertionResolver {
 
     protected void resolve(Condition condition, List<AssertionResult> assertionResults, String message, RuntimeData runtimeData) {
         try {
-            var interpolatedCondition = condition.interpolated(interpolation, runtimeData);
+            var interpolatedCondition = conditionInterpolation.interpolated(condition, interpolation, runtimeData);
             assertionResults.add(new AssertionResult(interpolatedCondition, message, conditionResolver.resolve(interpolatedCondition)));
         } catch (BratException e) {
             var failMessage = String.format("Error interpolating assertion: %s, message: %s", message, e.getMessage());

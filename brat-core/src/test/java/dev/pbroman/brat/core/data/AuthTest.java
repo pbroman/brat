@@ -20,44 +20,46 @@ class AuthTest extends AbstractConfigDataTest {
     static Auth authBearer = new Auth(AUTH_TYPE_BEARER, "token");
     static Auth authApiKey = new Auth(AUTH_TYPE_APIKEY, "apiKey");
 
+    AuthInterpolation authInterpolation = new AuthInterpolation();
+
     @Test
     void interpolatedBasic_isCorrect() {
         // when
-        var interpolated = authBasic.interpolated(interpolation, runtimeData);
+        var interpolated = authInterpolation.interpolated(authBasic, interpolation, runtimeData);
 
         // then
         assertThat(interpolated.getType()).isEqualTo("interpolated");
         assertThat(interpolated.getUsername()).isEqualTo("interpolated");
         assertThat(interpolated.getPassword()).isEqualTo("interpolated");
-        assertThat(interpolated.getReportingString()).isNotNull();
+        assertThat(interpolated.getOutcomes()).isNotNull();
     }
 
     @Test
     void interpolatedBearer_isCorrect() {
         // when
-        var interpolated = authBearer.interpolated(interpolation, runtimeData);
+        var interpolated = authInterpolation.interpolated(authBearer, interpolation, runtimeData);
 
         // then
         assertThat(interpolated.getType()).isEqualTo("interpolated");
         assertThat(interpolated.getToken()).isEqualTo("interpolated");
-        assertThat(interpolated.getReportingString()).isNotNull();
+        assertThat(interpolated.getOutcomes()).isNotNull();
     }
 
     @Test
     void interpolatedApiKey_isCorrect() {
         // when
-        var interpolated = authApiKey.interpolated(interpolation, runtimeData);
+        var interpolated = authInterpolation.interpolated(authApiKey, interpolation, runtimeData);
 
         // then
         assertThat(interpolated.getType()).isEqualTo("interpolated");
         assertThat(interpolated.getToken()).isEqualTo("interpolated");
-        assertThat(interpolated.getReportingString()).isNotNull();
+        assertThat(interpolated.getOutcomes()).isNotNull();
     }
 
     @ParameterizedTest
     @MethodSource("provideAllAuthTypes")
     void interpolated_throwsExceptionIfCopy(Auth auth) {
-        assertInterpolatedThrowsExceptionIfCopy(auth);
+        assertInterpolatedThrowsExceptionIfCopy(auth, authInterpolation);
     }
 
     private static Stream<Arguments> provideAllAuthTypes() {

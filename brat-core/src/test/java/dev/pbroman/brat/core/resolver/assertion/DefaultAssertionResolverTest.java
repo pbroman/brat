@@ -16,6 +16,7 @@ import dev.pbroman.brat.core.api.resolver.AssertionResolver;
 import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.data.Assertion;
 import dev.pbroman.brat.core.data.ChainedAssertion;
+import dev.pbroman.brat.core.data.ConditionInterpolation;
 import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
@@ -26,7 +27,8 @@ class DefaultAssertionResolverTest {
     ConditionResolver conditionResolver = Mockito.mock(ConditionResolver.class);
     RuntimeData runtimeData = Mockito.mock(RuntimeData.class);
 
-    AssertionResolver assertionResolver = new DefaultAssertionResolver(interpolation, conditionResolver);
+    AssertionResolver assertionResolver =
+            new DefaultAssertionResolver(interpolation, conditionResolver, new ConditionInterpolation());
 
     @BeforeEach
     void setUp() {
