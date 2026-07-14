@@ -15,8 +15,9 @@ public interface ReportingEngine {
      *
      * @param kind the report kind (e.g. {@code "console"}, {@code "verbose-cli"}, {@code "log"})
      * @param outcomes the named outcomes to report on, in field order
-     * @return the produced report; never {@code null}
-     * @throws BratException if {@code kind} is {@code null}, or no rule recognizes it
+     * @return the produced report, or {@code null} if this implementation does not recognize
+     *         {@code kind}
+     * @throws BratException if {@code kind} is {@code null}
      */
     String report(String kind, Map<String, InterpolationOutcome> outcomes);
 }

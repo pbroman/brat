@@ -20,13 +20,14 @@ public final class ConditionInterpolation implements ConfigDataInterpolation<Con
         checkNotInterpolated(target);
 
         var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
-        var aOutcome = interpolation.outcome(String.valueOf(target.getA()), runtimeData);
-        outcomes.put("a", aOutcome);
+        var aValue = target.getA() == null ? null : String.valueOf(target.getA());
+        var aOutcome = interpolateIfPresent(interpolation, runtimeData, outcomes, "a", aValue);
 
         var bValue = target.getB() == null ? null : String.valueOf(target.getB());
         var bOutcome = interpolateIfPresent(interpolation, runtimeData, outcomes, "b", bValue);
 
-        return new Condition(target.getFunc(), aOutcome.value(),
+        return new Condition(target.getFunc(),
+                aOutcome == null ? null : aOutcome.value(),
                 bOutcome == null ? null : bOutcome.value(), outcomes);
     }
 }

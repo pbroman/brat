@@ -45,4 +45,18 @@ class LogReportingRuleTest {
         assertThat(result).isEqualTo("body=\"{\\\"a\\\":1}\"");
     }
 
+    @Test
+    void report_escapesBackslashesInValues() {
+        // given
+        var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
+        outcomes.put("path", new InterpolationOutcome("C:\\path\\", "C:\\path\\"));
+
+        // when
+        var result = underTest.report("log", outcomes);
+
+        // then the trailing backslash is doubled, so a parser reads it as an escaped backslash
+        // followed by the real closing quote, not as an escaped quote
+        assertThat(result).isEqualTo("path=\"C:\\\\path\\\\\"");
+    }
+
 }

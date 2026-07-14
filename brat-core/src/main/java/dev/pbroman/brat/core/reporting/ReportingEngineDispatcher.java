@@ -28,6 +28,14 @@ public class ReportingEngineDispatcher implements ReportingEngine {
         this.rules = rules.stream().sorted(Comparator.comparingInt(ReportingRule::priority).reversed()).toList();
     }
 
+    /**
+     * Unlike a single {@link ReportingRule}, the dispatcher never returns {@code null} —
+     * strengthened from {@link ReportingEngine#report}'s general contract to guarantee a report
+     * as long as some rule recognizes {@code kind}.
+     *
+     * @return the produced report; never {@code null}
+     * @throws BratException if {@code kind} is {@code null}, or no rule recognizes it
+     */
     @Override
     public String report(String kind, Map<String, InterpolationOutcome> outcomes) {
         bratExceptionOnNull(kind, "Cannot produce a report for a null kind");

@@ -26,6 +26,6 @@ public final class LogReportingRule implements ReportingRule {
     }
 
     private String escape(String value) {
-        return value.replace("\"", "\\\"");
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

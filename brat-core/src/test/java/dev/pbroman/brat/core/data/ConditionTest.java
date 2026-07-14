@@ -20,7 +20,7 @@ class ConditionTest extends AbstractConfigDataTest {
         assertThat(interpolated.getFunc()).isEqualTo("func");
         assertThat(interpolated.getA()).isEqualTo("interpolated");
         assertThat(interpolated.getB()).isEqualTo("interpolated");
-        assertThat(interpolated.getOutcomes()).isNotNull();
+        assertThat(interpolated.getOutcomes().keySet()).containsExactly("a", "b");
     }
 
     @Test
@@ -39,6 +39,19 @@ class ConditionTest extends AbstractConfigDataTest {
         // then
         assertThat(interpolated.getB()).isNull();
         assertThat(interpolated.getOutcomes()).doesNotContainKey("b");
+    }
+
+    @Test
+    void interpolated_skipsNullA() {
+        // given
+        var condition = new Condition("func", null, "b");
+
+        // when
+        var interpolated = conditionInterpolation.interpolated(condition, interpolation, runtimeData);
+
+        // then
+        assertThat(interpolated.getA()).isNull();
+        assertThat(interpolated.getOutcomes()).doesNotContainKey("a");
     }
 
 }

@@ -43,9 +43,9 @@ class HttpRequestDefinitionInterpolationTest {
         assertThat(interpolated.getUrl()).isEqualTo("http://url-i");
         assertThat(interpolated.getMethod()).isEqualTo("GET-i");
         assertThat(interpolated.getTimeout()).isEqualTo("30-i");
-        assertThat(interpolated.getOutcomes()).containsKeys("url", "method", "timeout", "auth.type", "auth.token");
-        assertThat(interpolated.getOutcomes().keySet()).anyMatch(key -> key.startsWith("header."));
-        assertThat(interpolated.getOutcomes().keySet()).anyMatch(key -> key.startsWith("body."));
+        assertThat(interpolated.getOutcomes().keySet()).containsExactly(
+                "url", "method", "timeout", "body.raw", "body._bodyString", "header." + CONTENT_TYPE,
+                "header.Authorization", "auth.type", "auth.token");
         assertThat(interpolated.getHeaders()).containsKey(CONTENT_TYPE);
     }
 

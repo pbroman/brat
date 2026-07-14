@@ -31,7 +31,7 @@ class AuthTest extends AbstractConfigDataTest {
         assertThat(interpolated.getType()).isEqualTo("interpolated");
         assertThat(interpolated.getUsername()).isEqualTo("interpolated");
         assertThat(interpolated.getPassword()).isEqualTo("interpolated");
-        assertThat(interpolated.getOutcomes()).isNotNull();
+        assertThat(interpolated.getOutcomes().keySet()).containsExactly("type", "username", "password");
     }
 
     @Test
