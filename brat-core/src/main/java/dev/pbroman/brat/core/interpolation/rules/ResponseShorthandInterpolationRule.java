@@ -49,7 +49,7 @@ public final class ResponseShorthandInterpolationRule extends AbstractInterpolat
             return input;
         }
         checkInterpolationArgs(input, runtimeData);
-        var interpolation = simpleInterpolation(input, RESPONSE_SHORTHAND);
+        var interpolation = simpleInterpolation(input, runtimeData, RESPONSE_SHORTHAND);
         if (tools.getVariablePattern().matcher(interpolation).find()) {
             return interpolation;
         }

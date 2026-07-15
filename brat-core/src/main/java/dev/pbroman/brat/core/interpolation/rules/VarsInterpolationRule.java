@@ -26,7 +26,7 @@ public final class VarsInterpolationRule extends AbstractInterpolationRule {
     @Override
     public String resolve(String input, RuntimeData runtimeData) {
         checkInterpolationArgs(input, runtimeData, VARS);
-        return simpleInterpolation(input, runtimeData.getVars());
+        return simpleInterpolation(input, runtimeData, runtimeData.getVars());
     }
 
     /**

@@ -17,7 +17,9 @@ public class Constants {
     public static final String HEADERS = "headers";
     public static final String ENV = "env";
     public static final String VARS = "vars";
+    public static final String PARAMS = "params";
     public static final String MISC = "misc";
+    public static final String FALLBACK_DELIMITER = ":-";
     public static final String REQUEST_RESULTS = "requestResults";
     public static final String RESPONSE = "response";
     public static final String RESPONSE_VARS = "responseVars";

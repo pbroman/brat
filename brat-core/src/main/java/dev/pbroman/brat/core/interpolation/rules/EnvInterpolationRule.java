@@ -25,7 +25,7 @@ public final class EnvInterpolationRule extends AbstractInterpolationRule {
     @Override
     public String resolve(String input, RuntimeData runtimeData) {
         checkInterpolationArgs(input, runtimeData, ENV);
-        return simpleInterpolation(input, runtimeData.getEnv());
+        return simpleInterpolation(input, runtimeData, runtimeData.getEnv());
     }
 
     /**

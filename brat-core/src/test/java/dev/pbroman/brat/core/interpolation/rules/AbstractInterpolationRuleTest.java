@@ -72,4 +72,97 @@ class AbstractInterpolationRuleTest {
         }
     }
 
+    @Test
+    void simpleInterpolation_resolvesDirectKeyWithoutFallback() {
+        // given
+        var rule = new FallbackStubInterpolationRule(tools, Map.of("threadCount", "5"));
+
+        // when
+        var result = rule.outcome("${stub.threadCount}", runtimeData);
+
+        // then
+        assertThat(result.value()).isEqualTo("5");
+    }
+
+    @Test
+    void simpleInterpolation_fallsBackToLiteralDefault() {
+        // given
+        var rule = new FallbackStubInterpolationRule(tools, Map.of());
+
+        // when
+        var result = rule.outcome("${stub.threadCount:-10}", runtimeData);
+
+        // then
+        assertThat(result.value()).isEqualTo("10");
+    }
+
+    @Test
+    void simpleInterpolation_fallsBackToAnotherNamespace() {
+        // given
+        var rule = new FallbackStubInterpolationRule(tools, Map.of());
+        var data = new RuntimeData(Map.of(), Map.of("threadCount", "7"));
+
+        // when
+        var result = rule.outcome("${stub.threadCount:-env.threadCount}", data);
+
+        // then
+        assertThat(result.value()).isEqualTo("7");
+    }
+
+    @Test
+    void simpleInterpolation_chainsMultipleFallbacksLeftToRight() {
+        // given
+        var rule = new FallbackStubInterpolationRule(tools, Map.of());
+        var data = new RuntimeData(Map.of(), Map.of());
+
+        // when
+        var result = rule.outcome("${stub.threadCount:-env.threadCount:-10}", data);
+
+        // then
+        assertThat(result.value()).isEqualTo("10");
+    }
+
+    @Test
+    void simpleInterpolation_treatsUnrecognizedNamespaceSegmentAsLiteral() {
+        // given
+        var rule = new FallbackStubInterpolationRule(tools, Map.of());
+
+        // when
+        var result = rule.outcome("${stub.threadCount:-notANamespace.thing}", runtimeData);
+
+        // then
+        assertThat(result.value()).isEqualTo("notANamespace.thing");
+    }
+
+    @Test
+    void simpleInterpolation_throwsWhenChainExhaustedWithNoLiteral() {
+        // given
+        var rule = new FallbackStubInterpolationRule(tools, Map.of());
+        var data = new RuntimeData(Map.of(), Map.of());
+
+        // then
+        assertThatThrownBy(() -> rule.outcome("${stub.threadCount:-env.threadCount}", data))
+                .isInstanceOf(BratException.class);
+    }
+
+    private static final class FallbackStubInterpolationRule extends AbstractInterpolationRule {
+
+        private final Map<String, ?> values;
+
+        FallbackStubInterpolationRule(InterpolationTools tools, Map<String, ?> values) {
+            super("stub", tools);
+            this.values = values;
+        }
+
+        @Override
+        protected String resolve(String input, RuntimeData runtimeData) {
+            return simpleInterpolation(input, runtimeData, values);
+        }
+
+        @Override
+        protected String onMissingReplacement(String placeholder, String input) {
+            throw new BratException("The stub value '" + placeholder + "' is not set.");
+        }
+    }
+
 }

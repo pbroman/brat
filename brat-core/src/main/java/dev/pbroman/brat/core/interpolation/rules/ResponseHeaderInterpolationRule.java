@@ -32,7 +32,7 @@ public final class ResponseHeaderInterpolationRule extends AbstractResponseInter
     public String resolve(String input, RuntimeData runtimeData) {
         checkInterpolationArgs(input, runtimeData, RESPONSE_VARS);
         if (runtimeData.getResponseVars().get(HEADERS) instanceof Map headers) {
-            return simpleInterpolation(input, headers);
+            return simpleInterpolation(input, runtimeData, headers);
         }
         return input;
     }

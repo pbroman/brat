@@ -27,7 +27,7 @@ public final class ConstantsInterpolationRule extends AbstractInterpolationRule 
     @Override
     public String resolve(String input, RuntimeData runtimeData) {
         checkInterpolationArgs(input, runtimeData, CONSTANTS);
-        return simpleInterpolation(input, runtimeData.getConstants());
+        return simpleInterpolation(input, runtimeData, runtimeData.getConstants());
     }
 
     /**
