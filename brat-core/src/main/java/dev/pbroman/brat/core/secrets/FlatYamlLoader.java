@@ -12,7 +12,8 @@ import tools.jackson.core.JsonParser;
 import tools.jackson.core.JsonToken;
 import tools.jackson.dataformat.yaml.YAMLMapper;
 
-import static dev.pbroman.brat.core.util.ExceptionUtil.bratExceptionOnNull;
+import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
+import static dev.pbroman.brat.core.util.JacksonUtils.locationOf;
 
 /**
  * Reads a YAML document into a flat map of dotted keys to their values as text.
@@ -104,11 +105,6 @@ public final class FlatYamlLoader {
             throw new BratException("Flattening produces the key '" + path + "' twice, "
                     + "so a nested mapping collides with a literal dotted key");
         }
-    }
-
-    private static String locationOf(JacksonException e) {
-        var location = e.getLocation();
-        return location == null ? "" : " at line " + location.getLineNr() + ", column " + location.getColumnNr();
     }
 
 }

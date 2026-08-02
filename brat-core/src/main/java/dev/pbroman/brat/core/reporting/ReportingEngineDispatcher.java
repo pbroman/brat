@@ -1,6 +1,6 @@
 package dev.pbroman.brat.core.reporting;
 
-import static dev.pbroman.brat.core.util.ExceptionUtil.bratExceptionOnNull;
+import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
 
 import java.util.Comparator;
 import java.util.List;

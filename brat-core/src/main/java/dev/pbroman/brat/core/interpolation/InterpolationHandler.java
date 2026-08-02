@@ -1,7 +1,7 @@
 package dev.pbroman.brat.core.interpolation;
 
 import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
-import static dev.pbroman.brat.core.util.ExceptionUtil.bratExceptionOnNull;
+import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
@@ -21,7 +21,7 @@ public class InterpolationHandler implements Interpolation {
     private final InterpolationTools tools;
 
     /**
-     * Constructs an interploation handler with a dispatcher and {@link InterpolationTools}.
+     * Constructs an interpolation handler with a dispatcher and {@link InterpolationTools}.
      *
      * @param dispatcher the interpolation dispatcher
      * @param tools the {@link InterpolationTools}

@@ -2,7 +2,7 @@ package dev.pbroman.brat.core.data.result;
 
 import dev.pbroman.brat.core.data.Condition;
 
-import static dev.pbroman.brat.core.util.ExceptionUtil.bratExceptionOnNull;
+import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
 
 public record AssertionResult(Condition condition, String message, boolean passed) {
 

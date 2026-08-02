@@ -17,7 +17,7 @@ import static dev.pbroman.brat.core.util.Constants.FALLBACK_DELIMITER;
 import static dev.pbroman.brat.core.util.Constants.PARAMS;
 import static dev.pbroman.brat.core.util.Constants.VARIABLE_GROUP_NAME;
 import static dev.pbroman.brat.core.util.Constants.VARS;
-import static dev.pbroman.brat.core.util.ExceptionUtil.bratExceptionOnNull;
+import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
 
 /**
  * Base class for priority-dispatched {@link InterpolationRule} implementations that resolve a

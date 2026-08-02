@@ -7,7 +7,7 @@ import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.exception.BratException;
 import org.apache.commons.lang3.StringUtils;
 
-import static dev.pbroman.brat.core.util.ExceptionUtil.bratExceptionOnNull;
+import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
 
 /**
  * A {@link SecretsProvider} backed by an in-memory map of logical key to value.

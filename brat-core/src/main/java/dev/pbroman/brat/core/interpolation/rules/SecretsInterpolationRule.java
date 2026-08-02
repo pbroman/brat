@@ -10,7 +10,7 @@ import dev.pbroman.brat.core.tools.InterpolationTools;
 import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
 import static dev.pbroman.brat.core.util.Constants.SECRETS;
 import static dev.pbroman.brat.core.util.Constants.VARIABLE_GROUP_NAME;
-import static dev.pbroman.brat.core.util.ExceptionUtil.bratExceptionOnNull;
+import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
 
 /**
  * An {@link InterpolationRule} resolving {@code ${secrets.key}} tokens against a

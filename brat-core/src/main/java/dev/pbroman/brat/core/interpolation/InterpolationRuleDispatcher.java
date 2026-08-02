@@ -9,7 +9,7 @@ import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 
-import static dev.pbroman.brat.core.util.ExceptionUtil.bratExceptionOnNull;
+import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
 
 /**
  * Priority-ordered, chaining dispatcher over {@link InterpolationRule}s: each rule's outcome
