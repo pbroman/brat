@@ -77,9 +77,17 @@ public final class Constants {
     public static final String EQUALS = "equals";
     public static final String EQUALS_IGNORE_CASE = "equalsignorecase";
     public static final String CONTAINS = "contains";
+    public static final String CONTAINS_IGNORING_CASE = "containsignoringcase";
+    public static final String MEDIA_TYPE = "mediatype";
     public static final String STARTS_WITH = "startswith";
     public static final String ENDS_WITH = "endswith";
     public static final String MATCHES = "matches";
+
+    public static final String BETWEEN = "between";
+    public static final String CLOSE_TO = "closeto";
+    public static final String ARG_MIN = "min";
+    public static final String ARG_MAX = "max";
+    public static final String ARG_OFFSET = "offset";
 
     public static final String EQUAL_TO = "equalto";
     public static final String GREATER_THAN = "greaterthan";

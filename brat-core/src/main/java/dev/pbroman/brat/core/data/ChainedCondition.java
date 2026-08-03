@@ -1,5 +1,7 @@
 package dev.pbroman.brat.core.data;
 
+import java.util.Map;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -17,6 +19,20 @@ public class ChainedCondition {
     private final String func;
     private final Object b;
     private final String message;
+
+    /**
+     * This link's own func arguments, independent of the parent assertion's. Never {@code null}.
+     */
+    private Map<String, String> args = Map.of();
+
+    /**
+     * Treats {@code null} as "no arguments", keeping the never-null invariant.
+     *
+     * @param args the func's arguments, or {@code null} for none
+     */
+    public void setArgs(Map<String, String> args) {
+        this.args = args == null ? Map.of() : args;
+    }
 
     /**
      * Constructs a chained condition with its own failure message.

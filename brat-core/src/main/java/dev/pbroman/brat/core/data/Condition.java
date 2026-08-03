@@ -18,6 +18,17 @@ public class Condition extends ConfigData {
     private Object b;
 
     /**
+     * The func's own arguments, e.g. {@code offset} for {@code isCloseTo}. Never {@code null};
+     * empty when the author declared none. A func needing an argument takes it from here rather
+     * than from a field of its own, so adding one never changes this type.
+     * <p>
+     * Named {@code args} rather than {@code params} deliberately: {@code params} is the
+     * interpolation namespace behind {@code ${params.x}}, and the two would otherwise be
+     * indistinguishable in a suite file and in reported outcome keys.
+     */
+    private Map<String, String> args = Map.of();
+
+    /**
      * Constructor for an interpolated {@link Condition} object with its named outcomes.
      *
      * @param func the function name
@@ -52,6 +63,16 @@ public class Condition extends ConfigData {
      */
     public Condition(String func, Object a) {
         this(func, a, null, null);
+    }
+
+    /**
+     * Treats {@code null} as "no arguments", keeping the never-null invariant the resolver rules
+     * rely on.
+     *
+     * @param args the func's arguments, or {@code null} for none
+     */
+    public void setArgs(Map<String, String> args) {
+        this.args = args == null ? Map.of() : args;
     }
 
     public String toString() {

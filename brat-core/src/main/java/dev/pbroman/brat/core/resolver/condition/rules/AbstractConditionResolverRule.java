@@ -1,5 +1,6 @@
 package dev.pbroman.brat.core.resolver.condition.rules;
 
+import dev.pbroman.brat.core.api.resolver.ConditionPredicate;
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.exception.BratException;
@@ -8,7 +9,7 @@ import org.apache.commons.lang3.Strings;
 
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiPredicate;
+import java.util.Set;
 
 import static dev.pbroman.brat.core.util.Constants.IS_PREFIX;
 import static dev.pbroman.brat.core.util.Constants.NEGATION_PATTERN;
@@ -19,12 +20,12 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  */
 public abstract class AbstractConditionResolverRule implements ConditionResolverRule {
 
-    private final Map<String, BiPredicate<Object, Object>> predicateMap;
+    private final Map<String, ConditionPredicate> predicateMap;
 
     /**
      * Constructor receiving a predicate map from extending classes.
      */
-    protected AbstractConditionResolverRule(Map<String, BiPredicate<Object, Object>> predicates) {
+    protected AbstractConditionResolverRule(Map<String, ConditionPredicate> predicates) {
         this.predicateMap = Map.copyOf(predicates);
     }
 
@@ -39,7 +40,9 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
             nullCheckB(condition, prepared.function());
             try {
                 return prepared.negate() != predicateMap.get(prepared.function())
-                        .test(condition.getA(), condition.getB());
+                        .test(condition.getA(), condition.getB(), condition.getArgs());
+            } catch (BratException be) {
+                throw be;
             } catch (RuntimeException re) {
                 throw new BratException(String.format("Unable to resolve condition %s", condition), re);
             }
@@ -95,6 +98,38 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
         if (condition.getB() == null && !ignoreBNullCheck().contains(function)) {
             throw new BratException(String.format("b may not be null for %s function '%s'", category(), function));
         }
+    }
+
+    /**
+     * Rejects any argument this func does not know, so a typo fails loudly instead of being
+     * silently ignored — the check a typed field would have given for free.
+     *
+     * @param args the func's arguments
+     * @param legalKeys every key this func accepts
+     * @throws BratException if {@code args} holds a key that is not among {@code legalKeys}
+     */
+    protected static void rejectUnknownArgs(Map<String, String> args, String... legalKeys) {
+        var legal = Set.of(legalKeys);
+        var unknown = args.keySet().stream().filter(key -> !legal.contains(key)).sorted().toList();
+        if (!unknown.isEmpty()) {
+            throw new BratException("Unknown argument(s) " + unknown + "; this function takes " + legal);
+        }
+    }
+
+    /**
+     * Returns an argument this func requires.
+     *
+     * @param args the func's arguments
+     * @param key the argument to read
+     * @return the value
+     * @throws BratException if {@code args} has no entry for {@code key}
+     */
+    protected static String requiredArg(Map<String, String> args, String key) {
+        var value = args.get(key);
+        if (value == null) {
+            throw new BratException("The argument '" + key + "' is required for this function");
+        }
+        return value;
     }
 
     record PreparedFunction(String function, boolean negate) {}

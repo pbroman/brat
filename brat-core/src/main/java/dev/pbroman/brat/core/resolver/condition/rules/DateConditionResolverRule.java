@@ -6,7 +6,7 @@ import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiPredicate;
+import dev.pbroman.brat.core.api.resolver.ConditionPredicate;
 
 import dev.pbroman.brat.core.data.Condition;
 
@@ -42,15 +42,15 @@ public final class DateConditionResolverRule extends AbstractConditionResolverRu
         this.dateTimeFormatter = dateTimeFormatter;
     }
 
-    private static Map<String, BiPredicate<Object, Object>> predicates(DateTimeFormatter dateTimeFormatter) {
-        var predicates = new HashMap<String, BiPredicate<Object, Object>>();
-        predicates.put(BEFORE, (a, b) -> parse(a, dateTimeFormatter).isBefore(parse(b, dateTimeFormatter)));
-        predicates.put(AFTER, (a, b) -> parse(a, dateTimeFormatter).isAfter(parse(b, dateTimeFormatter)));
-        BiPredicate<Object, Object> equalTo = (a, b) -> parse(a, dateTimeFormatter).isEqual(parse(b, dateTimeFormatter));
+    private static Map<String, ConditionPredicate> predicates(DateTimeFormatter dateTimeFormatter) {
+        var predicates = new HashMap<String, ConditionPredicate>();
+        predicates.put(BEFORE, (a, b, args) -> parse(a, dateTimeFormatter).isBefore(parse(b, dateTimeFormatter)));
+        predicates.put(AFTER, (a, b, args) -> parse(a, dateTimeFormatter).isAfter(parse(b, dateTimeFormatter)));
+        ConditionPredicate equalTo = (a, b, args) -> parse(a, dateTimeFormatter).isEqual(parse(b, dateTimeFormatter));
         predicates.put(EQUAL, equalTo);
         predicates.put(EQUAL_TO, equalTo);
-        predicates.put(PAST, (a, b) -> parse(a, dateTimeFormatter).isBefore(LocalDate.now()));
-        predicates.put(FUTURE, (a, b) -> parse(a, dateTimeFormatter).isAfter(LocalDate.now()));
+        predicates.put(PAST, (a, b, args) -> parse(a, dateTimeFormatter).isBefore(LocalDate.now()));
+        predicates.put(FUTURE, (a, b, args) -> parse(a, dateTimeFormatter).isAfter(LocalDate.now()));
         return predicates;
     }
 

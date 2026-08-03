@@ -2,6 +2,7 @@ package dev.pbroman.brat.core.resolver.condition.rules;
 
 import static dev.pbroman.brat.core.util.Constants.EQUAL_TO;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import dev.pbroman.brat.core.data.Condition;
+import dev.pbroman.brat.core.exception.BratException;
+import java.util.Map;
 
 class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
 
@@ -69,6 +72,78 @@ class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
 
         // then
         assertThat(result).isNull();
+    }
+
+    // --- funcs taking their parameters from the params bag ---
+
+    private Condition withArgs(String func, Object a, Object b, Map<String, String> args) {
+        var condition = new Condition(func, a, b);
+        condition.setArgs(args);
+        return condition;
+    }
+
+    @Test
+    void resolve_isBetweenIsInclusiveOnBothBounds() {
+        // when / then
+        assertThat(resolver.resolve(withArgs("isBetween", "10", null, Map.of("min", "10", "max", "100")))).isTrue();
+        assertThat(resolver.resolve(withArgs("isBetween", "100", null, Map.of("min", "10", "max", "100")))).isTrue();
+        assertThat(resolver.resolve(withArgs("isBetween", "55", null, Map.of("min", "10", "max", "100")))).isTrue();
+        assertThat(resolver.resolve(withArgs("isBetween", "9", null, Map.of("min", "10", "max", "100")))).isFalse();
+    }
+
+    @Test
+    void resolve_isCloseToComparesWithinTheOffset() {
+        // when / then
+        assertThat(resolver.resolve(withArgs("isCloseTo", "0.51", "0.5", Map.of("offset", "0.01")))).isTrue();
+        assertThat(resolver.resolve(withArgs("isCloseTo", "0.52", "0.5", Map.of("offset", "0.01")))).isFalse();
+    }
+
+    @Test
+    void resolve_throwsWhenARequiredParameterIsMissing() {
+        // when / then
+        assertThatThrownBy(() -> resolver.resolve(withArgs("isBetween", "10", null, Map.of("min", "1"))))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("max");
+    }
+
+    @Test
+    void resolve_throwsForAParameterTheFuncDoesNotKnow() {
+        // when / then — the typo a typed field would have caught at load time
+        assertThatThrownBy(() -> resolver.resolve(withArgs("isCloseTo", "0.5", "0.5", Map.of("ofset", "0.01"))))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("ofset");
+    }
+
+    // --- exact decimal comparison ---
+
+    @Test
+    void resolve_comparesByValueNotByScale() {
+        // when / then — BigDecimal.equals would call these different; compareTo does not
+        assertThat(resolver.resolve(new Condition("isEqualTo", "1.50", "1.5"))).isTrue();
+        assertThat(resolver.resolve(new Condition("isEqualTo", "1.500", "1.5"))).isTrue();
+    }
+
+    @Test
+    void resolve_doesNotLosePrecisionToBinaryFloatingPoint() {
+        // given — as doubles this sum is 0.30000000000000004
+        var condition = new Condition("isGreaterThan", "0.3", "0.1");
+
+        // when / then
+        assertThat(resolver.resolve(condition)).isTrue();
+        assertThat(resolver.resolve(new Condition("isEqualTo", "0.1", "0.10"))).isTrue();
+    }
+
+    @Test
+    void resolve_declinesValuesThatAreNotDecimals() {
+        // when / then — NaN and Infinity are doubles but not decimals, so this rule is not theirs
+        assertThat(resolver.resolve(new Condition("isEqualTo", "NaN", "NaN"))).isNull();
+        assertThat(resolver.resolve(new Condition("isGreaterThan", "Infinity", "1"))).isNull();
+    }
+
+    @Test
+    void resolve_toleratesSurroundingWhitespace() {
+        // when / then
+        assertThat(resolver.resolve(new Condition("isEqualTo", " 1.5 ", "1.5"))).isTrue();
     }
 
 }

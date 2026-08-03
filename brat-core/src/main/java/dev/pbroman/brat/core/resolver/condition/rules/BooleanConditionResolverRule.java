@@ -3,7 +3,7 @@ package dev.pbroman.brat.core.resolver.condition.rules;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiPredicate;
+import dev.pbroman.brat.core.api.resolver.ConditionPredicate;
 
 import static dev.pbroman.brat.core.util.Constants.BOOLEAN_CONDITION;
 import static org.apache.commons.lang3.BooleanUtils.FALSE;
@@ -18,10 +18,10 @@ public final class BooleanConditionResolverRule extends AbstractConditionResolve
         super(predicates());
     }
 
-    private static Map<String, BiPredicate<Object, Object>> predicates() {
-        var predicates = new HashMap<String, BiPredicate<Object, Object>>();
-        predicates.put(TRUE, (a, b) -> parse(a));
-        predicates.put(FALSE, (a, b) -> !parse(a));
+    private static Map<String, ConditionPredicate> predicates() {
+        var predicates = new HashMap<String, ConditionPredicate>();
+        predicates.put(TRUE, (a, b, args) -> parse(a));
+        predicates.put(FALSE, (a, b, args) -> !parse(a));
         return predicates;
     }
 

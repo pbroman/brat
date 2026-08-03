@@ -48,6 +48,7 @@ public class AssertionChainResolver implements AssertionResolver {
 
         for (ChainedCondition chained : assertion.getChain()) {
             var condition = new Condition(chained.getFunc(), assertion.getA(), chained.getB());
+            condition.setArgs(chained.getArgs());
             var message = chained.getMessage() != null ? chained.getMessage() : assertion.getMessage();
             resolve(condition, assertionResults, message, assertion.getSeverity(), runtimeData);
         }

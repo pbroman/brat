@@ -64,6 +64,43 @@ class StringConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
         assertThat(result).isFalse();
     }
 
+    @ParameterizedTest
+    @CsvSource({
+            "containsIgnoringCase,Content-Type,CONTENT",
+            "containsIgnoringCase,content-type,Type",
+            "isMediaType,application/json,application/json",
+            "isMediaType,application/json; charset=utf-8,application/json",
+            "isMediaType,application/json,application/json; charset=utf-8",
+            "isMediaType,APPLICATION/JSON,application/json",
+    })
+    void resolve_isTrueForTheNewStringFuncs(String func, String a, String b) {
+        // given
+        var condition = new Condition(func, a, b);
+
+        // when
+        var result = resolver.resolve(condition);
+
+        // then
+        assertThat(result).isTrue();
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "containsIgnoringCase,Content-Type,length",
+            "isMediaType,application/json,text/plain",
+            "isMediaType,application/json; charset=utf-8,application/xml",
+    })
+    void resolve_isFalseForTheNewStringFuncs(String func, String a, String b) {
+        // given
+        var condition = new Condition(func, a, b);
+
+        // when
+        var result = resolver.resolve(condition);
+
+        // then
+        assertThat(result).isFalse();
+    }
+
     @Test
     void resolve_wrapsAFailureThatIsNotACategoryMismatch() {
         // given — this rule owns `matches` and accepts any operands, so a malformed regex is a
