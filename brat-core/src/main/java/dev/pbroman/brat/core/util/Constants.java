@@ -7,6 +7,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+/**
+ * The string literals shared across {@code brat-core}: interpolation namespaces and token shorthands,
+ * condition func names, auth types, request defaults and console colours.
+ * <p>
+ * Carried over wholesale from the reference implementation, so it still holds constants nothing uses
+ * yet; pruning it, and splitting what remains per subsystem, is tracked in the flight plan's Backlog.
+ */
 public final class Constants {
 
     private Constants() {
@@ -39,7 +46,8 @@ public final class Constants {
     public static final Map<String, String> RESPONSE_SHORTHAND = Map.of(
             STATUS_CODE, RESPONSE_STATUS_SHORTHAND,
             BODY, RESPONSE_BODY_SHORTHAND,
-            JSON, RESPONSE_JSON_SHORTHAND
+            JSON, RESPONSE_JSON_SHORTHAND,
+            HEADERS, RESPONSE_HEADER_SHORTHAND
     );
 
     public static final String NUMBER_CONDITION = "Number";
@@ -65,6 +73,7 @@ public final class Constants {
     public static final String NULL = "null";
     public static final String EMPTY = "empty";
     public static final String BLANK = "blank";
+    public static final String EQUAL_TO_IGNORING_CASE = "equaltoignoringcase";
     public static final String EQUALS = "equals";
     public static final String EQUALS_IGNORE_CASE = "equalsignorecase";
     public static final String CONTAINS = "contains";
@@ -72,11 +81,17 @@ public final class Constants {
     public static final String ENDS_WITH = "endswith";
     public static final String MATCHES = "matches";
 
-    public static final String EQUAL_TO = "=";
-    public static final String GREATER_THAN_OR_EQUAL = ">=";
-    public static final String LESS_THAN_OR_EQUAL = "<=";
-    public static final String GREATER_THAN = ">";
-    public static final String LESS_THAN = "<";
+    public static final String EQUAL_TO = "equalto";
+    public static final String GREATER_THAN = "greaterthan";
+    public static final String LESS_THAN = "lessthan";
+    public static final String GREATER_THAN_OR_EQUAL_TO = "greaterthanorequalto";
+    public static final String LESS_THAN_OR_EQUAL_TO = "lessthanorequalto";
+
+    public static final String SYMBOL_EQUAL_TO = "=";
+    public static final String SYMBOL_GREATER_THAN_OR_EQUAL_TO = ">=";
+    public static final String SYMBOL_LESS_THAN_OR_EQUAL_TO = "<=";
+    public static final String SYMBOL_GREATER_THAN = ">";
+    public static final String SYMBOL_LESS_THAN = "<";
 
     public static final String BEFORE = "before";
     public static final String AFTER = "after";

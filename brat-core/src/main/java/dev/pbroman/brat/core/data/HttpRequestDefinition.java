@@ -28,6 +28,19 @@ public class HttpRequestDefinition extends ConfigData implements RequestDefiniti
     private Map<String, String> headers;
     private Auth auth;
 
+    /**
+     * Constructs a request definition and immediately prepares it, which serialises {@code body}
+     * into its {@code _bodyString} form.
+     *
+     * @param url the request URL, possibly holding {@code ${...}} tokens
+     * @param method the HTTP method
+     * @param timeout the request timeout in milliseconds, or {@code null} for the default
+     * @param body the body, keyed by one of the well-known body keys, or {@code null}
+     * @param headers the request headers, or {@code null}
+     * @param auth the authentication to apply, or {@code null}
+     * @param outcomes the interpolation outcomes of an interpolated copy, or {@code null} on an
+     *        as-authored instance
+     */
     public HttpRequestDefinition(String url,
                                  String method,
                                  String timeout,

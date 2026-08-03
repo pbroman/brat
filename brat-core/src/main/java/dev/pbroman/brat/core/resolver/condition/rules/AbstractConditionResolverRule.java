@@ -33,6 +33,9 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
         nonNull(condition, "The condition may not be null");
         var prepared = prepare(condition.getFunc());
         if (predicateMap.containsKey(prepared.function())) {
+            if (!accepts(condition)) {
+                return null;
+            }
             nullCheckB(condition, prepared.function());
             try {
                 return prepared.negate() != predicateMap.get(prepared.function())
@@ -52,18 +55,40 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
         return List.of();
     }
 
+    /**
+     * Override this to decline conditions whose operands do not belong to this rule's category, so
+     * one func name can serve several categories. The default accepts everything, which is what the
+     * fallback rule of a category chain wants.
+     *
+     * @param condition the condition about to be resolved, its func already matched
+     * @return {@code true} if this rule should resolve {@code condition}, {@code false} to decline
+     *         it and let the dispatcher try the next rule
+     */
+    protected boolean accepts(Condition condition) {
+        return true;
+    }
+
+    /**
+     * Normalises a func name: lowercased and trimmed, then a leading {@code not}/{@code !} taken as
+     * negation, with an optional {@code is} prefix stripped on either side of it.
+     * <p>
+     * Stripping {@code is} both before and after the negation is what lets all four spellings reach
+     * the same predicate: {@code isNotNull} and {@code notIsNull} negated, {@code isNull} and
+     * {@code null} not.
+     */
     private PreparedFunction prepare(String func) {
-        var f = func.toLowerCase().trim();
+        var f = stripIsPrefix(func.toLowerCase().trim());
         var matches = NEGATION_PATTERN.matcher(f);
         boolean negate = false;
         if (matches.find()) {
-            f = matches.group(2);
+            f = stripIsPrefix(matches.group(2));
             negate = true;
         }
-        if (Strings.CI.startsWith(f, IS_PREFIX)) {
-            f = StringUtils.substring(f, IS_PREFIX.length());
-        }
         return new PreparedFunction(f, negate);
+    }
+
+    private String stripIsPrefix(String func) {
+        return Strings.CI.startsWith(func, IS_PREFIX) ? StringUtils.substring(func, IS_PREFIX.length()) : func;
     }
 
     private void nullCheckB(Condition condition, String function) {

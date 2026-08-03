@@ -6,11 +6,21 @@ import java.util.regex.Pattern;
 
 import lombok.Getter;
 
+/**
+ * Builds the regexes and {@link Pattern}s the interpolation rules match tokens with, from the
+ * {@link InterpolationProperties} it is constructed with.
+ * <p>
+ * An instance, not a static utility: the patterns follow from configurable properties, so every rule
+ * is handed the same instance rather than compiling its own.
+ */
 public class InterpolationPatterns {
 
     @Getter
     private final InterpolationProperties properties;
 
+    /**
+     * @param properties the regexes the patterns are built from
+     */
     public InterpolationPatterns(InterpolationProperties properties) {
         this.properties = properties;
     }

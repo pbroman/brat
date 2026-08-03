@@ -9,12 +9,12 @@ import static dev.pbroman.brat.core.util.Constants.ENDS_WITH;
 import static dev.pbroman.brat.core.util.Constants.EQUAL;
 import static dev.pbroman.brat.core.util.Constants.EQUALS;
 import static dev.pbroman.brat.core.util.Constants.EQUALS_IGNORE_CASE;
-import static dev.pbroman.brat.core.util.Constants.EQUAL_TO;
+import static dev.pbroman.brat.core.util.Constants.SYMBOL_EQUAL_TO;
 import static dev.pbroman.brat.core.util.Constants.FUTURE;
-import static dev.pbroman.brat.core.util.Constants.GREATER_THAN;
-import static dev.pbroman.brat.core.util.Constants.GREATER_THAN_OR_EQUAL;
-import static dev.pbroman.brat.core.util.Constants.LESS_THAN;
-import static dev.pbroman.brat.core.util.Constants.LESS_THAN_OR_EQUAL;
+import static dev.pbroman.brat.core.util.Constants.SYMBOL_GREATER_THAN;
+import static dev.pbroman.brat.core.util.Constants.SYMBOL_GREATER_THAN_OR_EQUAL_TO;
+import static dev.pbroman.brat.core.util.Constants.SYMBOL_LESS_THAN;
+import static dev.pbroman.brat.core.util.Constants.SYMBOL_LESS_THAN_OR_EQUAL_TO;
 import static dev.pbroman.brat.core.util.Constants.MATCHES;
 import static dev.pbroman.brat.core.util.Constants.NULL;
 import static dev.pbroman.brat.core.util.Constants.PAST;
@@ -102,25 +102,25 @@ class ConditionResolverIntegrationTest {
                 
                 // Integer conditions
                 Arguments.of(new Condition("!null", 1, null)),
-                Arguments.of(new Condition(EQUAL_TO, 1, 1)),
+                Arguments.of(new Condition(SYMBOL_EQUAL_TO, 1, 1)),
                 Arguments.of(new Condition("!=", 1, 2)),
-                Arguments.of(new Condition(GREATER_THAN_OR_EQUAL, 1, 1)),
-                Arguments.of(new Condition(GREATER_THAN_OR_EQUAL, 2, 1)),
-                Arguments.of(new Condition(LESS_THAN_OR_EQUAL, 1, 1)),
-                Arguments.of(new Condition(LESS_THAN_OR_EQUAL, 1, 2)),
-                Arguments.of(new Condition(GREATER_THAN, 2, 1)),
-                Arguments.of(new Condition(LESS_THAN, 1, 2)),
+                Arguments.of(new Condition(SYMBOL_GREATER_THAN_OR_EQUAL_TO, 1, 1)),
+                Arguments.of(new Condition(SYMBOL_GREATER_THAN_OR_EQUAL_TO, 2, 1)),
+                Arguments.of(new Condition(SYMBOL_LESS_THAN_OR_EQUAL_TO, 1, 1)),
+                Arguments.of(new Condition(SYMBOL_LESS_THAN_OR_EQUAL_TO, 1, 2)),
+                Arguments.of(new Condition(SYMBOL_GREATER_THAN, 2, 1)),
+                Arguments.of(new Condition(SYMBOL_LESS_THAN, 1, 2)),
 
                 // Double conditions
                 Arguments.of(new Condition("notnull", 1.0, null)),
-                Arguments.of(new Condition(EQUAL_TO, 1.0, 1.0)),
+                Arguments.of(new Condition(SYMBOL_EQUAL_TO, 1.0, 1.0)),
                 Arguments.of(new Condition("!=", 1.0, 1.1)),
-                Arguments.of(new Condition(GREATER_THAN_OR_EQUAL, 1.0, 1.0)),
-                Arguments.of(new Condition(GREATER_THAN_OR_EQUAL, 1.1, 1.0)),
-                Arguments.of(new Condition(LESS_THAN_OR_EQUAL, 1.0, 1.0)),
-                Arguments.of(new Condition(LESS_THAN_OR_EQUAL, 1.0, 1.1)),
-                Arguments.of(new Condition(GREATER_THAN, 1.1, 1.0)),
-                Arguments.of(new Condition(LESS_THAN, 1.0, 1.1)),
+                Arguments.of(new Condition(SYMBOL_GREATER_THAN_OR_EQUAL_TO, 1.0, 1.0)),
+                Arguments.of(new Condition(SYMBOL_GREATER_THAN_OR_EQUAL_TO, 1.1, 1.0)),
+                Arguments.of(new Condition(SYMBOL_LESS_THAN_OR_EQUAL_TO, 1.0, 1.0)),
+                Arguments.of(new Condition(SYMBOL_LESS_THAN_OR_EQUAL_TO, 1.0, 1.1)),
+                Arguments.of(new Condition(SYMBOL_GREATER_THAN, 1.1, 1.0)),
+                Arguments.of(new Condition(SYMBOL_LESS_THAN, 1.0, 1.1)),
 
                 // Boolean conditions
                 Arguments.of(new Condition("notNull", Boolean.TRUE, null)),
@@ -134,8 +134,8 @@ class ConditionResolverIntegrationTest {
                 Arguments.of(new Condition(EQUALS,1, "1")),
                 Arguments.of(new Condition(EQUALS, Boolean.TRUE, "true")),
                 Arguments.of(new Condition(EQUALS, 1.0, "1.0")),
-                Arguments.of(new Condition(EQUAL_TO, 1.0, "1.0")),
-                Arguments.of(new Condition(EQUAL_TO, 1.0, 1)),
+                Arguments.of(new Condition(SYMBOL_EQUAL_TO, 1.0, "1.0")),
+                Arguments.of(new Condition(SYMBOL_EQUAL_TO, 1.0, 1)),
                 Arguments.of(new Condition(TRUE, "true", null)),
 
                 // Date conditions

@@ -3,7 +3,6 @@ package dev.pbroman.brat.core.resolver.condition.rules;
 import static dev.pbroman.brat.core.util.Constants.EQUAL;
 import static dev.pbroman.brat.core.util.Constants.PAST;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
@@ -14,7 +13,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import dev.pbroman.brat.core.data.Condition;
-import dev.pbroman.brat.core.exception.BratException;
 
 class DateConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
 
@@ -48,13 +46,15 @@ class DateConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
     }
 
     @Test
-    void unparsableDate() {
+    void resolve_declinesAnOperandThatIsNotADate() {
         // given
         var condition = new Condition(PAST, "20-12-23", null);
 
+        // when
+        var result = resolver.resolve(condition);
+
         // then
-        assertThatThrownBy(() -> resolver.resolve(condition))
-                .isInstanceOf(BratException.class);
+        assertThat(result).isNull();
     }
 
     @Test
@@ -78,9 +78,11 @@ class DateConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
         var resolverWithCustomFormatter = new DateConditionResolverRule(customFormatter);
         var condition = new Condition(PAST, "2002-12-21", null);
 
+        // when
+        var result = resolverWithCustomFormatter.resolve(condition);
+
         // then
-        assertThatThrownBy(() -> resolverWithCustomFormatter.resolve(condition))
-                .isInstanceOf(BratException.class);
+        assertThat(result).isNull();
     }
 
 }

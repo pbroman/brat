@@ -1,9 +1,7 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
-import static dev.pbroman.brat.core.util.Constants.HEADERS;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE;
-import static dev.pbroman.brat.core.util.Constants.RESPONSE_HEADER_SHORTHAND;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_SHORTHAND;
 
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
@@ -36,8 +34,13 @@ public final class ResponseShorthandInterpolationRule extends AbstractInterpolat
     }
 
     /**
-     * Translates response variable to their respective shorthand versions, e.g. ${response.statusCode} to ${sc}
-     * and ${response.json} to ${rj}. If the variable doesn't match a response variable, it is returned unaltered.
+     * Translates a long-form response variable into its shorthand, e.g. {@code ${response.statusCode}}
+     * to {@code ${sc}} and {@code ${response.json.$.name}} to {@code ${rj.$.name}} — the rule that
+     * actually resolves the value then works on the shorthand alone.
+     * <p>
+     * A variable carrying a path after the response variable keeps it: only the leading segment is
+     * translated, so {@code headers.Content-Type} and {@code json.$.items[0]} come through with
+     * their path intact. If the input is not a response variable at all it is returned unaltered.
      *
      * @param input the variable
      * @param runtimeData not used for this case
@@ -56,10 +59,18 @@ public final class ResponseShorthandInterpolationRule extends AbstractInterpolat
         return patterns.wrapAsVariable(interpolation);
     }
 
+    /**
+     * Translates a response variable carrying a path, which the exact-match lookup could not resolve:
+     * the leading segment is replaced by its shorthand and the rest of the path is kept.
+     *
+     * @throws BratException if the leading segment names no known response variable
+     */
     @Override
     protected String onMissingReplacement(String placeholder, String input) {
-        if (placeholder.startsWith(HEADERS)) {
-            return placeholder.replaceFirst(HEADERS, RESPONSE_HEADER_SHORTHAND);
+        var responseVariable = StringUtils.substringBefore(placeholder, ".");
+        var shorthand = RESPONSE_SHORTHAND.get(responseVariable);
+        if (shorthand != null) {
+            return shorthand + placeholder.substring(responseVariable.length());
         }
         throw new BratException(String.format("The response variable '%s' is not defined.", placeholder));
     }

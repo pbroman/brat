@@ -2,7 +2,6 @@ package dev.pbroman.brat.core.resolver.condition.rules;
 
 import static dev.pbroman.brat.core.util.Constants.EQUAL_TO;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,7 +9,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import dev.pbroman.brat.core.data.Condition;
-import dev.pbroman.brat.core.exception.BratException;
 
 class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
 
@@ -61,13 +59,16 @@ class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
     }
 
     @Test
-    void unparsableNumber() {
-        // given
+    void resolve_declinesAnOperandThatIsNotANumber() {
+        // given — `isEqualTo` is shared with the string and date categories, so a non-numeric
+        // operand is not this rule's to answer: it declines and the dispatcher tries the next rule
         var condition = new Condition(EQUAL_TO, 1, "noNumber");
 
+        // when
+        var result = resolver.resolve(condition);
+
         // then
-        assertThatThrownBy(() -> resolver.resolve(condition))
-                .isInstanceOf(BratException.class);
+        assertThat(result).isNull();
     }
 
 }

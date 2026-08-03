@@ -9,7 +9,10 @@ public interface ConditionResolverRule extends ConditionResolver {
      * Returns the priority of the resolver. Resolvers with higher priority are executed before ones with lower.
      * <p>
      * Priorities 0-100 are reserved for the core code.
-     * </p>
+     * <p>
+     * Priority also decides which rule gets first refusal on a func that several categories answer
+     * to, such as {@code isEqualTo}. The core order is null, date, number, string — string last,
+     * since every value has a string form and it would otherwise never decline.
      *
      * @return the priority
      */

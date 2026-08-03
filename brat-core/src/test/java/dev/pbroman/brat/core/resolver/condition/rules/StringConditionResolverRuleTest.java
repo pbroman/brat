@@ -1,12 +1,15 @@
 package dev.pbroman.brat.core.resolver.condition.rules;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import dev.pbroman.brat.core.data.Condition;
+import dev.pbroman.brat.core.exception.BratException;
 
 class StringConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
 
@@ -59,6 +62,17 @@ class StringConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
 
         // then
         assertThat(result).isFalse();
+    }
+
+    @Test
+    void resolve_wrapsAFailureThatIsNotACategoryMismatch() {
+        // given — this rule owns `matches` and accepts any operands, so a malformed regex is a
+        // genuine failure rather than a reason to decline the condition
+        var condition = new Condition("matches", "abc", "[");
+
+        // when / then
+        assertThatThrownBy(() -> resolver.resolve(condition))
+                .isInstanceOf(BratException.class);
     }
 
 }

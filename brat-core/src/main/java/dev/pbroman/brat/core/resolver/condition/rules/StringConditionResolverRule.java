@@ -10,6 +10,8 @@ import static dev.pbroman.brat.core.util.Constants.CONTAINS;
 import static dev.pbroman.brat.core.util.Constants.EMPTY;
 import static dev.pbroman.brat.core.util.Constants.ENDS_WITH;
 import static dev.pbroman.brat.core.util.Constants.EQUALS;
+import static dev.pbroman.brat.core.util.Constants.EQUAL_TO;
+import static dev.pbroman.brat.core.util.Constants.EQUAL_TO_IGNORING_CASE;
 import static dev.pbroman.brat.core.util.Constants.EQUALS_IGNORE_CASE;
 import static dev.pbroman.brat.core.util.Constants.MATCHES;
 import static dev.pbroman.brat.core.util.Constants.NULL;
@@ -28,8 +30,12 @@ public final class StringConditionResolverRule extends AbstractConditionResolver
     private static Map<String, BiPredicate<Object, Object>> predicates() {
         var predicates = new HashMap<String, BiPredicate<Object, Object>>();
         predicates.put(NULL, (a, b) -> NULL.equals(parse(a)));
-        predicates.put(EQUALS, (a, b) -> parse(a).equals(parse(b)));
-        predicates.put(EQUALS_IGNORE_CASE, (a, b) -> parse(a).equalsIgnoreCase(parse(b)));
+        BiPredicate<Object, Object> equalTo = (a, b) -> parse(a).equals(parse(b));
+        BiPredicate<Object, Object> equalToIgnoringCase = (a, b) -> parse(a).equalsIgnoreCase(parse(b));
+        predicates.put(EQUAL_TO, equalTo);
+        predicates.put(EQUALS, equalTo);
+        predicates.put(EQUAL_TO_IGNORING_CASE, equalToIgnoringCase);
+        predicates.put(EQUALS_IGNORE_CASE, equalToIgnoringCase);
         predicates.put(BLANK, (a, b) -> parse(a).isBlank());
         predicates.put(EMPTY, (a, b) -> parse(a).isEmpty());
         predicates.put(CONTAINS, (a, b) -> parse(a).contains(parse(b)));
@@ -46,6 +52,15 @@ public final class StringConditionResolverRule extends AbstractConditionResolver
     @Override
     public String category() {
         return STRING_CONDITION;
+    }
+
+    /**
+     * The lowest core priority: every value has a string form, so this rule never declines and must
+     * be the last of the categories to be offered a condition.
+     */
+    @Override
+    public int priority() {
+        return 10;
     }
 
     @Override

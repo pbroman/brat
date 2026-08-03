@@ -20,6 +20,12 @@ public class ConditionResolverRuleDispatcher implements ConditionResolver {
 
     protected final List<ConditionResolverRule> resolvers;
 
+    /**
+     * Constructs a dispatcher over the rules, sorted by descending priority — which also decides
+     * which rule gets first refusal on a func several categories answer to.
+     *
+     * @param resolvers the rules to dispatch over
+     */
     public ConditionResolverRuleDispatcher(List<ConditionResolverRule> resolvers) {
         this.resolvers = resolvers.stream()
                 .sorted(Comparator.comparingInt(ConditionResolverRule::priority).reversed())
