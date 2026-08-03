@@ -14,7 +14,7 @@ import java.util.function.Function;
 import com.jayway.jsonpath.JsonPath;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.tools.InterpolationTools;
+import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 import org.apache.commons.lang3.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 
@@ -28,10 +28,10 @@ public final class ResponseJsonInterpolationRule extends AbstractInterpolationRu
     /**
      * Constructs an {@link InterpolationRule} for response json.
      *
-     * @param tools the {@link InterpolationTools}
+     * @param patterns the {@link InterpolationPatterns}
      */
-    public ResponseJsonInterpolationRule(InterpolationTools tools) {
-        super(RESPONSE_JSON_SHORTHAND, tools);
+    public ResponseJsonInterpolationRule(InterpolationPatterns patterns) {
+        super(RESPONSE_JSON_SHORTHAND, patterns);
         this.initFunctionMap();
     }
 
@@ -60,7 +60,7 @@ public final class ResponseJsonInterpolationRule extends AbstractInterpolationRu
         }
         checkInterpolationArgs(input, runtimeData, RESPONSE_VARS);
 
-        var matcher = tools.getGroupingPatternForVariable(RESPONSE_JSON_SHORTHAND).matcher(input);
+        var matcher = patterns.getGroupingPatternForVariable(RESPONSE_JSON_SHORTHAND).matcher(input);
         if (!matcher.find()) {
             return input;
         }

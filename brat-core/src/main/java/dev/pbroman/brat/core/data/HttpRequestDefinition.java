@@ -1,6 +1,6 @@
 package dev.pbroman.brat.core.data;
 
-import dev.pbroman.brat.core.api.RequestDefinition;
+import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.util.ResourceReader;
 import lombok.Getter;

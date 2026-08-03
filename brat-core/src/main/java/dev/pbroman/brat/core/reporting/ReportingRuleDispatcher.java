@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
-import dev.pbroman.brat.core.api.reporting.ReportingEngine;
+import dev.pbroman.brat.core.api.reporting.Reporting;
 import dev.pbroman.brat.core.api.reporting.ReportingRule;
 import dev.pbroman.brat.core.exception.BratException;
 
@@ -15,7 +15,7 @@ import dev.pbroman.brat.core.exception.BratException;
  * Priority-ordered dispatcher over {@link ReportingRule}s: tries each rule in priority order
  * and returns the first non-null report.
  */
-public class ReportingEngineDispatcher implements ReportingEngine {
+public class ReportingRuleDispatcher implements Reporting {
 
     protected final List<ReportingRule> rules;
 
@@ -24,13 +24,13 @@ public class ReportingEngineDispatcher implements ReportingEngine {
      *
      * @param rules the {@link ReportingRule}s
      */
-    public ReportingEngineDispatcher(List<ReportingRule> rules) {
+    public ReportingRuleDispatcher(List<ReportingRule> rules) {
         this.rules = rules.stream().sorted(Comparator.comparingInt(ReportingRule::priority).reversed()).toList();
     }
 
     /**
      * Unlike a single {@link ReportingRule}, the dispatcher never returns {@code null} —
-     * strengthened from {@link ReportingEngine#report}'s general contract to guarantee a report
+     * strengthened from {@link Reporting#report}'s general contract to guarantee a report
      * as long as some rule recognizes {@code kind}.
      *
      * @return the produced report; never {@code null}

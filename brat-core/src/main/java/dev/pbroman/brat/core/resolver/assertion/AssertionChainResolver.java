@@ -3,7 +3,7 @@ package dev.pbroman.brat.core.resolver.assertion;
 import java.util.ArrayList;
 import java.util.List;
 
-import dev.pbroman.brat.core.api.data.ConfigDataInterpolation;
+import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.resolver.AssertionResolver;
 import dev.pbroman.brat.core.api.resolver.ConditionResolver;
@@ -14,14 +14,14 @@ import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 
-public class DefaultAssertionResolver implements AssertionResolver {
+public class AssertionChainResolver implements AssertionResolver {
 
     private final Interpolation interpolation;
     private final ConditionResolver conditionResolver;
-    private final ConfigDataInterpolation<Condition> conditionInterpolation;
+    private final ConfigDataInterpolator<Condition> conditionInterpolation;
 
-    public DefaultAssertionResolver(Interpolation interpolation, ConditionResolver conditionResolver,
-            ConfigDataInterpolation<Condition> conditionInterpolation) {
+    public AssertionChainResolver(Interpolation interpolation, ConditionResolver conditionResolver,
+            ConfigDataInterpolator<Condition> conditionInterpolation) {
         this.interpolation = interpolation;
         this.conditionResolver = conditionResolver;
         this.conditionInterpolation = conditionInterpolation;

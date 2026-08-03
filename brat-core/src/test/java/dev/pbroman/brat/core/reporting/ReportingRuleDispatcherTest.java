@@ -12,14 +12,14 @@ import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.reporting.ReportingRule;
 import dev.pbroman.brat.core.exception.BratException;
 
-class ReportingEngineDispatcherTest {
+class ReportingRuleDispatcherTest {
 
     @Test
     void report_returnsFirstMatchingRuleResult() {
         // given
         ReportingRule declining = (kind, outcomes) -> null;
         ReportingRule matching = (kind, outcomes) -> "matched";
-        var underTest = new ReportingEngineDispatcher(List.of(declining, matching));
+        var underTest = new ReportingRuleDispatcher(List.of(declining, matching));
 
         // when
         var result = underTest.report("any", Map.of());
@@ -48,7 +48,7 @@ class ReportingEngineDispatcherTest {
                 return "high";
             }
         };
-        var underTest = new ReportingEngineDispatcher(List.of(low, high));
+        var underTest = new ReportingRuleDispatcher(List.of(low, high));
 
         // when
         var result = underTest.report("any", Map.of());
@@ -61,7 +61,7 @@ class ReportingEngineDispatcherTest {
     void report_throwsIfNoRuleMatches() {
         // given
         ReportingRule declining = (kind, outcomes) -> null;
-        var underTest = new ReportingEngineDispatcher(List.of(declining));
+        var underTest = new ReportingRuleDispatcher(List.of(declining));
 
         // when / then
         assertThatThrownBy(() -> underTest.report("any", Map.of()))
@@ -71,7 +71,7 @@ class ReportingEngineDispatcherTest {
     @Test
     void report_throwsIfKindIsNull() {
         // given
-        var underTest = new ReportingEngineDispatcher(List.of());
+        var underTest = new ReportingRuleDispatcher(List.of());
 
         // when / then
         assertThatThrownBy(() -> underTest.report(null, Map.of()))

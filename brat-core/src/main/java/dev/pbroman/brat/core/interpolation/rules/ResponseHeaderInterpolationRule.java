@@ -9,7 +9,7 @@ import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.tools.InterpolationTools;
+import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -21,10 +21,10 @@ public final class ResponseHeaderInterpolationRule extends AbstractResponseInter
     /**
      * Constructs an {@link InterpolationRule} for response headers.
      *
-     * @param tools the {@link InterpolationTools}
+     * @param patterns the {@link InterpolationPatterns}
      */
-    public ResponseHeaderInterpolationRule(InterpolationTools tools) {
-        super(RESPONSE_HEADER_SHORTHAND, tools);
+    public ResponseHeaderInterpolationRule(InterpolationPatterns patterns) {
+        super(RESPONSE_HEADER_SHORTHAND, patterns);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

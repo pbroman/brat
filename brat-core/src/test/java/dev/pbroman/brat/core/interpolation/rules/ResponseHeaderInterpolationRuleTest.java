@@ -16,7 +16,7 @@ class ResponseHeaderInterpolationRuleTest extends AbstractInterpolationTest {
 
     @BeforeEach
     void setUp() {
-        underTest = new ResponseHeaderInterpolationRule(tools);
+        underTest = new ResponseHeaderInterpolationRule(patterns);
     }
 
     protected RuntimeData setUpRuntimeData() {

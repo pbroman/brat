@@ -12,10 +12,10 @@ import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.api.secrets.SecretsProviderFactory;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.interpolation.InterpolationHandler;
+import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 import dev.pbroman.brat.core.interpolation.InterpolationRuleDispatcher;
+import dev.pbroman.brat.core.interpolation.InterpolationScanner;
 import dev.pbroman.brat.core.interpolation.rules.SecretsInterpolationRule;
-import dev.pbroman.brat.core.tools.InterpolationTools;
 import tools.jackson.core.JacksonException;
 
 import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnAnyNull;
@@ -52,7 +52,7 @@ public final class SecretsBootstrap {
     public static final String PREFIX_PARAM = "prefix";
 
     private final List<InterpolationRule> bootstrapRules;
-    private final InterpolationTools tools;
+    private final InterpolationPatterns patterns;
     private final UnaryOperator<String> envLookup;
     private final Map<String, SecretsProviderFactory> type2factoryMap = new HashMap<>();
 
@@ -64,7 +64,7 @@ public final class SecretsBootstrap {
      * @param bootstrapRules the interpolation rules provider parameters are resolved with,
      *        typically the {@code constants}, {@code env} and {@code params} rules; the rule
      *        resolving {@code ${secrets.…}} is supplied per step and must not be among them
-     * @param tools the {@link InterpolationTools}
+     * @param patterns the {@link InterpolationPatterns}
      * @throws BratException if any argument is {@code null}, if {@code factories} or
      *         {@code bootstrapRules} holds a {@code null} element, if two factories report the same
      *         {@link SecretsProviderFactory#type()}, or if {@code bootstrapRules} holds a rule
@@ -72,17 +72,17 @@ public final class SecretsBootstrap {
      */
     public SecretsBootstrap(List<SecretsProviderFactory> factories,
                             List<InterpolationRule> bootstrapRules,
-                            InterpolationTools tools) {
-        this(factories, bootstrapRules, tools, System::getenv);
+                            InterpolationPatterns patterns) {
+        this(factories, bootstrapRules, patterns, System::getenv);
     }
 
     SecretsBootstrap(List<SecretsProviderFactory> factories,
                      List<InterpolationRule> bootstrapRules,
-                     InterpolationTools tools,
+                     InterpolationPatterns patterns,
                      UnaryOperator<String> envLookup) {
         bratExceptionOnAnyNull(factories, "factories or any of its values may not be null");
         bratExceptionOnAnyNull(bootstrapRules, "bootstrapRules or any of its values may not be null");
-        bratExceptionOnNull(tools, "tools may not be null");
+        bratExceptionOnNull(patterns, "patterns may not be null");
         if (bootstrapRules.stream().anyMatch(c -> c instanceof SecretsInterpolationRule)) {
             throw new BratException("The bootstrapRules may not contain the SecretsInterpolationRule.");
         }
@@ -92,7 +92,7 @@ public final class SecretsBootstrap {
             }
         }
         this.bootstrapRules = bootstrapRules;
-        this.tools = tools;
+        this.patterns = patterns;
         this.envLookup = envLookup;
     }
 
@@ -184,7 +184,7 @@ public final class SecretsBootstrap {
                                                                     SecretsProvider sysenvProvider) {
         var currentProviders = new ArrayList<>(providers);
         currentProviders.add(sysenvProvider);
-        return new SecretsInterpolationRule(new CompositeSecretsProvider(currentProviders), tools);
+        return new SecretsInterpolationRule(new CompositeSecretsProvider(currentProviders), patterns);
     }
 
     private Map<String, String> interpolateParams(Map<String, String> params,
@@ -192,16 +192,16 @@ public final class SecretsBootstrap {
                                                   RuntimeData runtimeData) {
         var interpolated = new HashMap<>(params);
         for (Map.Entry<String, String> param : interpolated.entrySet()) {
-            var outcome = createInterpolationHandler(secretsInterpolationRule).outcome(param.getValue(), runtimeData);
+            var outcome = createInterpolationScanner(secretsInterpolationRule).outcome(param.getValue(), runtimeData);
             param.setValue(outcome.asString());
         }
         return interpolated;
     }
 
-    private InterpolationHandler createInterpolationHandler(InterpolationRule secretsInterpolationRule) {
+    private InterpolationScanner createInterpolationScanner(InterpolationRule secretsInterpolationRule) {
         var rules = new ArrayList<>(bootstrapRules);
         rules.add(secretsInterpolationRule);
-        return new InterpolationHandler(new InterpolationRuleDispatcher(rules), tools);
+        return new InterpolationScanner(new InterpolationRuleDispatcher(rules), patterns);
     }
 
     private void closeAndThrow(ArrayList<SecretsProvider> providers, String message) {

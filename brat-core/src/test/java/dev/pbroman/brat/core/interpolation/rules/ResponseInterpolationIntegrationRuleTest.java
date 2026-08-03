@@ -14,9 +14,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.interpolation.AbstractInterpolationTest;
 import dev.pbroman.brat.core.interpolation.InterpolationRuleDispatcher;
-import dev.pbroman.brat.core.data.runtime.RuntimeData;
 
 public class ResponseInterpolationIntegrationRuleTest extends AbstractInterpolationTest {
 
@@ -28,10 +28,10 @@ public class ResponseInterpolationIntegrationRuleTest extends AbstractInterpolat
     @BeforeEach
     void setup() {
         underTest = new InterpolationRuleDispatcher(
-                List.of(new ResponseBodyInterpolationRule(tools),
-                        new ResponseHeaderInterpolationRule(tools),
-                        new ResponseShorthandInterpolationRule(tools),
-                        new ResponseStatusCodeInterpolationRule(tools))
+                List.of(new ResponseBodyInterpolationRule(patterns),
+                        new ResponseHeaderInterpolationRule(patterns),
+                        new ResponseShorthandInterpolationRule(patterns),
+                        new ResponseStatusCodeInterpolationRule(patterns))
         );
     }
 

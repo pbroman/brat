@@ -1,4 +1,4 @@
-package dev.pbroman.brat.core.api.data;
+package dev.pbroman.brat.core.api.interpolation;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
@@ -11,7 +11,7 @@ import dev.pbroman.brat.core.exception.BratException;
  *
  * @param <T> the concrete {@link ConfigData} type this implementation interpolates
  */
-public interface ConfigDataInterpolation<T extends ConfigData> {
+public interface ConfigDataInterpolator<T extends ConfigData> {
 
     /**
      * Interpolates every field of {@code target} and returns a new instance.

@@ -10,7 +10,7 @@ import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 
 /**
- * Helper methods shared by {@code ConfigDataInterpolation} implementations.
+ * Helper methods shared by {@code ConfigDataInterpolator} implementations.
  */
 public class ConfigDataInterpolationUtils {
 

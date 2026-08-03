@@ -7,6 +7,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.stream.Stream;
 
+import dev.pbroman.brat.core.interpolation.configdata.AuthInterpolator;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -20,7 +22,7 @@ class AuthTest extends AbstractConfigDataTest {
     static Auth authBearer = new Auth(AUTH_TYPE_BEARER, "token");
     static Auth authApiKey = new Auth(AUTH_TYPE_APIKEY, "apiKey");
 
-    AuthInterpolation authInterpolation = new AuthInterpolation();
+    AuthInterpolator authInterpolation = new AuthInterpolator();
 
     @Test
     void interpolatedBasic_isCorrect() {

@@ -1,4 +1,4 @@
-package dev.pbroman.brat.core.data;
+package dev.pbroman.brat.core.interpolation.configdata;
 
 import static org.apache.hc.core5.http.HttpHeaders.CONTENT_TYPE;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -12,14 +12,16 @@ import org.junit.jupiter.api.Test;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import dev.pbroman.brat.core.data.Auth;
+import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 
-class HttpRequestDefinitionInterpolationTest {
+class HttpRequestDefinitionInterpolatorTest {
 
     Interpolation interpolation = (input, runtimeData) -> new InterpolationOutcome(input + "-i", input + "-i");
     RuntimeData runtimeData = mock(RuntimeData.class);
-    HttpRequestDefinitionInterpolation underTest = new HttpRequestDefinitionInterpolation(new AuthInterpolation());
+    HttpRequestDefinitionInterpolator underTest = new HttpRequestDefinitionInterpolator(new AuthInterpolator());
 
     HttpRequestDefinition validRequest;
 

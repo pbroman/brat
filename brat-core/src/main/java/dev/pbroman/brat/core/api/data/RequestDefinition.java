@@ -1,4 +1,4 @@
-package dev.pbroman.brat.core.api;
+package dev.pbroman.brat.core.api.data;
 
 /**
  * Marker interface for a request definition — the type bound narrowing what a request handler

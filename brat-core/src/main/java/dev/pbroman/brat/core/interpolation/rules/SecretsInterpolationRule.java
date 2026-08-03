@@ -5,7 +5,7 @@ import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.tools.InterpolationTools;
+import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 
 import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
 import static dev.pbroman.brat.core.util.Constants.SECRETS;
@@ -25,21 +25,21 @@ public final class SecretsInterpolationRule implements InterpolationRule {
 
     private final SecretsProvider provider;
 
-    private final InterpolationTools tools;
+    private final InterpolationPatterns patterns;
 
     /**
      * Constructs a rule resolving against a provider.
      *
      * @param provider the provider to resolve secrets against, typically a
      *        {@link dev.pbroman.brat.core.secrets.CompositeSecretsProvider}
-     * @param tools the {@link InterpolationTools}
-     * @throws BratException if {@code provider} or {@code tools} is {@code null}
+     * @param patterns the {@link InterpolationPatterns}
+     * @throws BratException if {@code provider} or {@code patterns} is {@code null}
      */
-    public SecretsInterpolationRule(SecretsProvider provider, InterpolationTools tools) {
+    public SecretsInterpolationRule(SecretsProvider provider, InterpolationPatterns patterns) {
         bratExceptionOnNull(provider, "The secrets provider must be set");
-        bratExceptionOnNull(tools, "The interpolation tools must be set");
+        bratExceptionOnNull(patterns, "The interpolation patterns must be set");
         this.provider = provider;
-        this.tools = tools;
+        this.patterns = patterns;
     }
 
     /**
@@ -72,7 +72,7 @@ public final class SecretsInterpolationRule implements InterpolationRule {
     public InterpolationOutcome outcome(String input, RuntimeData runtimeData) {
         bratExceptionOnNull(input, "Cannot interpolate a null input");
         checkInterpolationArgs(input, runtimeData);
-        var matcher = tools.getGroupingPatternForVariable(SECRETS).matcher(input);
+        var matcher = patterns.getGroupingPatternForVariable(SECRETS).matcher(input);
         if (!matcher.find()) {
             return new InterpolationOutcome(input, input);
         }

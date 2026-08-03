@@ -10,12 +10,12 @@ import dev.pbroman.brat.core.data.ResponseActions;
 import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 
-public class DefaultResponseHandler implements ResponseHandler {
+public class ResponseActionsHandler implements ResponseHandler {
 
     private final Interpolation interpolation;
     private final AssertionResolver assertionResolver;
 
-    public DefaultResponseHandler(Interpolation interpolation,
+    public ResponseActionsHandler(Interpolation interpolation,
                                   AssertionResolver assertionResolver) {
         this.interpolation = interpolation;
         this.assertionResolver = assertionResolver;

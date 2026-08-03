@@ -4,7 +4,7 @@ import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.tools.InterpolationTools;
+import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.Map;
@@ -34,18 +34,18 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
 
     protected final String interpolationKey;
 
-    protected final InterpolationTools tools;
+    protected final InterpolationPatterns patterns;
 
     /**
-     * Constructs an {@link InterpolationRule} with a key and {@link InterpolationTools}.
+     * Constructs an {@link InterpolationRule} with a key and {@link InterpolationPatterns}.
      *
      * @param interpolationKey the interpolation key
-     * @param tools the tools
+     * @param patterns the patterns
      */
-    protected AbstractInterpolationRule(String interpolationKey, InterpolationTools tools) {
+    protected AbstractInterpolationRule(String interpolationKey, InterpolationPatterns patterns) {
         bratExceptionOnNull(interpolationKey, "The pattern of the interpolation must be set");
         this.interpolationKey = interpolationKey;
-        this.tools = tools;
+        this.patterns = patterns;
     }
 
     /**
@@ -120,7 +120,7 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
         if (StringUtils.isBlank(input)) {
             return input;
         }
-        var matcher = tools.getGroupingPatternForVariable(interpolationKey).matcher(input);
+        var matcher = patterns.getGroupingPatternForVariable(interpolationKey).matcher(input);
         if (values == null || !matcher.find()) {
             return input;
         }

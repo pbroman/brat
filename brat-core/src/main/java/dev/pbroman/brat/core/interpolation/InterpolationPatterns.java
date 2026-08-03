@@ -1,18 +1,17 @@
-package dev.pbroman.brat.core.tools;
+package dev.pbroman.brat.core.interpolation;
 
 import static dev.pbroman.brat.core.util.Constants.VARIABLE_GROUP_NAME;
 
 import java.util.regex.Pattern;
 
-import dev.pbroman.brat.core.properties.InterpolationProperties;
 import lombok.Getter;
 
-public class InterpolationTools {
+public class InterpolationPatterns {
 
     @Getter
     private final InterpolationProperties properties;
 
-    public InterpolationTools(InterpolationProperties properties) {
+    public InterpolationPatterns(InterpolationProperties properties) {
         this.properties = properties;
     }
 

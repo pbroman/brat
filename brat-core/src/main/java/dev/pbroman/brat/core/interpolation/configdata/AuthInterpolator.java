@@ -1,4 +1,4 @@
-package dev.pbroman.brat.core.data;
+package dev.pbroman.brat.core.interpolation.configdata;
 
 import static dev.pbroman.brat.core.util.ConfigDataInterpolationUtils.asStringOrNull;
 import static dev.pbroman.brat.core.util.ConfigDataInterpolationUtils.checkNotInterpolated;
@@ -6,15 +6,16 @@ import static dev.pbroman.brat.core.util.ConfigDataInterpolationUtils.interpolat
 
 import java.util.LinkedHashMap;
 
-import dev.pbroman.brat.core.api.data.ConfigDataInterpolation;
+import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 
 /**
  * Interpolates every field of an {@link Auth}.
  */
-public final class AuthInterpolation implements ConfigDataInterpolation<Auth> {
+public final class AuthInterpolator implements ConfigDataInterpolator<Auth> {
 
     @Override
     public Auth interpolated(Auth target, Interpolation interpolation, RuntimeData runtimeData) {

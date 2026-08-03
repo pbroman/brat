@@ -1,4 +1,4 @@
-package dev.pbroman.brat.core.data;
+package dev.pbroman.brat.core.interpolation.configdata;
 
 import static dev.pbroman.brat.core.util.ConfigDataInterpolationUtils.asStringOrNull;
 import static dev.pbroman.brat.core.util.ConfigDataInterpolationUtils.checkNotInterpolated;
@@ -8,19 +8,21 @@ import static dev.pbroman.brat.core.util.ConfigDataInterpolationUtils.interpolat
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import dev.pbroman.brat.core.api.data.ConfigDataInterpolation;
+import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import dev.pbroman.brat.core.data.Auth;
+import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 
 /**
  * Interpolates every field of an {@link HttpRequestDefinition}.
  */
-public final class HttpRequestDefinitionInterpolation implements ConfigDataInterpolation<HttpRequestDefinition> {
+public final class HttpRequestDefinitionInterpolator implements ConfigDataInterpolator<HttpRequestDefinition> {
 
-    private final ConfigDataInterpolation<Auth> authInterpolation;
+    private final ConfigDataInterpolator<Auth> authInterpolation;
 
-    public HttpRequestDefinitionInterpolation(ConfigDataInterpolation<Auth> authInterpolation) {
+    public HttpRequestDefinitionInterpolator(ConfigDataInterpolator<Auth> authInterpolation) {
         this.authInterpolation = authInterpolation;
     }
 

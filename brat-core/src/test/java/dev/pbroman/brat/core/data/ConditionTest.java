@@ -2,13 +2,15 @@ package dev.pbroman.brat.core.data;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.pbroman.brat.core.interpolation.configdata.ConditionInterpolator;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class ConditionTest extends AbstractConfigDataTest {
 
     Condition validCondition = new Condition("func", "a", "b");
-    ConditionInterpolation conditionInterpolation = new ConditionInterpolation();
+    ConditionInterpolator conditionInterpolation = new ConditionInterpolator();
 
     @BeforeEach
     @Test

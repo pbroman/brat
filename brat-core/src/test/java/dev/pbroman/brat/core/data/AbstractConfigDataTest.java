@@ -8,7 +8,7 @@ import static org.mockito.Mockito.when;
 
 import org.junit.jupiter.api.BeforeEach;
 
-import dev.pbroman.brat.core.api.data.ConfigDataInterpolation;
+import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
@@ -28,7 +28,7 @@ abstract class AbstractConfigDataTest {
     }
 
     protected <T extends ConfigData> void assertInterpolatedThrowsExceptionIfCopy(
-            T configData, ConfigDataInterpolation<T> configDataInterpolation) {
+            T configData, ConfigDataInterpolator<T> configDataInterpolation) {
         // given
         var interpolated = configDataInterpolation.interpolated(configData, interpolation, runtimeData);
 

@@ -6,7 +6,7 @@ import static dev.pbroman.brat.core.util.Constants.PARAMS;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.tools.InterpolationTools;
+import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 
 /**
  * An {@link InterpolationRule} for execution-time parameters — values injected at suite launch
@@ -19,10 +19,10 @@ public final class ParamsInterpolationRule extends AbstractInterpolationRule {
     /**
      * Constructs an {@link InterpolationRule} for execution-time parameters.
      *
-     * @param tools the {@link InterpolationTools}
+     * @param patterns the {@link InterpolationPatterns}
      */
-    public ParamsInterpolationRule(InterpolationTools tools) {
-        super(PARAMS, tools);
+    public ParamsInterpolationRule(InterpolationPatterns patterns) {
+        super(PARAMS, patterns);
     }
 
     @Override

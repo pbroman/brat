@@ -9,7 +9,7 @@ import static dev.pbroman.brat.core.util.Constants.RESPONSE_SHORTHAND;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.tools.InterpolationTools;
+import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 import org.apache.commons.lang3.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 
@@ -24,10 +24,10 @@ public final class ResponseShorthandInterpolationRule extends AbstractInterpolat
     /**
      * Constructs an {@link InterpolationRule} translating response variables to shorthand.
      *
-     * @param tools the {@link InterpolationTools}
+     * @param patterns the {@link InterpolationPatterns}
      */
-    public ResponseShorthandInterpolationRule(InterpolationTools tools) {
-        super(RESPONSE, tools);
+    public ResponseShorthandInterpolationRule(InterpolationPatterns patterns) {
+        super(RESPONSE, patterns);
     }
 
     @Override
@@ -50,10 +50,10 @@ public final class ResponseShorthandInterpolationRule extends AbstractInterpolat
         }
         checkInterpolationArgs(input, runtimeData);
         var interpolation = simpleInterpolation(input, runtimeData, RESPONSE_SHORTHAND);
-        if (tools.getVariablePattern().matcher(interpolation).find()) {
+        if (patterns.getVariablePattern().matcher(interpolation).find()) {
             return interpolation;
         }
-        return tools.wrapAsVariable(interpolation);
+        return patterns.wrapAsVariable(interpolation);
     }
 
     @Override

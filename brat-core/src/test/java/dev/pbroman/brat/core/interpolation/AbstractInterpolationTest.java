@@ -15,8 +15,8 @@ import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.properties.InterpolationProperties;
-import dev.pbroman.brat.core.tools.InterpolationTools;
+import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
+import dev.pbroman.brat.core.interpolation.InterpolationProperties;
 
 public abstract class AbstractInterpolationTest {
 
@@ -26,7 +26,7 @@ public abstract class AbstractInterpolationTest {
 
     protected final InterpolationProperties properties = new InterpolationProperties();
 
-    protected final InterpolationTools tools = new InterpolationTools(properties);
+    protected final InterpolationPatterns patterns = new InterpolationPatterns(properties);
 
     protected RuntimeData runtimeData;
 

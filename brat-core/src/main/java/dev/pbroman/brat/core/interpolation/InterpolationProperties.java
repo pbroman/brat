@@ -1,4 +1,4 @@
-package dev.pbroman.brat.core.properties;
+package dev.pbroman.brat.core.interpolation;
 
 import lombok.Getter;
 import lombok.Setter;

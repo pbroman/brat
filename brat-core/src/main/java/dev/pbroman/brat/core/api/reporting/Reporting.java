@@ -8,7 +8,7 @@ import dev.pbroman.brat.core.exception.BratException;
 /**
  * Produces a rendered report from a set of named interpolation outcomes.
  */
-public interface ReportingEngine {
+public interface Reporting {
 
     /**
      * Produces a report of {@code outcomes} in the shape identified by {@code kind}.

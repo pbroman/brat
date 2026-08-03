@@ -13,7 +13,7 @@ class ConstantsInterpolationRuleTest extends AbstractInterpolationTest {
 
     @BeforeEach
     void setUp() {
-        underTest = new ConstantsInterpolationRule(tools);
+        underTest = new ConstantsInterpolationRule(patterns);
     }
 
     @Test

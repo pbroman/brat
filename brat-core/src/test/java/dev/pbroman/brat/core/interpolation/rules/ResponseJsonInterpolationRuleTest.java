@@ -11,8 +11,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import dev.pbroman.brat.core.interpolation.AbstractInterpolationTest;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.interpolation.AbstractInterpolationTest;
 
 public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest {
 
@@ -53,7 +53,7 @@ public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest
 
     @BeforeEach
     void setup() {
-        underTest = new ResponseJsonInterpolationRule(tools);
+        underTest = new ResponseJsonInterpolationRule(patterns);
     }
 
     @ParameterizedTest

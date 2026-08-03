@@ -19,7 +19,7 @@ class ResponseBodyInterpolationRuleTest extends AbstractInterpolationTest {
 
     @BeforeEach
     void setUp() {
-        underTest = new ResponseBodyInterpolationRule(tools);
+        underTest = new ResponseBodyInterpolationRule(patterns);
     }
 
     protected RuntimeData setUpRuntimeData() {

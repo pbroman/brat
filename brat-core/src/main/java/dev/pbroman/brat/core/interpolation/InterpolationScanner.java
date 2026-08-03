@@ -7,28 +7,27 @@ import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.tools.InterpolationTools;
 
 /**
  * Top-level {@link Interpolation} entry point: finds every {@code ${...}} token in a whole
  * field string, resolves each in isolation via the {@link InterpolationRuleDispatcher}, and
  * splices the results back into the original string.
  */
-public class InterpolationHandler implements Interpolation {
+public class InterpolationScanner implements Interpolation {
 
     private final Interpolation dispatcher;
 
-    private final InterpolationTools tools;
+    private final InterpolationPatterns patterns;
 
     /**
-     * Constructs an interpolation handler with a dispatcher and {@link InterpolationTools}.
+     * Constructs an interpolation handler with a dispatcher and {@link InterpolationPatterns}.
      *
      * @param dispatcher the interpolation dispatcher
-     * @param tools the {@link InterpolationTools}
+     * @param patterns the {@link InterpolationPatterns}
      */
-    public InterpolationHandler(Interpolation dispatcher, InterpolationTools tools) {
+    public InterpolationScanner(Interpolation dispatcher, InterpolationPatterns patterns) {
         this.dispatcher = dispatcher;
-        this.tools = tools;
+        this.patterns = patterns;
     }
 
     /**
@@ -55,7 +54,7 @@ public class InterpolationHandler implements Interpolation {
     public InterpolationOutcome outcome(String input, RuntimeData runtimeData) {
         bratExceptionOnNull(input, "Cannot interpolate a null input");
         checkInterpolationArgs(input, runtimeData);
-        var matcher = tools.getVariablePattern().matcher(input);
+        var matcher = patterns.getVariablePattern().matcher(input);
         var value = input;
         var maskedFinal = input;
         var containsSecret = false;

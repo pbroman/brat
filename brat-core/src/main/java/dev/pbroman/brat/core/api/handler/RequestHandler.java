@@ -1,8 +1,8 @@
 package dev.pbroman.brat.core.api.handler;
 
-import dev.pbroman.brat.core.api.RequestDefinition;
-import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.data.result.HttpResponse;
+import dev.pbroman.brat.core.exception.BratException;
 
 /**
  * Executes a {@link RequestDefinition} against its protocol and returns the result — one

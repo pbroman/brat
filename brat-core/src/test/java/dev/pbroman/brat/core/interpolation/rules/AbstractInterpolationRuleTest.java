@@ -10,19 +10,19 @@ import org.junit.jupiter.api.Test;
 
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.properties.InterpolationProperties;
-import dev.pbroman.brat.core.tools.InterpolationTools;
+import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
+import dev.pbroman.brat.core.interpolation.InterpolationProperties;
 
 class AbstractInterpolationRuleTest {
 
-    private final InterpolationTools tools = new InterpolationTools(new InterpolationProperties());
+    private final InterpolationPatterns patterns = new InterpolationPatterns(new InterpolationProperties());
 
     private final RuntimeData runtimeData = new RuntimeData(Map.of(), Map.of());
 
     @Test
     void outcome_reportsSubstitutionWhenValueChanges() {
         // given
-        var rule = new StubInterpolationRule(tools, input -> "resolved");
+        var rule = new StubInterpolationRule(patterns, input -> "resolved");
 
         // when
         var outcome = rule.outcome("${stub.key}", runtimeData);
@@ -35,7 +35,7 @@ class AbstractInterpolationRuleTest {
     @Test
     void outcome_reportsInputUnchangedWhenNothingWasSubstituted() {
         // given
-        var rule = new StubInterpolationRule(tools, Function.identity());
+        var rule = new StubInterpolationRule(patterns, Function.identity());
 
         // when
         var outcome = rule.outcome("${stub.key}", runtimeData);
@@ -48,7 +48,7 @@ class AbstractInterpolationRuleTest {
     @Test
     void outcome_propagatesExceptionFromResolve() {
         // given
-        var rule = new StubInterpolationRule(tools, input -> {
+        var rule = new StubInterpolationRule(patterns, input -> {
             throw new BratException("boom");
         });
 
@@ -61,8 +61,8 @@ class AbstractInterpolationRuleTest {
 
         private final Function<String, String> resolveFunction;
 
-        StubInterpolationRule(InterpolationTools tools, Function<String, String> resolveFunction) {
-            super("stub", tools);
+        StubInterpolationRule(InterpolationPatterns patterns, Function<String, String> resolveFunction) {
+            super("stub", patterns);
             this.resolveFunction = resolveFunction;
         }
 
@@ -75,7 +75,7 @@ class AbstractInterpolationRuleTest {
     @Test
     void simpleInterpolation_resolvesDirectKeyWithoutFallback() {
         // given
-        var rule = new FallbackStubInterpolationRule(tools, Map.of("threadCount", "5"));
+        var rule = new FallbackStubInterpolationRule(patterns, Map.of("threadCount", "5"));
 
         // when
         var result = rule.outcome("${stub.threadCount}", runtimeData);
@@ -87,7 +87,7 @@ class AbstractInterpolationRuleTest {
     @Test
     void simpleInterpolation_fallsBackToLiteralDefault() {
         // given
-        var rule = new FallbackStubInterpolationRule(tools, Map.of());
+        var rule = new FallbackStubInterpolationRule(patterns, Map.of());
 
         // when
         var result = rule.outcome("${stub.threadCount:-10}", runtimeData);
@@ -99,7 +99,7 @@ class AbstractInterpolationRuleTest {
     @Test
     void simpleInterpolation_fallsBackToAnotherNamespace() {
         // given
-        var rule = new FallbackStubInterpolationRule(tools, Map.of());
+        var rule = new FallbackStubInterpolationRule(patterns, Map.of());
         var data = new RuntimeData(Map.of(), Map.of("threadCount", "7"));
 
         // when
@@ -112,7 +112,7 @@ class AbstractInterpolationRuleTest {
     @Test
     void simpleInterpolation_chainsMultipleFallbacksLeftToRight() {
         // given
-        var rule = new FallbackStubInterpolationRule(tools, Map.of());
+        var rule = new FallbackStubInterpolationRule(patterns, Map.of());
         var data = new RuntimeData(Map.of(), Map.of());
 
         // when
@@ -125,7 +125,7 @@ class AbstractInterpolationRuleTest {
     @Test
     void simpleInterpolation_treatsUnrecognizedNamespaceSegmentAsLiteral() {
         // given
-        var rule = new FallbackStubInterpolationRule(tools, Map.of());
+        var rule = new FallbackStubInterpolationRule(patterns, Map.of());
 
         // when
         var result = rule.outcome("${stub.threadCount:-notANamespace.thing}", runtimeData);
@@ -137,7 +137,7 @@ class AbstractInterpolationRuleTest {
     @Test
     void simpleInterpolation_throwsWhenChainExhaustedWithNoLiteral() {
         // given
-        var rule = new FallbackStubInterpolationRule(tools, Map.of());
+        var rule = new FallbackStubInterpolationRule(patterns, Map.of());
         var data = new RuntimeData(Map.of(), Map.of());
 
         // then
@@ -149,8 +149,8 @@ class AbstractInterpolationRuleTest {
 
         private final Map<String, ?> values;
 
-        FallbackStubInterpolationRule(InterpolationTools tools, Map<String, ?> values) {
-            super("stub", tools);
+        FallbackStubInterpolationRule(InterpolationPatterns patterns, Map<String, ?> values) {
+            super("stub", patterns);
             this.values = values;
         }
 

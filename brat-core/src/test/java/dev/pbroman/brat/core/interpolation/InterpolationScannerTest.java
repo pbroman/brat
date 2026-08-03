@@ -11,11 +11,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.pbroman.brat.core.exception.BratException;
 
-class InterpolationHandlerTest extends AbstractInterpolationTest {
+class InterpolationScannerTest extends AbstractInterpolationTest {
 
     @BeforeEach
     void setUp() {
-        underTest = new InterpolationHandler(mockRule, tools);
+        underTest = new InterpolationScanner(mockRule, patterns);
     }
 
     @Test

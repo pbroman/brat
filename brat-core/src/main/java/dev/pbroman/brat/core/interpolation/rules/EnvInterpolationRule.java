@@ -6,7 +6,7 @@ import static dev.pbroman.brat.core.util.Constants.ENV;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.tools.InterpolationTools;
+import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 
 /**
  * An {@link InterpolationRule} for environment values.
@@ -16,10 +16,10 @@ public final class EnvInterpolationRule extends AbstractInterpolationRule {
     /**
      * Constructs an {@link InterpolationRule} for environment values.
      *
-     * @param tools the {@link InterpolationTools}
+     * @param patterns the {@link InterpolationPatterns}
      */
-    public EnvInterpolationRule(InterpolationTools tools) {
-        super(ENV, tools);
+    public EnvInterpolationRule(InterpolationPatterns patterns) {
+        super(ENV, patterns);
     }
 
     @Override
