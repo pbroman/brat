@@ -18,9 +18,9 @@ import dev.pbroman.brat.core.interpolation.InterpolationScanner;
 import dev.pbroman.brat.core.interpolation.rules.SecretsInterpolationRule;
 import tools.jackson.core.JacksonException;
 
-import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnAnyNull;
-import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
 import static dev.pbroman.brat.core.util.JacksonUtils.locationOf;
+import static dev.pbroman.brat.core.util.Require.noNullElements;
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * Builds the chain of secrets providers described by a {@link SecretsProviderConfig}.
@@ -80,9 +80,9 @@ public final class SecretsBootstrap {
                      List<InterpolationRule> bootstrapRules,
                      InterpolationPatterns patterns,
                      UnaryOperator<String> envLookup) {
-        bratExceptionOnAnyNull(factories, "factories or any of its values may not be null");
-        bratExceptionOnAnyNull(bootstrapRules, "bootstrapRules or any of its values may not be null");
-        bratExceptionOnNull(patterns, "patterns may not be null");
+        noNullElements(factories, "factories or any of its values may not be null");
+        noNullElements(bootstrapRules, "bootstrapRules or any of its values may not be null");
+        nonNull(patterns, "patterns may not be null");
         if (bootstrapRules.stream().anyMatch(c -> c instanceof SecretsInterpolationRule)) {
             throw new BratException("The bootstrapRules may not contain the SecretsInterpolationRule.");
         }
@@ -126,8 +126,8 @@ public final class SecretsBootstrap {
      *         halfway leaks nothing
      */
     public CompositeSecretsProvider build(SecretsProviderConfig config, RuntimeData runtimeData) {
-        bratExceptionOnNull(config, "The config may not be null");
-        bratExceptionOnNull(runtimeData, "The runtimeData may not be null");
+        nonNull(config, "The config may not be null");
+        nonNull(runtimeData, "The runtimeData may not be null");
         var sourceTypesNotAvailable = config.sources().stream()
                 .map(SecretsSource::type).filter(type -> !type2factoryMap.containsKey(type)).toList();
         if (!sourceTypesNotAvailable.isEmpty()) {

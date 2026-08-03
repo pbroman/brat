@@ -1,7 +1,7 @@
 package dev.pbroman.brat.core.interpolation.configdata;
 
-import static dev.pbroman.brat.core.util.ConfigDataInterpolationUtils.checkNotInterpolated;
-import static dev.pbroman.brat.core.util.ConfigDataInterpolationUtils.interpolateIfPresent;
+import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
+import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateIfPresent;
 
 import java.util.LinkedHashMap;
 

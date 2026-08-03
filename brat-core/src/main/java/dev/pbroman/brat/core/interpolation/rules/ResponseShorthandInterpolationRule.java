@@ -1,6 +1,6 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
+import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
 import static dev.pbroman.brat.core.util.Constants.HEADERS;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_HEADER_SHORTHAND;
@@ -48,7 +48,7 @@ public final class ResponseShorthandInterpolationRule extends AbstractInterpolat
         if (StringUtils.isBlank(input)) {
             return input;
         }
-        checkInterpolationArgs(input, runtimeData);
+        requireNamespaces(runtimeData);
         var interpolation = simpleInterpolation(input, runtimeData, RESPONSE_SHORTHAND);
         if (patterns.getVariablePattern().matcher(interpolation).find()) {
             return interpolation;

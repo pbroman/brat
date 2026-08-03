@@ -1,4 +1,4 @@
-package dev.pbroman.brat.core.util;
+package dev.pbroman.brat.core.interpolation.configdata;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -26,7 +26,7 @@ class ConfigDataInterpolationUtilsTest {
         var auth = new Auth();
 
         // when / then
-        ConfigDataInterpolationUtils.checkNotInterpolated(auth);
+        InterpolatorUtils.checkNotInterpolated(auth);
     }
 
     @Test
@@ -35,7 +35,7 @@ class ConfigDataInterpolationUtilsTest {
         var auth = new Auth("none", null, null, null, Map.of());
 
         // when / then
-        assertThatThrownBy(() -> ConfigDataInterpolationUtils.checkNotInterpolated(auth))
+        assertThatThrownBy(() -> InterpolatorUtils.checkNotInterpolated(auth))
                 .isInstanceOf(BratException.class);
     }
 
@@ -45,7 +45,7 @@ class ConfigDataInterpolationUtilsTest {
         var map = Map.of("key", "value");
 
         // when
-        var result = ConfigDataInterpolationUtils.interpolateMapWithOutcomes(interpolation, runtimeData, map);
+        var result = InterpolatorUtils.interpolateMapWithOutcomes(interpolation, runtimeData, map);
 
         // then
         assertThat(result.get("key").value()).isEqualTo("value-resolved");
@@ -54,7 +54,7 @@ class ConfigDataInterpolationUtilsTest {
     @Test
     void interpolateMapWithOutcomes_returnsEmptyMapIfMapIsNull() {
         // when
-        var result = ConfigDataInterpolationUtils.interpolateMapWithOutcomes(interpolation, runtimeData, null);
+        var result = InterpolatorUtils.interpolateMapWithOutcomes(interpolation, runtimeData, null);
 
         // then
         assertThat(result).isEmpty();
@@ -66,7 +66,7 @@ class ConfigDataInterpolationUtilsTest {
         var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
 
         // when
-        var outcome = ConfigDataInterpolationUtils.interpolateIfPresent(interpolation, runtimeData, outcomes, "field", "value");
+        var outcome = InterpolatorUtils.interpolateIfPresent(interpolation, runtimeData, outcomes, "field", "value");
 
         // then
         assertThat(outcome.value()).isEqualTo("value-resolved");
@@ -79,7 +79,7 @@ class ConfigDataInterpolationUtilsTest {
         var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
 
         // when
-        var outcome = ConfigDataInterpolationUtils.interpolateIfPresent(interpolation, runtimeData, outcomes, "field", null);
+        var outcome = InterpolatorUtils.interpolateIfPresent(interpolation, runtimeData, outcomes, "field", null);
 
         // then
         assertThat(outcome).isNull();
@@ -92,13 +92,13 @@ class ConfigDataInterpolationUtilsTest {
         var outcome = new InterpolationOutcome("value", "value");
 
         // when / then
-        assertThat(ConfigDataInterpolationUtils.asStringOrNull(outcome)).isEqualTo("value");
+        assertThat(InterpolatorUtils.asStringOrNull(outcome)).isEqualTo("value");
     }
 
     @Test
     void asStringOrNull_returnsNullIfOutcomeIsNull() {
         // when / then
-        assertThat(ConfigDataInterpolationUtils.asStringOrNull(null)).isNull();
+        assertThat(InterpolatorUtils.asStringOrNull(null)).isNull();
     }
 
 }

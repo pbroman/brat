@@ -1,6 +1,6 @@
 package dev.pbroman.brat.core.reporting;
 
-import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 import java.util.Comparator;
 import java.util.List;
@@ -38,7 +38,7 @@ public class ReportingRuleDispatcher implements Reporting {
      */
     @Override
     public String report(String kind, Map<String, InterpolationOutcome> outcomes) {
-        bratExceptionOnNull(kind, "Cannot produce a report for a null kind");
+        nonNull(kind, "Cannot produce a report for a null kind");
         for (var rule : rules) {
             var result = rule.report(kind, outcomes);
             if (result != null) {

@@ -10,9 +10,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiPredicate;
 
-import static dev.pbroman.brat.core.util.CheckUtils.checkCondition;
 import static dev.pbroman.brat.core.util.Constants.IS_PREFIX;
 import static dev.pbroman.brat.core.util.Constants.NEGATION_PATTERN;
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * Abstract implementation of the {@link ConditionResolverRule} providing basic functionality.
@@ -30,7 +30,7 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
 
     @Override
     public Boolean resolve(Condition condition) {
-        checkCondition(condition);
+        nonNull(condition, "The condition may not be null");
         var prepared = prepare(condition.getFunc());
         if (predicateMap.containsKey(prepared.function())) {
             nullCheckB(condition, prepared.function());

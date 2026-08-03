@@ -9,7 +9,7 @@ import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 
-import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * Priority-ordered, chaining dispatcher over {@link InterpolationRule}s: each rule's outcome
@@ -50,7 +50,7 @@ public class InterpolationRuleDispatcher implements Interpolation {
      */
     @Override
     public InterpolationOutcome outcome(String input, RuntimeData runtimeData) {
-        bratExceptionOnNull(input, "Cannot interpolate a null input");
+        nonNull(input, "Cannot interpolate a null input");
         var current = input;
         var containsSecret = false;
         for (var rule : rules) {

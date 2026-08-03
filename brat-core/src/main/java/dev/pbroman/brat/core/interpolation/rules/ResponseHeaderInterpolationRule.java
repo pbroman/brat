@@ -1,6 +1,6 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
+import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
 import static dev.pbroman.brat.core.util.Constants.HEADERS;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_HEADER_SHORTHAND;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
@@ -30,7 +30,7 @@ public final class ResponseHeaderInterpolationRule extends AbstractResponseInter
     @SuppressWarnings({"unchecked", "rawtypes"})
     @Override
     public String resolve(String input, RuntimeData runtimeData) {
-        checkInterpolationArgs(input, runtimeData, RESPONSE_VARS);
+        requireNamespaces(runtimeData, RESPONSE_VARS);
         if (runtimeData.getResponseVars().get(HEADERS) instanceof Map headers) {
             return simpleInterpolation(input, runtimeData, headers);
         }

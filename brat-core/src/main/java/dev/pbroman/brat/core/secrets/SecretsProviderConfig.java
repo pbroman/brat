@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 import dev.pbroman.brat.core.exception.BratException;
 import org.apache.commons.lang3.StringUtils;
 
-import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * The configuration a chain of secrets providers is built from: the parameters each provider type
@@ -42,13 +42,13 @@ public record SecretsProviderConfig(Map<String, Map<String, String>> providerPar
      *         key or a {@code null} value, or if {@code sources} holds a {@code null} element
      */
     public SecretsProviderConfig {
-        bratExceptionOnNull(providerParams, "The provider params must not be null");
-        bratExceptionOnNull(sources, "The sources must not be null");
+        nonNull(providerParams, "The provider params must not be null");
+        nonNull(sources, "The sources must not be null");
         providerParams.forEach((type, params) -> {
             if (StringUtils.isBlank(type)) {
                 throw new BratException("A provider type must not be null or blank");
             }
-            bratExceptionOnNull(params, "The params of provider type '" + type + "' must not be null");
+            nonNull(params, "The params of provider type '" + type + "' must not be null");
             params.forEach((key, value) -> {
                 if (StringUtils.isBlank(key) || value == null) {
                     throw new BratException("Param keys must not be null or blank and values must not be null,"

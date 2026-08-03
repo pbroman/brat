@@ -12,8 +12,8 @@ import tools.jackson.core.JsonParser;
 import tools.jackson.core.JsonToken;
 import tools.jackson.dataformat.yaml.YAMLMapper;
 
-import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
 import static dev.pbroman.brat.core.util.JacksonUtils.locationOf;
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * Reads a YAML document into a flat map of dotted keys to their values as text.
@@ -55,7 +55,7 @@ public final class FlatYamlLoader {
      *         {@code db: {password: x}} does with {@code "db.password": y} in the same document
      */
     public static Map<String, String> load(String yaml) {
-        bratExceptionOnNull(yaml, "Cannot read a null YAML document");
+        nonNull(yaml, "Cannot read a null YAML document");
 
         var flattened = new LinkedHashMap<String, String>();
         try (JsonParser parser = MAPPER.createParser(yaml)) {

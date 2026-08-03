@@ -5,7 +5,7 @@ import tools.jackson.core.JacksonException;
 /**
  * Utilities for JSON/YAML parsing with Jackson.
  */
-public class JacksonUtils {
+public final class JacksonUtils {
 
     private JacksonUtils() {
         // utility class

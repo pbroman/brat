@@ -17,7 +17,7 @@ import static dev.pbroman.brat.core.util.Constants.FALLBACK_DELIMITER;
 import static dev.pbroman.brat.core.util.Constants.PARAMS;
 import static dev.pbroman.brat.core.util.Constants.VARIABLE_GROUP_NAME;
 import static dev.pbroman.brat.core.util.Constants.VARS;
-import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * Base class for priority-dispatched {@link InterpolationRule} implementations that resolve a
@@ -43,7 +43,7 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
      * @param patterns the patterns
      */
     protected AbstractInterpolationRule(String interpolationKey, InterpolationPatterns patterns) {
-        bratExceptionOnNull(interpolationKey, "The pattern of the interpolation must be set");
+        nonNull(interpolationKey, "The pattern of the interpolation must be set");
         this.interpolationKey = interpolationKey;
         this.patterns = patterns;
     }
@@ -77,7 +77,7 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
      */
     @Override
     public final InterpolationOutcome outcome(String input, RuntimeData runtimeData) {
-        bratExceptionOnNull(input, "Cannot interpolate a null input");
+        nonNull(input, "Cannot interpolate a null input");
         var resolved = resolve(input, runtimeData);
         return resolved.equals(input)
                 ? new InterpolationOutcome(resolved, resolved)

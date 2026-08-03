@@ -1,6 +1,6 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
+import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
 
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
@@ -14,7 +14,7 @@ public abstract class AbstractResponseInterpolationRule extends AbstractInterpol
     }
 
     protected boolean isRequirementsNotMet(String input, RuntimeData runtimeData) {
-        checkInterpolationArgs(input, runtimeData, RESPONSE_VARS);
+        requireNamespaces(runtimeData, RESPONSE_VARS);
         return StringUtils.isBlank(input) || !input.matches(patterns.getRegexForVariable(interpolationKey));
     }
 

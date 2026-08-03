@@ -8,7 +8,7 @@ import dev.pbroman.brat.core.api.secrets.SecretsProviderFactory;
 import dev.pbroman.brat.core.exception.BratException;
 import org.apache.commons.lang3.StringUtils;
 
-import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
+import static dev.pbroman.brat.core.util.Require.nonNull;
 import static dev.pbroman.brat.core.util.ResourceReader.readFileToString;
 
 /**
@@ -56,7 +56,7 @@ public final class FileSecretsProviderFactory implements SecretsProviderFactory 
      */
     @Override
     public SecretsProvider create(Map<String, String> params) {
-        bratExceptionOnNull(params, "params may not be null");
+        nonNull(params, "params may not be null");
         var location = params.get(LOCATION_PARAM);
         if (StringUtils.isBlank(location)) {
             throw new BratException("The params must contain a valid " + LOCATION_PARAM);

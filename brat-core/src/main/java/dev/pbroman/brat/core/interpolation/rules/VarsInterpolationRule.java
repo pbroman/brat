@@ -1,6 +1,6 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
+import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
 import static dev.pbroman.brat.core.util.Constants.VARS;
 
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
@@ -25,7 +25,7 @@ public final class VarsInterpolationRule extends AbstractInterpolationRule {
 
     @Override
     public String resolve(String input, RuntimeData runtimeData) {
-        checkInterpolationArgs(input, runtimeData, VARS);
+        requireNamespaces(runtimeData, VARS);
         return simpleInterpolation(input, runtimeData, runtimeData.getVars());
     }
 

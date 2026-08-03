@@ -7,10 +7,10 @@ import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 
-import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
+import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
 import static dev.pbroman.brat.core.util.Constants.SECRETS;
 import static dev.pbroman.brat.core.util.Constants.VARIABLE_GROUP_NAME;
-import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * An {@link InterpolationRule} resolving {@code ${secrets.key}} tokens against a
@@ -36,8 +36,8 @@ public final class SecretsInterpolationRule implements InterpolationRule {
      * @throws BratException if {@code provider} or {@code patterns} is {@code null}
      */
     public SecretsInterpolationRule(SecretsProvider provider, InterpolationPatterns patterns) {
-        bratExceptionOnNull(provider, "The secrets provider must be set");
-        bratExceptionOnNull(patterns, "The interpolation patterns must be set");
+        nonNull(provider, "The secrets provider must be set");
+        nonNull(patterns, "The interpolation patterns must be set");
         this.provider = provider;
         this.patterns = patterns;
     }
@@ -70,8 +70,8 @@ public final class SecretsInterpolationRule implements InterpolationRule {
      */
     @Override
     public InterpolationOutcome outcome(String input, RuntimeData runtimeData) {
-        bratExceptionOnNull(input, "Cannot interpolate a null input");
-        checkInterpolationArgs(input, runtimeData);
+        nonNull(input, "Cannot interpolate a null input");
+        requireNamespaces(runtimeData);
         var matcher = patterns.getGroupingPatternForVariable(SECRETS).matcher(input);
         if (!matcher.find()) {
             return new InterpolationOutcome(input, input);

@@ -7,7 +7,7 @@ import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.exception.BratException;
 import org.apache.commons.lang3.StringUtils;
 
-import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * A {@link SecretsProvider} backed by an in-memory map of logical key to value.
@@ -36,7 +36,7 @@ public final class MapSecretsProvider implements SecretsProvider {
      *         or a {@code null} value
      */
     public MapSecretsProvider(Map<String, String> secrets) {
-        bratExceptionOnNull(secrets, "The secrets map may not be null.");
+        nonNull(secrets, "The secrets map may not be null.");
         for (Map.Entry<String, String> entry : secrets.entrySet()) {
             if (StringUtils.isBlank(entry.getKey()) || entry.getValue() == null) {
                 throw new BratException("Keys may not be null or blank; values may not be null. Invalid state for key: '" + entry.getKey() + "'");
@@ -56,7 +56,7 @@ public final class MapSecretsProvider implements SecretsProvider {
      */
     @Override
     public Optional<String> getSecret(String key) {
-        bratExceptionOnNull(key , "The secrets key may not be null.");
+        nonNull(key , "The secrets key may not be null.");
         if (StringUtils.isBlank(key)) {
             throw new BratException("The secrets key may not be blank.");
         }

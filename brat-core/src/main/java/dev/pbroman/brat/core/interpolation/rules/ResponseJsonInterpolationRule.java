@@ -1,22 +1,21 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
-import static dev.pbroman.brat.core.util.Constants.JSON;
-import static dev.pbroman.brat.core.util.Constants.RESPONSE_JSON_SHORTHAND;
-import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
-import static dev.pbroman.brat.core.util.Constants.VARIABLE_GROUP_NAME;
+import com.jayway.jsonpath.JsonPath;
+import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
+import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-import com.jayway.jsonpath.JsonPath;
-import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
-import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
-import org.apache.commons.lang3.StringUtils;
-import lombok.extern.slf4j.Slf4j;
+import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
+import static dev.pbroman.brat.core.util.Constants.JSON;
+import static dev.pbroman.brat.core.util.Constants.RESPONSE_JSON_SHORTHAND;
+import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
+import static dev.pbroman.brat.core.util.Constants.VARIABLE_GROUP_NAME;
 
 /**
  * An {@link InterpolationRule} for response json.
@@ -58,7 +57,7 @@ public final class ResponseJsonInterpolationRule extends AbstractInterpolationRu
         if (StringUtils.isBlank(input)) {
             return input;
         }
-        checkInterpolationArgs(input, runtimeData, RESPONSE_VARS);
+        requireNamespaces(runtimeData, RESPONSE_VARS);
 
         var matcher = patterns.getGroupingPatternForVariable(RESPONSE_JSON_SHORTHAND).matcher(input);
         if (!matcher.find()) {

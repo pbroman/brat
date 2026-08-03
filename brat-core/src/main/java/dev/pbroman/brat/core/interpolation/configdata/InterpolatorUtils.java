@@ -1,4 +1,4 @@
-package dev.pbroman.brat.core.util;
+package dev.pbroman.brat.core.interpolation.configdata;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -12,9 +12,9 @@ import dev.pbroman.brat.core.exception.BratException;
 /**
  * Helper methods shared by {@code ConfigDataInterpolator} implementations.
  */
-public class ConfigDataInterpolationUtils {
+public final class InterpolatorUtils {
 
-    private ConfigDataInterpolationUtils() {
+    private InterpolatorUtils() {
         // utility class
     }
 
@@ -75,6 +75,8 @@ public class ConfigDataInterpolationUtils {
     }
 
     /**
+     * Returns the outcome as string, if it is not {@code null}, then returns {@code null}.
+     *
      * @param outcome an outcome, or {@code null}
      * @return {@link InterpolationOutcome#asString()}, or {@code null} if {@code outcome} is
      *         {@code null}

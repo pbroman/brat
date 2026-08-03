@@ -1,7 +1,7 @@
 package dev.pbroman.brat.core.interpolation;
 
-import static dev.pbroman.brat.core.util.CheckUtils.checkInterpolationArgs;
-import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
+import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
@@ -52,8 +52,8 @@ public class InterpolationScanner implements Interpolation {
      */
     @Override
     public InterpolationOutcome outcome(String input, RuntimeData runtimeData) {
-        bratExceptionOnNull(input, "Cannot interpolate a null input");
-        checkInterpolationArgs(input, runtimeData);
+        nonNull(input, "Cannot interpolate a null input");
+        requireNamespaces(runtimeData);
         var matcher = patterns.getVariablePattern().matcher(input);
         var value = input;
         var maskedFinal = input;

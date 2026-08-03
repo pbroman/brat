@@ -1,9 +1,9 @@
 package dev.pbroman.brat.core.interpolation.configdata;
 
-import static dev.pbroman.brat.core.util.ConfigDataInterpolationUtils.asStringOrNull;
-import static dev.pbroman.brat.core.util.ConfigDataInterpolationUtils.checkNotInterpolated;
-import static dev.pbroman.brat.core.util.ConfigDataInterpolationUtils.interpolateIfPresent;
-import static dev.pbroman.brat.core.util.ConfigDataInterpolationUtils.interpolateMapWithOutcomes;
+import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.asStringOrNull;
+import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
+import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateIfPresent;
+import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateMapWithOutcomes;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

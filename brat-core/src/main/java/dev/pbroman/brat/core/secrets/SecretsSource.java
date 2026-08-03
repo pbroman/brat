@@ -5,7 +5,7 @@ import java.util.Map;
 import dev.pbroman.brat.core.exception.BratException;
 import org.apache.commons.lang3.StringUtils;
 
-import static dev.pbroman.brat.core.util.ExceptionUtils.bratExceptionOnNull;
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * One entry of the ordered list of secrets sources: a type and the parameters identifying that one
@@ -32,7 +32,7 @@ public record SecretsSource(String type, Map<String, String> params) {
         if (StringUtils.isBlank(type)) {
             throw new BratException("A secrets source type must not be null or blank");
         }
-        bratExceptionOnNull(params, "The params of secrets source '" + type + "' must not be null");
+        nonNull(params, "The params of secrets source '" + type + "' must not be null");
         params.forEach((key, value) -> {
             if (StringUtils.isBlank(key) || value == null) {
                 throw new BratException("Param keys must not be null or blank and values must not be null,"

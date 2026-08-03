@@ -1,6 +1,6 @@
 package dev.pbroman.brat.core.resolver.condition;
 
-import static dev.pbroman.brat.core.util.CheckUtils.checkCondition;
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 import java.util.Comparator;
 import java.util.List;
@@ -28,7 +28,7 @@ public class ConditionResolverRuleDispatcher implements ConditionResolver {
 
     @Override
     public Boolean resolve(Condition condition) {
-        checkCondition(condition);
+        nonNull(condition, "The condition may not be null");
         for (var resolver : resolvers) {
             var result = resolver.resolve(condition);
             if (result != null) {

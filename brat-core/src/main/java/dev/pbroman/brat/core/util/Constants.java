@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-public class Constants {
+public final class Constants {
 
     private Constants() {
         // utility class
