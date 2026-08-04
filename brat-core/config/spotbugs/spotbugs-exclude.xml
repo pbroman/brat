@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    SpotBugs exclusions for brat-core.
+
+    EI_EXPOSE_REP / EI_EXPOSE_REP2 - "may expose internal representation" - is excluded
+    deliberately and temporarily. It was the *only* family SpotBugs found when the plugin was
+    introduced (2026-08-04), and every hit is the same open design question, already tracked in
+    flight-plan.md's Backlog as "Data-class leaves: final, and some as records?": the data classes
+    are mutable, hand their interiors out, and it is undecided whether they should become records,
+    gain defensive copies, or lose their setters.
+
+    Suppressing it here buys the rest of SpotBugs - null dereferences, resource leaks, bad
+    equals/hashCode, and everything else it detects - as a build gate immediately, without
+    pre-empting that decision with nine reflexive copyOf calls. Delete this exclusion when the
+    Backlog item is settled; if the answer is "records", most of it disappears on its own.
+
+    Note one of the nine was a false positive: SecretsProviderConfig already copies its maps in the
+    compact constructor, which SpotBugs cannot see.
+-->
+<FindBugsFilter>
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+</FindBugsFilter>

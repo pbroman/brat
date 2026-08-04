@@ -20,7 +20,31 @@
         <property name="files" value="[\\/]src[\\/]test[\\/]"/>
     </module>
 
+    <module name="LineLength">
+        <property name="max" value="120"/>
+        <!-- A long URL or a fully-qualified {@link} in Javadoc cannot be wrapped usefully. -->
+        <property name="ignorePattern" value="^ *\* *([^ ]+|@see .*)$"/>
+    </module>
+
     <module name="TreeWalker">
+
+        <!--
+            Semantic rules only. Deliberately excluded: anything Spotless already fixes (unused
+            imports, import order, whitespace) and anything SpotBugs detects better (equals/hashCode
+            pairs, null dereferences) - three tools reporting one defect is how people learn to
+            ignore all three.
+        -->
+        <module name="NeedBraces"/>
+        <module name="EmptyCatchBlock"/>
+        <module name="MissingSwitchDefault"/>
+        <module name="SimplifyBooleanExpression"/>
+        <module name="SimplifyBooleanReturn"/>
+        <module name="StringLiteralEquality"/>
+        <module name="HideUtilityClassConstructor"/>
+        <module name="FinalClass"/>
+        <module name="OneTopLevelClass"/>
+        <module name="UnusedLocalVariable"/>
+
 
         <!-- "Every public or protected type ... gets a Javadoc block" -->
         <module name="MissingJavadocType">

@@ -11,6 +11,9 @@
 
     <properties>
         <java.version>25</java.version>
+        <!-- Overridden by jacoco:prepare-agent under -Pchecks; empty otherwise, so surefire's
+             @{argLine} resolves either way. -->
+        <argLine></argLine>
         <httpcore5.version>5.4.3</httpcore5.version>
         <jackson.version>3.2.1</jackson.version>
     </properties>
@@ -145,6 +148,41 @@
                 </configuration>
             </plugin>
             <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>3.9.0</version>
+                <configuration>
+                    <java>
+                        <!-- Palantir's fork of google-java-format: 4-space indent, 120 columns,
+                             which matches checkstyle's LineLength and the existing style far more
+                             closely than google-java-format's 2-space/100. Declared first so the
+                             import steps below run after it and win on import layout. -->
+                        <palantirJavaFormat>
+                            <version>2.96.0</version>
+                        </palantirJavaFormat>
+                        <removeUnusedImports/>
+                        <!-- java, then javax, then everything else alphabetically, then statics
+                             last. Matches IntelliJ's default layout and the codebase majority; the
+                             repo had no convention before this (17 files put statics first, 23
+                             last), so this settles it rather than codifying it. -->
+                        <importOrder>
+                            <order>java,javax,,\#</order>
+                        </importOrder>
+                        <trimTrailingWhitespace/>
+                        <endWithNewline/>
+                    </java>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotless</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
                 <version>3.6.0</version>
@@ -169,11 +207,103 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.6</version>
                 <configuration>
-                    <argLine>-Dfile.encoding=UTF-8</argLine>
-                    <argLine>-XX:+EnableDynamicAgentLoading</argLine>
+                    <!-- One element only: Maven keeps the last <argLine> and silently drops the
+                         rest. @{argLine} is where jacoco:prepare-agent injects its agent. -->
+                    <argLine>@{argLine} -Dfile.encoding=UTF-8 -XX:+EnableDynamicAgentLoading</argLine>
                 </configuration>
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+            The slow checks. Kept out of the default build so `mvn test` stays a fast loop
+            (~20s against ~37s with both). Run them with `mvn test -Pchecks` - which is what
+            /brat-review does, and what CI should do.
+
+            Measured 2026-08-04: jacoco +4s, spotbugs +13s. Checkstyle and doclint stay in the
+            default build; they cost nothing worth measuring.
+        -->
+        <profile>
+            <id>checks</id>
+            <build>
+                <plugins>
+                    <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.13</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>check</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <!-- A floor against regression, not a target. Set below the level
+                                     contract-first testing already reaches (94% line / 90% branch
+                                     when this was introduced), so it catches a slide rather than
+                                     inviting tests written to move a number. Bundle-level: a
+                                     per-class rule would fail on the next class with a defensive
+                                     branch and teach everyone to add exclusions. -->
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.85</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.80</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+                    </plugin>
+                    <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>4.10.3.0</version>
+                <configuration>
+                    <effort>Max</effort>
+                    <threshold>Default</threshold>
+                    <includeTests>false</includeTests>
+                    <excludeFilterFile>config/spotbugs/spotbugs-exclude.xml</excludeFilterFile>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotbugs</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>

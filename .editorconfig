@@ -1,0 +1,24 @@
+# Shared editor settings. IntelliJ, VS Code and most editors apply these natively, so the parts of
+# the build's style rules that can be expressed here are enforced while typing rather than at
+# `mvn validate`. The Java-specific bits editorconfig cannot express (import order) live in
+# .idea/codeStyles/Project.xml.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.java]
+max_line_length = 120
+
+[*.{xml,yaml,yml,json}]
+indent_size = 4
+
+[*.md]
+# Trailing whitespace is a line break in Markdown.
+trim_trailing_whitespace = false
+max_line_length = 100
