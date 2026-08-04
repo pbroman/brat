@@ -1,6 +1,8 @@
 package dev.pbroman.brat.core.interpolation.configdata;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
@@ -88,5 +90,59 @@ public final class InterpolatorUtils {
      */
     public static String asStringOrNull(InterpolationOutcome outcome) {
         return outcome == null ? null : outcome.asString();
+    }
+
+    /**
+     * Interpolates an operand of any shape, recording one outcome per scalar leaf.
+     * <p>
+     * A mapping or a sequence is walked and rebuilt with its structure intact — only the scalar
+     * leaves are interpolated, which is what keeps a structured operand comparable as a structure
+     * rather than as its text form. Leaf outcomes are keyed by dotted path
+     * ({@code b.address.street}, {@code b[0].id}), so a nested value never collides with the
+     * operand's own key.
+     *
+     * @param interpolation the interpolation implementation
+     * @param runtimeData the runtime data
+     * @param outcomes the map to record leaf outcomes in
+     * @param path the path of this value, used as the outcome key for a scalar
+     * @param value the value to interpolate, of any shape, or {@code null}
+     * @return the interpolated value, structure preserved; {@code null} if {@code value} was
+     *         {@code null}
+     */
+    public static Object interpolateStructure(
+            Interpolation interpolation,
+            RuntimeData runtimeData,
+            Map<String, InterpolationOutcome> outcomes,
+            String path,
+            Object value) {
+        return switch (value) {
+            case null -> null;
+            case Map<?, ?> map -> {
+                var interpolated = new LinkedHashMap<Object, Object>();
+                for (var entry : map.entrySet()) {
+                    interpolated.put(
+                            entry.getKey(),
+                            interpolateStructure(
+                                    interpolation,
+                                    runtimeData,
+                                    outcomes,
+                                    path + "." + entry.getKey(),
+                                    entry.getValue()));
+                }
+                yield interpolated;
+            }
+            case List<?> list -> {
+                var interpolated = new ArrayList<>();
+                for (var i = 0; i < list.size(); i++) {
+                    interpolated.add(interpolateStructure(
+                            interpolation, runtimeData, outcomes, path + "[" + i + "]", list.get(i)));
+                }
+                yield interpolated;
+            }
+            default -> {
+                var outcome = interpolateIfPresent(interpolation, runtimeData, outcomes, path, String.valueOf(value));
+                yield outcome == null ? null : outcome.value();
+            }
+        };
     }
 }

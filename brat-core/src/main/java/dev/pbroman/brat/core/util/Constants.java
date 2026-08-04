@@ -62,6 +62,7 @@ public final class Constants {
     public static final String TIME_CONDITION = "Time";
     public static final String DATETIME_CONDITION = "DateTime";
     public static final String FORMAT_CONDITION = "Format";
+    public static final String JSON_CONDITION = "Json";
 
     public static final String DEFAULT_TIMEOUT_MS = "30000";
 
@@ -87,6 +88,13 @@ public final class Constants {
     public static final String STARTS_WITH = "startswith";
     public static final String ENDS_WITH = "endswith";
     public static final String MATCHES = "matches";
+
+    public static final String CONTAINS_KEY = "containskey";
+    public static final String CONTAINS_ONLY = "containsonly";
+    public static final String CONTAINS_ANY_OF = "containsanyof";
+    public static final String CONTAINS_EXACTLY = "containsexactly";
+    public static final String CONTAINS_EXACTLY_IN_ANY_ORDER = "containsexactlyinanyorder";
+    public static final String ARG_IGNORE = "ignore";
 
     public static final String BETWEEN = "between";
     public static final String CLOSE_TO = "closeto";

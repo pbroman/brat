@@ -1,6 +1,7 @@
 package dev.pbroman.brat.core.interpolation.configdata;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
@@ -86,5 +87,61 @@ class ConditionInterpolatorTest {
 
         // then
         assertThat(condition.getArgs()).isEmpty();
+    }
+
+    // --- structured operands (D3: interpolate scalar leaves only, keys by dotted path) ---
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void interpolated_keepsAStructuredOperandAStructure() {
+        // given
+        var condition = new Condition("isEqualTo", "${response.json.$}", Map.of("name", "John"));
+
+        // when
+        var result = underTest.interpolated(condition, interpolation, runtimeData);
+
+        // then — not flattened to the text "{name=John}"
+        assertThat(result.getB()).isInstanceOf(Map.class);
+        assertThat((Map<Object, Object>) result.getB()).containsEntry("name", "John");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void interpolated_interpolatesTheScalarLeavesOfAStructuredOperand() {
+        // given
+        var condition = new Condition("isEqualTo", "a", Map.of("name", "${vars.name}"));
+
+        // when
+        var result = underTest.interpolated(condition, interpolation, runtimeData);
+
+        // then — the mock interpolation echoes its input, proving the leaf was passed through it
+        assertThat((Map<Object, Object>) result.getB()).containsEntry("name", "${vars.name}");
+        assertThat(result.getOutcomes()).containsKey("b.name");
+    }
+
+    @Test
+    void interpolated_keysNestedAndIndexedLeavesByPath() {
+        // given
+        var nested = Map.of("address", Map.of("street", "Main St"));
+        var condition = new Condition("isEqualTo", List.of("first", "second"), nested);
+
+        // when
+        var result = underTest.interpolated(condition, interpolation, runtimeData);
+
+        // then
+        assertThat(result.getOutcomes()).containsKeys("a[0]", "a[1]", "b.address.street");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void interpolated_preservesSequenceOrderAndNesting() {
+        // given
+        var condition = new Condition("isEqualTo", List.of("one", "two", "three"), null);
+
+        // when
+        var result = underTest.interpolated(condition, interpolation, runtimeData);
+
+        // then
+        assertThat((List<Object>) result.getA()).containsExactly("one", "two", "three");
     }
 }

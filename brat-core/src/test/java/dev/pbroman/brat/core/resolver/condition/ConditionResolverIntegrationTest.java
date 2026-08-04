@@ -8,6 +8,7 @@ import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.resolver.condition.rules.BooleanConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.DateConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.FormatConditionResolverRule;
+import dev.pbroman.brat.core.resolver.condition.rules.JsonConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.NullConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.NumberConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.StringConditionResolverRule;
@@ -50,6 +51,7 @@ class ConditionResolverIntegrationTest {
         ruleDispatcher = new ConditionResolverRuleDispatcher(List.of(
                 new BooleanConditionResolverRule(),
                 new FormatConditionResolverRule(),
+                new JsonConditionResolverRule(),
                 new NumberConditionResolverRule(),
                 new NullConditionResolverRule(),
                 new DateConditionResolverRule(),

@@ -6,8 +6,10 @@ import java.util.Map;
 import java.util.function.Function;
 
 import com.jayway.jsonpath.JsonPath;
+import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 import org.apache.commons.lang3.StringUtils;
 
@@ -16,11 +18,21 @@ import static dev.pbroman.brat.core.util.Constants.JSON;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_JSON_SHORTHAND;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
 import static dev.pbroman.brat.core.util.Constants.VARIABLE_GROUP_NAME;
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
- * An {@link InterpolationRule} for response json.
+ * An {@link InterpolationRule} resolving {@code ${rj.<jsonPath>}} against the previous response's
+ * JSON body.
+ * <p>
+ * Unlike the namespace rules it sits alongside, this implements {@link InterpolationRule} directly
+ * rather than extending {@link AbstractInterpolationRule}: that base resolves to a {@code String},
+ * and this rule's whole point is to hand on what JsonPath produced — a {@code List} for an array, a
+ * {@code Map} for an object, an {@code Integer} for {@code ._length} — so a condition can compare
+ * structures instead of their text forms.
  */
-public final class ResponseJsonInterpolationRule extends AbstractInterpolationRule {
+public final class ResponseJsonInterpolationRule implements InterpolationRule {
+
+    private final InterpolationPatterns patterns;
 
     protected Map<String, Function<Object, Object>> functionMap;
 
@@ -30,7 +42,7 @@ public final class ResponseJsonInterpolationRule extends AbstractInterpolationRu
      * @param patterns the {@link InterpolationPatterns}
      */
     public ResponseJsonInterpolationRule(InterpolationPatterns patterns) {
-        super(RESPONSE_JSON_SHORTHAND, patterns);
+        this.patterns = patterns;
         this.initFunctionMap();
     }
 
@@ -52,22 +64,35 @@ public final class ResponseJsonInterpolationRule extends AbstractInterpolationRu
         });
     }
 
+    /**
+     * Resolves a {@code ${rj.…}} token to the value at its JSONPath, keeping that value's type.
+     *
+     * @param input the token to resolve
+     * @param runtimeData the object containing values; must hold the {@code responseVars} namespace
+     * @return the outcome holding the resolved value, typed as JsonPath produced it; or
+     *         {@code input} unchanged if it is not a {@code ${rj.…}} token, leaving it for another
+     *         rule
+     * @throws BratException if {@code input} is {@code null}
+     * @throws IllegalArgumentException if {@code runtimeData} is {@code null}, if it has no
+     *         {@code responseVars}, or if the response holds no JSON
+     */
     @Override
-    public String resolve(String input, RuntimeData runtimeData) {
+    public InterpolationOutcome outcome(String input, RuntimeData runtimeData) {
+        nonNull(input, "Cannot interpolate a null input");
         if (StringUtils.isBlank(input)) {
-            return input;
+            return new InterpolationOutcome(input, input);
         }
         requireNamespaces(runtimeData, RESPONSE_VARS);
 
-        var matcher =
-                patterns.getGroupingPatternForVariable(RESPONSE_JSON_SHORTHAND).matcher(input);
+        var matcher = patterns.getGroupingPatternForVariable(RESPONSE_JSON_SHORTHAND).matcher(input);
         if (!matcher.find()) {
-            return input;
+            return new InterpolationOutcome(input, input);
         }
-        var json = runtimeData.getResponseVars().get(JSON).toString();
-        if (json == null) {
+        var jsonValue = runtimeData.getResponseVars().get(JSON);
+        if (jsonValue == null) {
             throw new IllegalArgumentException("The json response must not be null");
         }
+        var json = jsonValue.toString();
 
         var pathExpr = matcher.group(VARIABLE_GROUP_NAME);
         var pathExpression = pathExpr.split("\\._");
@@ -78,6 +103,6 @@ public final class ResponseJsonInterpolationRule extends AbstractInterpolationRu
             var jsonFunction = pathExpression[1];
             result = functionMap.get(jsonFunction).apply(result);
         }
-        return result.toString();
+        return new InterpolationOutcome(result, input + " → " + result);
     }
 }

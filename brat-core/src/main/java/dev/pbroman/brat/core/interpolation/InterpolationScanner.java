@@ -32,7 +32,14 @@ public class InterpolationScanner implements Interpolation {
 
     /**
      * Resolves every {@code ${...}} token in {@code input}, splicing each one's resolved value
-     * back into the original string. The returned outcome's {@code reportingString} compares the
+     * back into the original string.
+     * <p>
+     * <strong>A field that is nothing but a single token keeps its resolved value's type</strong> —
+     * the outcome is returned as the resolving rule produced it, so {@code ${response.json.$.items}}
+     * yields a {@code List} rather than its text form. Only a token embedded in surrounding text is
+     * stringified, because there is no other way to splice it back in. That distinction is the one a
+     * rule cannot make for itself: it answers about one token and knows nothing of the surrounding field.
+     * The returned outcome's {@code reportingString} compares the
      * original {@code input} directly to the final resolved value, with any token tagged as a
      * secret by the dispatcher masked as {@code ***} in that display value only — the returned
      * {@code value} always holds the real, unmasked result.
@@ -55,6 +62,10 @@ public class InterpolationScanner implements Interpolation {
         nonNull(input, "Cannot interpolate a null input");
         requireNamespaces(runtimeData);
         var matcher = patterns.getVariablePattern().matcher(input);
+        if (matcher.find() && matcher.start() == 0 && matcher.end() == input.length()) {
+            return dispatcher.outcome(input, runtimeData);
+        }
+        matcher.reset();
         var value = input;
         var maskedFinal = input;
         var containsSecret = false;

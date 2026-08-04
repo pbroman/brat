@@ -12,6 +12,7 @@ import dev.pbroman.brat.core.exception.BratException;
 
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateIfPresent;
+import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateStructure;
 
 /**
  * Interpolates every field of a {@link Condition}.
@@ -29,11 +30,8 @@ public final class ConditionInterpolator implements ConfigDataInterpolator<Condi
         checkNotInterpolated(target);
 
         var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
-        var aValue = target.getA() == null ? null : String.valueOf(target.getA());
-        var aOutcome = interpolateIfPresent(interpolation, runtimeData, outcomes, "a", aValue);
-
-        var bValue = target.getB() == null ? null : String.valueOf(target.getB());
-        var bOutcome = interpolateIfPresent(interpolation, runtimeData, outcomes, "b", bValue);
+        var aValue = interpolateStructure(interpolation, runtimeData, outcomes, "a", target.getA());
+        var bValue = interpolateStructure(interpolation, runtimeData, outcomes, "b", target.getB());
 
         var args = new LinkedHashMap<String, String>();
         for (var arg : target.getArgs().entrySet()) {
@@ -45,11 +43,7 @@ public final class ConditionInterpolator implements ConfigDataInterpolator<Condi
             args.put(arg.getKey(), String.valueOf(outcome.value()));
         }
 
-        var interpolated = new Condition(
-                target.getFunc(),
-                aOutcome == null ? null : aOutcome.value(),
-                bOutcome == null ? null : bOutcome.value(),
-                outcomes);
+        var interpolated = new Condition(target.getFunc(), aValue, bValue, outcomes);
         interpolated.setArgs(Map.copyOf(args));
         return interpolated;
     }

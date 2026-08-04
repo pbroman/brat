@@ -7,6 +7,7 @@ import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.resolver.condition.rules.BooleanConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.DateConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.FormatConditionResolverRule;
+import dev.pbroman.brat.core.resolver.condition.rules.JsonConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.NullConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.NumberConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.StringConditionResolverRule;
@@ -29,6 +30,7 @@ class AssertJFuncNamingTest {
         dispatcher = new ConditionResolverRuleDispatcher(List.of(
                 new BooleanConditionResolverRule(),
                 new FormatConditionResolverRule(),
+                new JsonConditionResolverRule(),
                 new NumberConditionResolverRule(),
                 new NullConditionResolverRule(),
                 new DateConditionResolverRule(),
@@ -133,5 +135,32 @@ class AssertJFuncNamingTest {
         // when / then — a numeric-only func on non-numeric operands is nobody's to answer
         assertThatThrownBy(() -> dispatcher.resolve(new Condition("isGreaterThan", "abc", "def")))
                 .isInstanceOf(BratException.class);
+    }
+
+    // --- one func name, two categories: the operand decides which rule answers ---
+
+    @Test
+    void resolve_sendsContainsOnASequenceToTheJsonRule() {
+        // when / then — element membership, not substring
+        assertThat(dispatcher.resolve(new Condition("contains", java.util.List.of("admin", "user"), "admin")))
+                .isTrue();
+        assertThat(dispatcher.resolve(new Condition("contains", java.util.List.of("administrator"), "admin")))
+                .isFalse();
+    }
+
+    @Test
+    void resolve_sendsContainsOnTextToTheStringRule() {
+        // when / then — substring, not membership
+        assertThat(dispatcher.resolve(new Condition("contains", "administrator", "admin")))
+                .isTrue();
+    }
+
+    @Test
+    void resolve_sendsIsEqualToOnStructuresToTheJsonRule() {
+        // when / then — compared as structures, so key order does not matter
+        var actual = java.util.Map.of("name", "John", "city", "Berlin");
+        var expected = java.util.Map.of("city", "Berlin", "name", "John");
+        assertThat(dispatcher.resolve(new Condition("isEqualTo", actual, expected)))
+                .isTrue();
     }
 }
