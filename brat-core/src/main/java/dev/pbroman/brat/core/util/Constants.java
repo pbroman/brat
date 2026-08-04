@@ -89,6 +89,13 @@ public final class Constants {
     public static final String ENDS_WITH = "endswith";
     public static final String MATCHES = "matches";
 
+    public static final String HAS_SIZE = "hassize";
+    public static final String HAS_SIZE_GREATER_THAN = "hassizegreaterthan";
+    public static final String HAS_SIZE_BETWEEN = "hassizebetween";
+    public static final String DOES_NOT_HAVE_DUPLICATES = "doesnothaveduplicates";
+    public static final String SORTED = "sorted";
+    public static final String SORTED_DESCENDING = "sorteddescending";
+
     public static final String CONTAINS_KEY = "containskey";
     public static final String CONTAINS_ONLY = "containsonly";
     public static final String CONTAINS_ANY_OF = "containsanyof";

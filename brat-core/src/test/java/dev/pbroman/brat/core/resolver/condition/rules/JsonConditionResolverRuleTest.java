@@ -213,4 +213,121 @@ class JsonConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
                 .contains(true);
         assertThat(resolver.resolve(condition("!contains", List.of("a"), "b"))).contains(true);
     }
+
+    // --- size ---
+
+    @Test
+    void resolve_hasSizeCountsElementsAndEntries() {
+        // when / then
+        assertThat(resolver.resolve(condition("hasSize", List.of("a", "b", "c"), "3")))
+                .contains(true);
+        assertThat(resolver.resolve(condition("hasSize", List.of("a"), "3"))).contains(false);
+        assertThat(resolver.resolve(condition("hasSize", Map.of("a", 1, "b", 2), "2")))
+                .contains(true);
+    }
+
+    @Test
+    void resolve_hasSizeAcceptsAYamlNativeNumber() {
+        // when / then — b may arrive as an Integer rather than as text
+        assertThat(resolver.resolve(condition("hasSize", List.of("a", "b"), 2))).contains(true);
+    }
+
+    @Test
+    void resolve_hasSizeGreaterThan() {
+        // when / then
+        assertThat(resolver.resolve(condition("hasSizeGreaterThan", List.of("a", "b"), "1")))
+                .contains(true);
+        assertThat(resolver.resolve(condition("hasSizeGreaterThan", List.of("a"), "1")))
+                .contains(false);
+    }
+
+    @Test
+    void resolve_hasSizeBetweenIsInclusive() {
+        // when / then
+        assertThat(resolver.resolve(withArgs("hasSizeBetween", List.of("a"), null, Map.of("min", "1", "max", "3"))))
+                .contains(true);
+        assertThat(resolver.resolve(
+                        withArgs("hasSizeBetween", List.of("a", "b", "c"), null, Map.of("min", "1", "max", "3"))))
+                .contains(true);
+        assertThat(resolver.resolve(
+                        withArgs("hasSizeBetween", List.of("a", "b", "c", "d"), null, Map.of("min", "1", "max", "3"))))
+                .contains(false);
+    }
+
+    @Test
+    void resolve_throwsForASizeThatIsNotAWholeNumber() {
+        // when / then
+        assertThatThrownBy(() -> resolver.resolve(condition("hasSize", List.of("a"), "many")))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("whole number");
+    }
+
+    // --- duplicates ---
+
+    @Test
+    void resolve_doesNotHaveDuplicates() {
+        // when / then
+        assertThat(resolver.resolve(condition("doesNotHaveDuplicates", List.of("a", "b"), null)))
+                .contains(true);
+        assertThat(resolver.resolve(condition("doesNotHaveDuplicates", List.of("a", "a"), null)))
+                .contains(false);
+    }
+
+    // --- order ---
+
+    @Test
+    void resolve_isSortedAscendingAndDescending() {
+        // when / then
+        assertThat(resolver.resolve(condition("isSorted", List.of(1, 2, 3), null)))
+                .contains(true);
+        assertThat(resolver.resolve(condition("isSorted", List.of(3, 1, 2), null)))
+                .contains(false);
+        assertThat(resolver.resolve(condition("isSortedDescending", List.of(3, 2, 1), null)))
+                .contains(true);
+        assertThat(resolver.resolve(condition("isSortedDescending", List.of(1, 2, 3), null)))
+                .contains(false);
+    }
+
+    @Test
+    void resolve_sortsTextAndEqualNeighboursCount() {
+        // when / then — equal neighbours do not break either order
+        assertThat(resolver.resolve(condition("isSorted", List.of("apple", "banana"), null)))
+                .contains(true);
+        assertThat(resolver.resolve(condition("isSorted", List.of(1, 1, 2), null)))
+                .contains(true);
+    }
+
+    @Test
+    void resolve_ordersMixedNumberTypesNumerically() {
+        // given — an Integer beside a Double is ordinary in JSON, and compareTo would throw on it
+        var mixed = List.of(1, 2.5, 3);
+
+        // when / then
+        assertThat(resolver.resolve(condition("isSorted", mixed, null))).contains(true);
+        assertThat(resolver.resolve(condition("isSorted", List.of(3, 2.5, 1), null)))
+                .contains(false);
+    }
+
+    @Test
+    void resolve_isSortedIsVacuouslyTrueForFewerThanTwoElements() {
+        // when / then
+        assertThat(resolver.resolve(condition("isSorted", List.of(), null))).contains(true);
+        assertThat(resolver.resolve(condition("isSorted", List.of(1), null))).contains(true);
+    }
+
+    @Test
+    void resolve_throwsWhenOrderingASequenceHoldingNull() {
+        // when / then
+        assertThatThrownBy(() -> resolver.resolve(condition("isSorted", java.util.Arrays.asList(1, null), null)))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("null");
+    }
+
+    @Test
+    void resolve_throwsWhenElementsCannotBeOrdered() {
+        // when / then — a mapping has no natural order
+        assertThatThrownBy(() -> resolver.resolve(condition("isSorted", List.of(Map.of("a", 1), Map.of("b", 2)), null)))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("order");
+    }
 }

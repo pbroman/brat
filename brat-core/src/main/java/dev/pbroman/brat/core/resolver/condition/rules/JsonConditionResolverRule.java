@@ -1,5 +1,6 @@
 package dev.pbroman.brat.core.resolver.condition.rules;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -15,14 +16,22 @@ import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.exception.BratException;
 
 import static dev.pbroman.brat.core.util.Constants.ARG_IGNORE;
+import static dev.pbroman.brat.core.util.Constants.ARG_MAX;
+import static dev.pbroman.brat.core.util.Constants.ARG_MIN;
 import static dev.pbroman.brat.core.util.Constants.CONTAINS;
 import static dev.pbroman.brat.core.util.Constants.CONTAINS_ANY_OF;
 import static dev.pbroman.brat.core.util.Constants.CONTAINS_EXACTLY;
 import static dev.pbroman.brat.core.util.Constants.CONTAINS_EXACTLY_IN_ANY_ORDER;
 import static dev.pbroman.brat.core.util.Constants.CONTAINS_KEY;
 import static dev.pbroman.brat.core.util.Constants.CONTAINS_ONLY;
+import static dev.pbroman.brat.core.util.Constants.DOES_NOT_HAVE_DUPLICATES;
 import static dev.pbroman.brat.core.util.Constants.EQUAL_TO;
+import static dev.pbroman.brat.core.util.Constants.HAS_SIZE;
+import static dev.pbroman.brat.core.util.Constants.HAS_SIZE_BETWEEN;
+import static dev.pbroman.brat.core.util.Constants.HAS_SIZE_GREATER_THAN;
 import static dev.pbroman.brat.core.util.Constants.JSON_CONDITION;
+import static dev.pbroman.brat.core.util.Constants.SORTED;
+import static dev.pbroman.brat.core.util.Constants.SORTED_DESCENDING;
 import static java.util.stream.Collectors.toSet;
 
 /**
@@ -60,6 +69,19 @@ public final class JsonConditionResolverRule extends AbstractConditionResolverRu
         predicates.put(CONTAINS_EXACTLY, (a, b, args) -> asList(a).equals(asList(b)));
         predicates.put(CONTAINS_EXACTLY_IN_ANY_ORDER, (a, b, args) -> sameElements(asList(a), asList(b)));
         predicates.put(CONTAINS_KEY, (a, b, args) -> asMap(a).containsKey(b));
+        predicates.put(HAS_SIZE, (a, b, args) -> sizeOf(a) == size(b));
+        predicates.put(HAS_SIZE_GREATER_THAN, (a, b, args) -> sizeOf(a) > size(b));
+        predicates.put(HAS_SIZE_BETWEEN, (a, b, args) -> {
+            rejectUnknownArgs(args, ARG_MIN, ARG_MAX);
+            var size = sizeOf(a);
+            return size >= size(requiredArg(args, ARG_MIN)) && size <= size(requiredArg(args, ARG_MAX));
+        });
+        predicates.put(DOES_NOT_HAVE_DUPLICATES, (a, b, args) -> {
+            var elements = asList(a);
+            return new HashSet<>(elements).size() == elements.size();
+        });
+        predicates.put(SORTED, (a, b, args) -> isOrdered(asList(a), true));
+        predicates.put(SORTED_DESCENDING, (a, b, args) -> isOrdered(asList(a), false));
         return predicates;
     }
 
@@ -138,6 +160,63 @@ public final class JsonConditionResolverRule extends AbstractConditionResolverRu
         };
     }
 
+    /**
+     * The number of elements of a sequence or entries of a mapping.
+     */
+    private static int sizeOf(Object value) {
+        return switch (value) {
+            case List<?> list -> list.size();
+            case Map<?, ?> map -> map.size();
+            default ->
+                throw new BratException("This function needs a sequence or a mapping, but a was " + describe(value));
+        };
+    }
+
+    /**
+     * A size given as an operand or an argument, written either as YAML-native number or as text.
+     */
+    private static int size(Object value) {
+        try {
+            return new BigDecimal(String.valueOf(value).trim()).intValueExact();
+        } catch (ArithmeticException | NumberFormatException e) {
+            throw new BratException("A size must be a whole number, but was '" + value + "'");
+        }
+    }
+
+    /**
+     * Whether the elements are in order, which is vacuously true for fewer than two of them.
+     */
+    private static boolean isOrdered(List<?> values, boolean ascending) {
+        for (var i = 1; i < values.size(); i++) {
+            var comparison = compare(values.get(i - 1), values.get(i));
+            if (ascending ? comparison > 0 : comparison < 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Orders two JSON values.
+     * <p>
+     * Numbers compare numerically as exact decimals, so a sequence mixing {@code 1} and {@code 2.5}
+     * — ordinary in JSON, an {@code Integer} beside a {@code Double} — orders as a reader expects
+     * rather than throwing on the type difference. Anything else must be mutually {@link Comparable}.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static int compare(Object left, Object right) {
+        if (left == null || right == null) {
+            throw new BratException("A sequence holding null has no order");
+        }
+        if (left instanceof Number leftNumber && right instanceof Number rightNumber) {
+            return new BigDecimal(leftNumber.toString()).compareTo(new BigDecimal(rightNumber.toString()));
+        }
+        if (left instanceof Comparable comparable && left.getClass().isInstance(right)) {
+            return comparable.compareTo(right);
+        }
+        throw new BratException("Cannot order " + describe(left) + " against " + describe(right));
+    }
+
     private static String describe(Object value) {
         return value == null ? "null" : value.getClass().getSimpleName();
     }
@@ -166,11 +245,11 @@ public final class JsonConditionResolverRule extends AbstractConditionResolverRu
     }
 
     /**
-     * Every func here needs {@code b}, so none is exempt from the null check — which is why
-     * {@code contains} with no {@code b} fails loudly instead of quietly testing against nothing.
+     * The funcs that judge {@code a} alone. Everything else needs {@code b}, which is why
+     * {@code contains} with none fails loudly instead of quietly testing against nothing.
      */
     @Override
     protected List<String> ignoreBNullCheck() {
-        return List.of();
+        return List.of(HAS_SIZE_BETWEEN, DOES_NOT_HAVE_DUPLICATES, SORTED, SORTED_DESCENDING);
     }
 }

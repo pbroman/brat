@@ -84,7 +84,8 @@ public final class ResponseJsonInterpolationRule implements InterpolationRule {
         }
         requireNamespaces(runtimeData, RESPONSE_VARS);
 
-        var matcher = patterns.getGroupingPatternForVariable(RESPONSE_JSON_SHORTHAND).matcher(input);
+        var matcher =
+                patterns.getGroupingPatternForVariable(RESPONSE_JSON_SHORTHAND).matcher(input);
         if (!matcher.find()) {
             return new InterpolationOutcome(input, input);
         }
