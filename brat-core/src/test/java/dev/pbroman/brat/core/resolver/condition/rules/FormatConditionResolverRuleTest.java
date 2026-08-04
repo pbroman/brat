@@ -32,7 +32,7 @@ class FormatConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
         var result = resolver.resolve(new Condition(func, a));
 
         // then
-        assertThat(result).isTrue();
+        assertThat(result).contains(true);
     }
 
     @ParameterizedTest
@@ -52,7 +52,7 @@ class FormatConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
         var result = resolver.resolve(new Condition(func, a));
 
         // then
-        assertThat(result).isFalse();
+        assertThat(result).contains(false);
     }
 
     @ParameterizedTest
@@ -66,6 +66,6 @@ class FormatConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
         var result = resolver.resolve(new Condition(func, a));
 
         // then
-        assertThat(result).isTrue();
+        assertThat(result).contains(true);
     }
 }

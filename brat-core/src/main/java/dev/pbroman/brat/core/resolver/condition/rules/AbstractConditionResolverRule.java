@@ -9,6 +9,7 @@ import org.apache.commons.lang3.Strings;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static dev.pbroman.brat.core.util.Constants.IS_PREFIX;
@@ -33,24 +34,24 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
     }
 
     @Override
-    public Boolean resolve(Condition condition) {
+    public Optional<Boolean> resolve(Condition condition) {
         nonNull(condition, "The condition may not be null");
         var prepared = prepare(condition.getFunc());
         if (predicateMap.containsKey(prepared.function())) {
             if (!accepts(condition)) {
-                return null;
+                return Optional.empty();
             }
             nullCheckB(condition, prepared.function());
             try {
-                return prepared.negate() != predicateMap.get(prepared.function())
-                        .test(condition.getA(), condition.getB(), condition.getArgs());
+                return Optional.of(prepared.negate() != predicateMap.get(prepared.function())
+                        .test(condition.getA(), condition.getB(), condition.getArgs()));
             } catch (BratException be) {
                 throw be;
             } catch (RuntimeException re) {
                 throw new BratException(String.format("Unable to resolve condition %s", condition), re);
             }
         }
-        return null;
+        return Optional.empty();
     }
 
     /**

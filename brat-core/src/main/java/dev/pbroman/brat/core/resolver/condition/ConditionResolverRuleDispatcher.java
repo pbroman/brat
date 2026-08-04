@@ -4,6 +4,7 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
@@ -33,14 +34,13 @@ public class ConditionResolverRuleDispatcher implements ConditionResolver {
     }
 
     @Override
-    public Boolean resolve(Condition condition) {
+    public boolean resolve(Condition condition) {
         nonNull(condition, "The condition may not be null");
-        for (var resolver : resolvers) {
-            var result = resolver.resolve(condition);
-            if (result != null) {
-                return result;
-            }
-        }
-        throw new BratException(String.format("The condition '%s' could not be resolved", condition));
+        return resolvers.stream()
+                .map(resolver -> resolver.resolve(condition))
+                .flatMap(Optional::stream)
+                .findFirst()
+                .orElseThrow(() -> new BratException(
+                        String.format("The condition '%s' could not be resolved", condition)));
     }
 }

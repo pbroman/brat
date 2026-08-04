@@ -42,7 +42,7 @@ class DateConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
         var result = resolver.resolve(condition);
 
         // then
-        assertThat(result).isTrue();
+        assertThat(result).contains(true);
     }
 
     @Test
@@ -54,7 +54,7 @@ class DateConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
         var result = resolver.resolve(condition);
 
         // then
-        assertThat(result).isNull();
+        assertThat(result).isEmpty();
     }
 
     @Test
@@ -68,7 +68,7 @@ class DateConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
         var result = resolverWithCustomFormatter.resolve(condition);
 
         // then
-        assertThat(result).isTrue();
+        assertThat(result).contains(true);
     }
 
     @Test
@@ -82,7 +82,7 @@ class DateConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
         var result = resolverWithCustomFormatter.resolve(condition);
 
         // then
-        assertThat(result).isNull();
+        assertThat(result).isEmpty();
     }
 
 }

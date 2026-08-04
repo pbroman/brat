@@ -2,14 +2,17 @@ package dev.pbroman.brat.core.resolver.condition.rules;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.data.Condition;
 
-class NullConditionResolverRuleTest {
+class NullConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
 
-    ConditionResolver resolver = new NullConditionResolverRule();
+    @BeforeEach
+    void setUp() {
+        resolver = new NullConditionResolverRule();
+    }
 
     @Test
     void isTrue() {
@@ -17,7 +20,7 @@ class NullConditionResolverRuleTest {
         var result = resolver.resolve(new Condition("isNull", null, null));
 
         // then
-        assertThat(result).isTrue();
+        assertThat(result).contains(true);
     }
 
     @Test
@@ -26,7 +29,7 @@ class NullConditionResolverRuleTest {
         var result = resolver.resolve(new Condition("!null", null, null));
 
         // then
-        assertThat(result).isFalse();
+        assertThat(result).contains(false);
     }
 
     @Test
@@ -35,7 +38,7 @@ class NullConditionResolverRuleTest {
         var result = resolver.resolve(new Condition("null", "nonNullValue", null));
 
         // then
-        assertThat(result).isNull();
+        assertThat(result).isEmpty();
     }
 
 }

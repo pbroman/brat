@@ -151,4 +151,11 @@ class ConditionResolverIntegrationTest {
                 Arguments.of(new Condition(FUTURE, "3000-02-01", null))
         );
     }
+
+    @Test
+    void resolve_throwsForANullCondition() {
+        // when / then — the dispatcher answers or throws; it never returns "no verdict"
+        assertThatThrownBy(() -> ruleDispatcher.resolve(null))
+                .isInstanceOf(BratException.class);
+    }
 }

@@ -39,7 +39,7 @@ class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
         var result = resolver.resolve(condition);
 
         // then
-        assertThat(result).isTrue();
+        assertThat(result).contains(true);
     }
 
     @ParameterizedTest
@@ -58,7 +58,7 @@ class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
         var result = resolver.resolve(condition);
 
         // then
-        assertThat(result).isFalse();
+        assertThat(result).contains(false);
     }
 
     @Test
@@ -71,7 +71,7 @@ class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
         var result = resolver.resolve(condition);
 
         // then
-        assertThat(result).isNull();
+        assertThat(result).isEmpty();
     }
 
     // --- funcs taking their parameters from the params bag ---
@@ -85,17 +85,17 @@ class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
     @Test
     void resolve_isBetweenIsInclusiveOnBothBounds() {
         // when / then
-        assertThat(resolver.resolve(withArgs("isBetween", "10", null, Map.of("min", "10", "max", "100")))).isTrue();
-        assertThat(resolver.resolve(withArgs("isBetween", "100", null, Map.of("min", "10", "max", "100")))).isTrue();
-        assertThat(resolver.resolve(withArgs("isBetween", "55", null, Map.of("min", "10", "max", "100")))).isTrue();
-        assertThat(resolver.resolve(withArgs("isBetween", "9", null, Map.of("min", "10", "max", "100")))).isFalse();
+        assertThat(resolver.resolve(withArgs("isBetween", "10", null, Map.of("min", "10", "max", "100")))).contains(true);
+        assertThat(resolver.resolve(withArgs("isBetween", "100", null, Map.of("min", "10", "max", "100")))).contains(true);
+        assertThat(resolver.resolve(withArgs("isBetween", "55", null, Map.of("min", "10", "max", "100")))).contains(true);
+        assertThat(resolver.resolve(withArgs("isBetween", "9", null, Map.of("min", "10", "max", "100")))).contains(false);
     }
 
     @Test
     void resolve_isCloseToComparesWithinTheOffset() {
         // when / then
-        assertThat(resolver.resolve(withArgs("isCloseTo", "0.51", "0.5", Map.of("offset", "0.01")))).isTrue();
-        assertThat(resolver.resolve(withArgs("isCloseTo", "0.52", "0.5", Map.of("offset", "0.01")))).isFalse();
+        assertThat(resolver.resolve(withArgs("isCloseTo", "0.51", "0.5", Map.of("offset", "0.01")))).contains(true);
+        assertThat(resolver.resolve(withArgs("isCloseTo", "0.52", "0.5", Map.of("offset", "0.01")))).contains(false);
     }
 
     @Test
@@ -119,8 +119,8 @@ class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
     @Test
     void resolve_comparesByValueNotByScale() {
         // when / then — BigDecimal.equals would call these different; compareTo does not
-        assertThat(resolver.resolve(new Condition("isEqualTo", "1.50", "1.5"))).isTrue();
-        assertThat(resolver.resolve(new Condition("isEqualTo", "1.500", "1.5"))).isTrue();
+        assertThat(resolver.resolve(new Condition("isEqualTo", "1.50", "1.5"))).contains(true);
+        assertThat(resolver.resolve(new Condition("isEqualTo", "1.500", "1.5"))).contains(true);
     }
 
     @Test
@@ -129,21 +129,21 @@ class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
         var condition = new Condition("isGreaterThan", "0.3", "0.1");
 
         // when / then
-        assertThat(resolver.resolve(condition)).isTrue();
-        assertThat(resolver.resolve(new Condition("isEqualTo", "0.1", "0.10"))).isTrue();
+        assertThat(resolver.resolve(condition)).contains(true);
+        assertThat(resolver.resolve(new Condition("isEqualTo", "0.1", "0.10"))).contains(true);
     }
 
     @Test
     void resolve_declinesValuesThatAreNotDecimals() {
         // when / then — NaN and Infinity are doubles but not decimals, so this rule is not theirs
-        assertThat(resolver.resolve(new Condition("isEqualTo", "NaN", "NaN"))).isNull();
-        assertThat(resolver.resolve(new Condition("isGreaterThan", "Infinity", "1"))).isNull();
+        assertThat(resolver.resolve(new Condition("isEqualTo", "NaN", "NaN"))).isEmpty();
+        assertThat(resolver.resolve(new Condition("isGreaterThan", "Infinity", "1"))).isEmpty();
     }
 
     @Test
     void resolve_toleratesSurroundingWhitespace() {
         // when / then
-        assertThat(resolver.resolve(new Condition("isEqualTo", " 1.5 ", "1.5"))).isTrue();
+        assertThat(resolver.resolve(new Condition("isEqualTo", " 1.5 ", "1.5"))).contains(true);
     }
 
 }

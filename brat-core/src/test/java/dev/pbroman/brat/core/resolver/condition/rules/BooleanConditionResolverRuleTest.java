@@ -20,7 +20,7 @@ class BooleanConditionResolverRuleTest extends AbstractConditionResolverRuleTest
         var result = resolver.resolve(new Condition("isTrue", true, null));
 
         // then
-        assertThat(result).isTrue();
+        assertThat(result).contains(true);
     }
 
     @Test
@@ -29,7 +29,7 @@ class BooleanConditionResolverRuleTest extends AbstractConditionResolverRuleTest
         var result = resolver.resolve(new Condition("isFalse", false, null));
 
         // then
-        assertThat(result).isTrue();
+        assertThat(result).contains(true);
     }
 
 }

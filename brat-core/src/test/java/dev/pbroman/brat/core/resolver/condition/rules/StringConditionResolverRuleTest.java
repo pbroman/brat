@@ -38,7 +38,7 @@ class StringConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
         var result = resolver.resolve(condition);
 
         // then
-        assertThat(result).isTrue();
+        assertThat(result).contains(true);
     }
 
     @ParameterizedTest
@@ -61,7 +61,7 @@ class StringConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
         var result = resolver.resolve(condition);
 
         // then
-        assertThat(result).isFalse();
+        assertThat(result).contains(false);
     }
 
     @ParameterizedTest
@@ -81,7 +81,7 @@ class StringConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
         var result = resolver.resolve(condition);
 
         // then
-        assertThat(result).isTrue();
+        assertThat(result).contains(true);
     }
 
     @ParameterizedTest
@@ -98,7 +98,7 @@ class StringConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
         var result = resolver.resolve(condition);
 
         // then
-        assertThat(result).isFalse();
+        assertThat(result).contains(false);
     }
 
     @Test
