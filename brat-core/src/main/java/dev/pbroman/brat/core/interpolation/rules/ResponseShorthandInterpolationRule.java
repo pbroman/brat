@@ -22,10 +22,9 @@ public final class ResponseShorthandInterpolationRule extends AbstractInterpolat
     /**
      * Constructs an {@link InterpolationRule} translating response variables to shorthand.
      *
-     * @param patterns the {@link InterpolationPatterns}
      */
-    public ResponseShorthandInterpolationRule(InterpolationPatterns patterns) {
-        super(RESPONSE, patterns);
+    public ResponseShorthandInterpolationRule() {
+        super(RESPONSE);
     }
 
     @Override
@@ -53,10 +52,10 @@ public final class ResponseShorthandInterpolationRule extends AbstractInterpolat
         }
         requireNamespaces(runtimeData);
         var interpolation = simpleInterpolation(input, runtimeData, RESPONSE_SHORTHAND);
-        if (patterns.getVariablePattern().matcher(interpolation).find()) {
+        if (InterpolationPatterns.VARIABLE_PATTERN.matcher(interpolation).find()) {
             return interpolation;
         }
-        return patterns.wrapAsVariable(interpolation);
+        return InterpolationPatterns.wrapAsVariable(interpolation);
     }
 
     /**

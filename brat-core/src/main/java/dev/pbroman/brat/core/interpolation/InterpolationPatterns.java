@@ -1,39 +1,44 @@
 package dev.pbroman.brat.core.interpolation;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
-
-import lombok.Getter;
 
 import static dev.pbroman.brat.core.util.Constants.VARIABLE_GROUP_NAME;
 
 /**
- * Builds the regexes and {@link Pattern}s the interpolation rules match tokens with, from the
- * {@link InterpolationProperties} it is constructed with.
+ * The fixed syntax of an interpolation token, and the patterns matching it.
  * <p>
- * An instance, not a static utility: the patterns follow from configurable properties, so every rule
- * is handed the same instance rather than compiling its own.
+ * The delimiters are not configurable, deliberately: {@link TokenScanner} finds tokens by counting
+ * braces, which only works against literal delimiters, so a configurable regex here would be a
+ * promise the scanner could not keep.
+ * <p>
+ * Patterns are compiled once. The per-namespace patterns are cached rather than precompiled,
+ * since the set of namespaces is open — a plugin brings its own.
  */
-public class InterpolationPatterns {
-
-    @Getter
-    private final InterpolationProperties properties;
+public final class InterpolationPatterns {
 
     /**
-     * Constructs the patterns from the regexes configured for them.
-     *
-     * @param properties the regexes the patterns are built from
+     * Opens a token.
      */
-    public InterpolationPatterns(InterpolationProperties properties) {
-        this.properties = properties;
-    }
+    public static final String TOKEN_PREFIX = "${";
 
     /**
-     * The pattern matching any {@code ${...}} token.
-     *
-     * @return the pattern
+     * Closes a token.
      */
-    public Pattern getVariablePattern() {
-        return Pattern.compile(String.format(properties.getVariableRegex(), ".*?"));
+    public static final String TOKEN_SUFFIX = "}";
+
+    /**
+     * Matches a single token, lazily — so it stops at the first closing brace and does <em>not</em>
+     * handle nesting. Use {@link TokenScanner} to find the tokens in a field; this answers the
+     * simpler question of whether a string is, or holds, a token at all.
+     */
+    public static final Pattern VARIABLE_PATTERN = Pattern.compile("\\$\\{.*?}");
+
+    private static final Map<String, Pattern> GROUPING_PATTERNS = new ConcurrentHashMap<>();
+
+    private InterpolationPatterns() {
+        // no instances
     }
 
     /**
@@ -42,8 +47,8 @@ public class InterpolationPatterns {
      * @param variable the bare name
      * @return the name in token form
      */
-    public String wrapAsVariable(String variable) {
-        return String.format(properties.getVariableRegex().replace("\\", ""), variable);
+    public static String wrapAsVariable(String variable) {
+        return TOKEN_PREFIX + variable + TOKEN_SUFFIX;
     }
 
     /**
@@ -52,27 +57,27 @@ public class InterpolationPatterns {
      * @param variable the token name
      * @return the regex
      */
-    public String getRegexForVariable(String variable) {
-        return String.format(properties.getVariableRegex(), variable);
+    public static String regexForVariable(String variable) {
+        return "\\$\\{" + variable + "}";
     }
 
     /**
      * The regex matching a {@code ${namespace.key}} token, capturing the key as a named group.
-     *
-     * @param variable the namespace
-     * @return the regex
      */
-    public String getGroupingRegexForVariable(String variable) {
-        return String.format(properties.getGroupingVariableRegex(), variable, VARIABLE_GROUP_NAME);
+    private static String groupingRegexForVariable(String variable) {
+        return "\\$\\{" + variable + "\\.(?<" + VARIABLE_GROUP_NAME + ">.+)?}";
     }
 
     /**
-     * The compiled form of {@link #getGroupingRegexForVariable(String)}.
+     * The pattern matching a {@code ${namespace.key}} token, capturing the key as a named group.
+     * <p>
+     * Compiled once per namespace and memoised: this is called for every token by every rule the
+     * dispatcher tries, so compiling per call cost roughly one compile per rule per token.
      *
      * @param variable the namespace
      * @return the pattern
      */
-    public Pattern getGroupingPatternForVariable(String variable) {
-        return Pattern.compile(getGroupingRegexForVariable(variable));
+    public static Pattern groupingPatternForVariable(String variable) {
+        return GROUPING_PATTERNS.computeIfAbsent(variable, key -> Pattern.compile(groupingRegexForVariable(key)));
     }
 }

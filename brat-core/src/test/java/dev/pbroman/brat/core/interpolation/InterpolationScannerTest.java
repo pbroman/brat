@@ -10,13 +10,15 @@ import org.mockito.Mockito;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 class InterpolationScannerTest extends AbstractInterpolationTest {
 
     @BeforeEach
     void setUp() {
-        underTest = new InterpolationScanner(mockRule, patterns);
+        underTest = new InterpolationScanner(mockRule);
     }
 
     @Test
@@ -106,5 +108,60 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
 
         // then
         assertThat(result).isEqualTo(mockResult + mockResult);
+    }
+
+    @Test
+    void interpolate_passesANestedTokenToTheRuleWhole() {
+        // given — the regex this replaced cut this at the inner closing brace
+        var input = "${__upper(${vars.name})}";
+        when(mockRule.outcome(input, runtimeData)).thenReturn(new InterpolationOutcome("JOHN", input + " → JOHN"));
+
+        // when
+        var result = underTest.interpolate(input, runtimeData);
+
+        // then
+        assertThat(result).isEqualTo("JOHN");
+    }
+
+    @Test
+    void interpolate_leavesAnUnbalancedTokenAlone() {
+        // given — no closing brace anywhere after the "${", so there is no token at all
+        var input = "cost: ${100 or so";
+
+        // when
+        var result = underTest.interpolate(input, runtimeData);
+
+        // then
+        assertThat(result).isEqualTo(input);
+    }
+
+    @Test
+    void interpolate_resolvesEachOccurrenceOfARepeatedTokenSeparately() {
+        // given — a rule that answers differently each time, as a generator function will
+        var counter = new java.util.concurrent.atomic.AtomicInteger();
+        when(mockRule.outcome(eq("${mock}"), any())).thenAnswer(call -> {
+            var next = "value" + counter.incrementAndGet();
+            return new InterpolationOutcome(next, next);
+        });
+
+        // when
+        var result = underTest.interpolate("${mock} and ${mock}", runtimeData);
+
+        // then — not "value1 and value1", which replacing by text would have produced
+        assertThat(result).isEqualTo("value1 and value2");
+        assertThat(counter).hasValue(2);
+    }
+
+    @Test
+    void interpolate_splicesEachTokenAtItsOwnPosition() {
+        // given
+        when(mockRule.outcome(eq("${a}"), any())).thenReturn(new InterpolationOutcome("A", "A"));
+        when(mockRule.outcome(eq("${b}"), any())).thenReturn(new InterpolationOutcome("B", "B"));
+
+        // when
+        var result = underTest.interpolate("<${a}|${b}>", runtimeData);
+
+        // then
+        assertThat(result).isEqualTo("<A|B>");
     }
 }

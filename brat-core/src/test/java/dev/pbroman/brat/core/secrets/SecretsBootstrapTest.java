@@ -14,8 +14,6 @@ import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.api.secrets.SecretsProviderFactory;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
-import dev.pbroman.brat.core.interpolation.InterpolationProperties;
 import dev.pbroman.brat.core.interpolation.rules.ConstantsInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.SecretsInterpolationRule;
 import org.junit.jupiter.api.Test;
@@ -29,11 +27,9 @@ class SecretsBootstrapTest {
 
     private static final String LOCATION = "location";
 
-    private final InterpolationPatterns patterns = new InterpolationPatterns(new InterpolationProperties());
-
     private final RuntimeData runtimeData = new RuntimeData(Map.of("stage", "dev"), Map.of());
 
-    private final List<InterpolationRule> bootstrapRules = List.of(new ConstantsInterpolationRule(patterns));
+    private final List<InterpolationRule> bootstrapRules = List.of(new ConstantsInterpolationRule());
 
     private final Map<String, String> environment = new HashMap<>();
 
@@ -47,15 +43,14 @@ class SecretsBootstrapTest {
         var factories = List.<SecretsProviderFactory>of(new StubFactory("file"), new StubFactory("file"));
 
         // when / then
-        assertThatThrownBy(() -> new SecretsBootstrap(factories, bootstrapRules, patterns))
+        assertThatThrownBy(() -> new SecretsBootstrap(factories, bootstrapRules))
                 .isInstanceOf(BratException.class);
     }
 
     @Test
     void constructor_throwsIfTheFactoriesAreNull() {
         // when / then
-        assertThatThrownBy(() -> new SecretsBootstrap(null, bootstrapRules, patterns))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new SecretsBootstrap(null, bootstrapRules)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -65,15 +60,14 @@ class SecretsBootstrapTest {
         factories.add(null);
 
         // when / then
-        assertThatThrownBy(() -> new SecretsBootstrap(factories, bootstrapRules, patterns))
+        assertThatThrownBy(() -> new SecretsBootstrap(factories, bootstrapRules))
                 .isInstanceOf(BratException.class);
     }
 
     @Test
     void constructor_throwsIfTheBootstrapRulesAreNull() {
         // when / then
-        assertThatThrownBy(() -> new SecretsBootstrap(List.of(), null, patterns))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new SecretsBootstrap(List.of(), null)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -83,25 +77,16 @@ class SecretsBootstrapTest {
         rules.add(null);
 
         // when / then
-        assertThatThrownBy(() -> new SecretsBootstrap(List.of(), rules, patterns))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new SecretsBootstrap(List.of(), rules)).isInstanceOf(BratException.class);
     }
 
     @Test
     void constructor_throwsIfABootstrapRuleResolvesSecrets() {
         // given
-        var rules = List.<InterpolationRule>of(new SecretsInterpolationRule(mock(SecretsProvider.class), patterns));
+        var rules = List.<InterpolationRule>of(new SecretsInterpolationRule(mock(SecretsProvider.class)));
 
         // when / then
-        assertThatThrownBy(() -> new SecretsBootstrap(List.of(), rules, patterns))
-                .isInstanceOf(BratException.class);
-    }
-
-    @Test
-    void constructor_throwsIfTheToolsAreNull() {
-        // when / then
-        assertThatThrownBy(() -> new SecretsBootstrap(List.of(), bootstrapRules, null))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new SecretsBootstrap(List.of(), rules)).isInstanceOf(BratException.class);
     }
 
     // --- the chain build ---
@@ -511,7 +496,7 @@ class SecretsBootstrapTest {
     // --- helpers ---
 
     private SecretsBootstrap bootstrap(SecretsProviderFactory... factories) {
-        return new SecretsBootstrap(List.of(factories), bootstrapRules, patterns, envLookup);
+        return new SecretsBootstrap(List.of(factories), bootstrapRules, envLookup);
     }
 
     private static SecretsProviderConfig config(

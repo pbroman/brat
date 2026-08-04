@@ -18,10 +18,9 @@ public abstract class AbstractResponseInterpolationRule extends AbstractInterpol
      * Constructs a response interpolation rule.
      *
      * @param interpolationKey the namespace key this rule resolves, e.g. {@code responseVars}
-     * @param patterns the patterns tokens are matched with
      */
-    protected AbstractResponseInterpolationRule(String interpolationKey, InterpolationPatterns patterns) {
-        super(interpolationKey, patterns);
+    protected AbstractResponseInterpolationRule(String interpolationKey) {
+        super(interpolationKey);
     }
 
     /**
@@ -34,6 +33,6 @@ public abstract class AbstractResponseInterpolationRule extends AbstractInterpol
      */
     protected boolean isRequirementsNotMet(String input, RuntimeData runtimeData) {
         requireNamespaces(runtimeData, RESPONSE_VARS);
-        return StringUtils.isBlank(input) || !input.matches(patterns.getRegexForVariable(interpolationKey));
+        return StringUtils.isBlank(input) || !input.matches(InterpolationPatterns.regexForVariable(interpolationKey));
     }
 }

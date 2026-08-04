@@ -3,7 +3,6 @@ package dev.pbroman.brat.core.interpolation.rules;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 import lombok.extern.slf4j.Slf4j;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
@@ -18,10 +17,9 @@ public final class ConstantsInterpolationRule extends AbstractInterpolationRule 
     /**
      * Constructs an {@link InterpolationRule} for constants.
      *
-     * @param patterns the {@link InterpolationPatterns}
      */
-    public ConstantsInterpolationRule(InterpolationPatterns patterns) {
-        super(CONSTANTS, patterns);
+    public ConstantsInterpolationRule() {
+        super(CONSTANTS);
     }
 
     @Override

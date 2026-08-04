@@ -3,7 +3,6 @@ package dev.pbroman.brat.core.interpolation.rules;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 
 import static dev.pbroman.brat.core.util.Constants.BODY;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_BODY_SHORTHAND;
@@ -16,10 +15,9 @@ public final class ResponseBodyInterpolationRule extends AbstractResponseInterpo
     /**
      * Constructs an {@link InterpolationRule} for a response body.
      *
-     * @param patterns the {@link InterpolationPatterns}
      */
-    public ResponseBodyInterpolationRule(InterpolationPatterns patterns) {
-        super(RESPONSE_BODY_SHORTHAND, patterns);
+    public ResponseBodyInterpolationRule() {
+        super(RESPONSE_BODY_SHORTHAND);
     }
 
     @Override

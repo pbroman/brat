@@ -31,11 +31,11 @@ public class ResponseInterpolationIntegrationRuleTest extends AbstractInterpolat
     @BeforeEach
     void setup() {
         underTest = new InterpolationRuleDispatcher(List.of(
-                new ResponseBodyInterpolationRule(patterns),
-                new ResponseHeaderInterpolationRule(patterns),
-                new ResponseJsonInterpolationRule(patterns),
-                new ResponseShorthandInterpolationRule(patterns),
-                new ResponseStatusCodeInterpolationRule(patterns)));
+                new ResponseBodyInterpolationRule(),
+                new ResponseHeaderInterpolationRule(),
+                new ResponseJsonInterpolationRule(),
+                new ResponseShorthandInterpolationRule(),
+                new ResponseStatusCodeInterpolationRule()));
     }
 
     protected RuntimeData setUpRuntimeData() {

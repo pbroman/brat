@@ -3,7 +3,6 @@ package dev.pbroman.brat.core.interpolation.rules;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
 import static dev.pbroman.brat.core.util.Constants.PARAMS;
@@ -19,10 +18,9 @@ public final class ParamsInterpolationRule extends AbstractInterpolationRule {
     /**
      * Constructs an {@link InterpolationRule} for execution-time parameters.
      *
-     * @param patterns the {@link InterpolationPatterns}
      */
-    public ParamsInterpolationRule(InterpolationPatterns patterns) {
-        super(PARAMS, patterns);
+    public ParamsInterpolationRule() {
+        super(PARAMS);
     }
 
     @Override

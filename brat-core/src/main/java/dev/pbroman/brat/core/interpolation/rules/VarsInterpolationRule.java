@@ -2,7 +2,6 @@ package dev.pbroman.brat.core.interpolation.rules;
 
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 import lombok.extern.slf4j.Slf4j;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
@@ -17,10 +16,9 @@ public final class VarsInterpolationRule extends AbstractInterpolationRule {
     /**
      * Constructs an {@link InterpolationRule} for variables.
      *
-     * @param patterns the {@link InterpolationPatterns}
      */
-    public VarsInterpolationRule(InterpolationPatterns patterns) {
-        super(VARS, patterns);
+    public VarsInterpolationRule() {
+        super(VARS);
     }
 
     @Override

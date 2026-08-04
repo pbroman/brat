@@ -21,10 +21,6 @@ public abstract class AbstractInterpolationTest {
 
     protected static final String nonMatchingPattern = "${bollocks}";
 
-    protected final InterpolationProperties properties = new InterpolationProperties();
-
-    protected final InterpolationPatterns patterns = new InterpolationPatterns(properties);
-
     protected RuntimeData runtimeData;
 
     protected final Interpolation mockRule = Mockito.mock(Interpolation.class);

@@ -15,7 +15,7 @@ class ParamsInterpolationRuleTest extends AbstractInterpolationTest {
 
     @BeforeEach
     void setUp() {
-        underTest = new ParamsInterpolationRule(patterns);
+        underTest = new ParamsInterpolationRule();
     }
 
     protected RuntimeData setUpRuntimeData() {

@@ -1,5 +1,7 @@
 package dev.pbroman.brat.core.interpolation;
 
+import java.util.ArrayList;
+
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
@@ -17,22 +19,22 @@ public class InterpolationScanner implements Interpolation {
 
     private final Interpolation dispatcher;
 
-    private final InterpolationPatterns patterns;
-
     /**
      * Constructs an interpolation handler with a dispatcher and {@link InterpolationPatterns}.
      *
      * @param dispatcher the interpolation dispatcher
-     * @param patterns the {@link InterpolationPatterns}
      */
-    public InterpolationScanner(Interpolation dispatcher, InterpolationPatterns patterns) {
+    public InterpolationScanner(Interpolation dispatcher) {
         this.dispatcher = dispatcher;
-        this.patterns = patterns;
     }
 
     /**
      * Resolves every {@code ${...}} token in {@code input}, splicing each one's resolved value
      * back into the original string.
+     * <p>
+     * Tokens are found by {@link TokenScanner}, which counts braces — so a token holding another token
+     * ({@code ${__upper(${vars.name})}}) is passed to the dispatcher whole rather than truncated at the
+     * inner brace, and resolving the nested part is the resolving rule's business.
      * <p>
      * <strong>A field that is nothing but a single token keeps its resolved value's type</strong> —
      * the outcome is returned as the resolving rule produced it, so {@code ${response.json.$.items}}
@@ -61,25 +63,37 @@ public class InterpolationScanner implements Interpolation {
     public InterpolationOutcome outcome(String input, RuntimeData runtimeData) {
         nonNull(input, "Cannot interpolate a null input");
         requireNamespaces(runtimeData);
-        var matcher = patterns.getVariablePattern().matcher(input);
-        if (matcher.find() && matcher.start() == 0 && matcher.end() == input.length()) {
+        var tokens = TokenScanner.tokensIn(input);
+        if (tokens.size() == 1
+                && tokens.getFirst().start() == 0
+                && tokens.getFirst().end() == input.length()) {
             return dispatcher.outcome(input, runtimeData);
         }
-        matcher.reset();
-        var value = input;
-        var maskedFinal = input;
+        // Resolved in reading order, then spliced back to front. Both halves matter: replacing by
+        // text would substitute every copy of a repeated token from a single resolution, so
+        // `${__uuid} / ${__uuid}` would yield one UUID twice and never call the second token;
+        // splicing backwards keeps the earlier tokens' indices valid as later ones are replaced.
+        var outcomes = new ArrayList<InterpolationOutcome>(tokens.size());
         var containsSecret = false;
-        while (matcher.find()) {
-            var token = matcher.group(0);
-            var tokenOutcome = dispatcher.outcome(token, runtimeData);
-            value = value.replace(token, tokenOutcome.asString());
-            var displayValue = tokenOutcome.containsSecret() ? "***" : tokenOutcome.asString();
-            maskedFinal = maskedFinal.replace(token, displayValue);
+        for (var token : tokens) {
+            var tokenOutcome = dispatcher.outcome(token.text(), runtimeData);
+            outcomes.add(tokenOutcome);
             containsSecret |= tokenOutcome.containsSecret();
         }
-        if (maskedFinal.equals(input)) {
-            return new InterpolationOutcome(value, value, containsSecret);
+        var value = new StringBuilder(input);
+        var maskedFinal = new StringBuilder(input);
+        for (var index = tokens.size() - 1; index >= 0; index--) {
+            var token = tokens.get(index);
+            var tokenOutcome = outcomes.get(index);
+            value.replace(token.start(), token.end(), tokenOutcome.asString());
+            maskedFinal.replace(
+                    token.start(), token.end(), tokenOutcome.containsSecret() ? "***" : tokenOutcome.asString());
         }
-        return new InterpolationOutcome(value, input + " → " + maskedFinal, containsSecret);
+        var resolved = value.toString();
+        var masked = maskedFinal.toString();
+        if (masked.equals(input)) {
+            return new InterpolationOutcome(resolved, resolved, containsSecret);
+        }
+        return new InterpolationOutcome(resolved, input + " → " + masked, containsSecret);
     }
 }

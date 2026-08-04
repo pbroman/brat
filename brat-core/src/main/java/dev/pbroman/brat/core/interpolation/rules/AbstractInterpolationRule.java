@@ -34,18 +34,14 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
 
     protected final String interpolationKey;
 
-    protected final InterpolationPatterns patterns;
-
     /**
-     * Constructs an {@link InterpolationRule} with a key and {@link InterpolationPatterns}.
+     * Constructs an {@link InterpolationRule} for one namespace.
      *
      * @param interpolationKey the interpolation key
-     * @param patterns the patterns
      */
-    protected AbstractInterpolationRule(String interpolationKey, InterpolationPatterns patterns) {
+    protected AbstractInterpolationRule(String interpolationKey) {
         nonNull(interpolationKey, "The pattern of the interpolation must be set");
         this.interpolationKey = interpolationKey;
-        this.patterns = patterns;
     }
 
     /**
@@ -120,7 +116,8 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
         if (StringUtils.isBlank(input)) {
             return input;
         }
-        var matcher = patterns.getGroupingPatternForVariable(interpolationKey).matcher(input);
+        var matcher = InterpolationPatterns.groupingPatternForVariable(interpolationKey)
+                .matcher(input);
         if (values == null || !matcher.find()) {
             return input;
         }

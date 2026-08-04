@@ -60,7 +60,7 @@ public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest
 
     @BeforeEach
     void setup() {
-        underTest = new ResponseJsonInterpolationRule(patterns);
+        underTest = new ResponseJsonInterpolationRule();
     }
 
     @ParameterizedTest

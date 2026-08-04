@@ -32,17 +32,13 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  */
 public final class ResponseJsonInterpolationRule implements InterpolationRule {
 
-    private final InterpolationPatterns patterns;
-
     protected Map<String, Function<Object, Object>> functionMap;
 
     /**
      * Constructs an {@link InterpolationRule} for response json.
      *
-     * @param patterns the {@link InterpolationPatterns}
      */
-    public ResponseJsonInterpolationRule(InterpolationPatterns patterns) {
-        this.patterns = patterns;
+    public ResponseJsonInterpolationRule() {
         this.initFunctionMap();
     }
 
@@ -84,8 +80,8 @@ public final class ResponseJsonInterpolationRule implements InterpolationRule {
         }
         requireNamespaces(runtimeData, RESPONSE_VARS);
 
-        var matcher =
-                patterns.getGroupingPatternForVariable(RESPONSE_JSON_SHORTHAND).matcher(input);
+        var matcher = InterpolationPatterns.groupingPatternForVariable(RESPONSE_JSON_SHORTHAND)
+                .matcher(input);
         if (!matcher.find()) {
             return new InterpolationOutcome(input, input);
         }

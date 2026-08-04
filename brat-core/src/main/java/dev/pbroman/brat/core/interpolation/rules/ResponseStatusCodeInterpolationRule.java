@@ -3,7 +3,6 @@ package dev.pbroman.brat.core.interpolation.rules;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 import lombok.extern.slf4j.Slf4j;
 
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_STATUS_SHORTHAND;
@@ -18,10 +17,9 @@ public final class ResponseStatusCodeInterpolationRule extends AbstractResponseI
     /**
      * Constructs an {@link InterpolationRule} for status codes.
      *
-     * @param patterns the {@link InterpolationPatterns}
      */
-    public ResponseStatusCodeInterpolationRule(InterpolationPatterns patterns) {
-        super(RESPONSE_STATUS_SHORTHAND, patterns);
+    public ResponseStatusCodeInterpolationRule() {
+        super(RESPONSE_STATUS_SHORTHAND);
     }
 
     @Override

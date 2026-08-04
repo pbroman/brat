@@ -20,7 +20,7 @@ class SecretsInterpolationRuleTest extends AbstractInterpolationTest {
 
     @BeforeEach
     void setUp() {
-        underTest = new SecretsInterpolationRule(provider, patterns);
+        underTest = new SecretsInterpolationRule(provider);
     }
 
     @Test
@@ -102,13 +102,7 @@ class SecretsInterpolationRuleTest extends AbstractInterpolationTest {
     @Test
     void constructor_throwsOnNullProvider() {
         // then
-        assertThatThrownBy(() -> new SecretsInterpolationRule(null, patterns)).isInstanceOf(BratException.class);
-    }
-
-    @Test
-    void constructor_throwsOnNullTools() {
-        // then
-        assertThatThrownBy(() -> new SecretsInterpolationRule(provider, null)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new SecretsInterpolationRule(null)).isInstanceOf(BratException.class);
     }
 
     @Test

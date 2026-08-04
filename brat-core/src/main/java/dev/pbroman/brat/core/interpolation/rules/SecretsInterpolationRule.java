@@ -25,21 +25,16 @@ public final class SecretsInterpolationRule implements InterpolationRule {
 
     private final SecretsProvider provider;
 
-    private final InterpolationPatterns patterns;
-
     /**
      * Constructs a rule resolving against a provider.
      *
      * @param provider the provider to resolve secrets against, typically a
      *        {@link dev.pbroman.brat.core.secrets.CompositeSecretsProvider}
-     * @param patterns the {@link InterpolationPatterns}
-     * @throws BratException if {@code provider} or {@code patterns} is {@code null}
+     * @throws BratException if {@code provider} is {@code null}
      */
-    public SecretsInterpolationRule(SecretsProvider provider, InterpolationPatterns patterns) {
+    public SecretsInterpolationRule(SecretsProvider provider) {
         nonNull(provider, "The secrets provider must be set");
-        nonNull(patterns, "The interpolation patterns must be set");
         this.provider = provider;
-        this.patterns = patterns;
     }
 
     /**
@@ -72,7 +67,7 @@ public final class SecretsInterpolationRule implements InterpolationRule {
     public InterpolationOutcome outcome(String input, RuntimeData runtimeData) {
         nonNull(input, "Cannot interpolate a null input");
         requireNamespaces(runtimeData);
-        var matcher = patterns.getGroupingPatternForVariable(SECRETS).matcher(input);
+        var matcher = InterpolationPatterns.groupingPatternForVariable(SECRETS).matcher(input);
         if (!matcher.find()) {
             return new InterpolationOutcome(input, input);
         }

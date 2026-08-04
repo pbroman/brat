@@ -13,7 +13,7 @@ class VarsInterpolationRuleTest extends AbstractInterpolationTest {
 
     @BeforeEach
     void setUp() {
-        underTest = new VarsInterpolationRule(patterns);
+        underTest = new VarsInterpolationRule();
     }
 
     protected RuntimeData setUpRuntimeData() {

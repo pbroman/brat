@@ -15,7 +15,7 @@ class EnvInterpolationRuleTest extends AbstractInterpolationTest {
 
     @BeforeEach
     void setUp() {
-        underTest = new EnvInterpolationRule(patterns);
+        underTest = new EnvInterpolationRule();
     }
 
     protected RuntimeData setUpRuntimeData() {
