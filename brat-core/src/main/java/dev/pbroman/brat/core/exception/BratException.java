@@ -25,5 +25,4 @@ public class BratException extends RuntimeException {
     public BratException(String message, Throwable cause) {
         super(message, cause);
     }
-
 }

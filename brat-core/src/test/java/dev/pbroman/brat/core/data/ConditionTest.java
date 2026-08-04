@@ -1,11 +1,10 @@
 package dev.pbroman.brat.core.data;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import dev.pbroman.brat.core.interpolation.configdata.ConditionInterpolator;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 class ConditionTest extends AbstractConfigDataTest {
 
@@ -55,5 +54,4 @@ class ConditionTest extends AbstractConfigDataTest {
         assertThat(interpolated.getA()).isNull();
         assertThat(interpolated.getOutcomes()).doesNotContainKey("a");
     }
-
 }

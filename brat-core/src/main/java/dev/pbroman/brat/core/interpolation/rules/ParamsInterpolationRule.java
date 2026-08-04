@@ -1,12 +1,12 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
-import static dev.pbroman.brat.core.util.Constants.PARAMS;
-
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
+
+import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
+import static dev.pbroman.brat.core.util.Constants.PARAMS;
 
 /**
  * An {@link InterpolationRule} for execution-time parameters — values injected at suite launch
@@ -40,5 +40,4 @@ public final class ParamsInterpolationRule extends AbstractInterpolationRule {
     protected String onMissingReplacement(String placeholder, String input) {
         throw new BratException("The parameter '" + placeholder + "' is not set.");
     }
-
 }

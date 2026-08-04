@@ -1,7 +1,5 @@
 package dev.pbroman.brat.core.reporting;
 
-import static dev.pbroman.brat.core.util.Require.nonNull;
-
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -10,6 +8,8 @@ import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.reporting.Reporting;
 import dev.pbroman.brat.core.api.reporting.ReportingRule;
 import dev.pbroman.brat.core.exception.BratException;
+
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * Priority-ordered dispatcher over {@link ReportingRule}s: tries each rule in priority order
@@ -25,7 +25,9 @@ public class ReportingRuleDispatcher implements Reporting {
      * @param rules the {@link ReportingRule}s
      */
     public ReportingRuleDispatcher(List<ReportingRule> rules) {
-        this.rules = rules.stream().sorted(Comparator.comparingInt(ReportingRule::priority).reversed()).toList();
+        this.rules = rules.stream()
+                .sorted(Comparator.comparingInt(ReportingRule::priority).reversed())
+                .toList();
     }
 
     /**

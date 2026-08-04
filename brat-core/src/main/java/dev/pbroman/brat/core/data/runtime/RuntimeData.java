@@ -1,17 +1,17 @@
 package dev.pbroman.brat.core.data.runtime;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import lombok.Getter;
+import lombok.Setter;
+
 import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
 import static dev.pbroman.brat.core.util.Constants.ENV;
 import static dev.pbroman.brat.core.util.Constants.MISC;
 import static dev.pbroman.brat.core.util.Constants.PARAMS;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
 import static dev.pbroman.brat.core.util.Constants.VARS;
-
-import java.util.HashMap;
-import java.util.Map;
-
-import lombok.Getter;
-import lombok.Setter;
 
 /**
  * Holds every namespace of values ({@code constants}/{@code env}/{@code vars}/
@@ -22,8 +22,10 @@ import lombok.Setter;
 public class RuntimeData {
 
     private final Map<String, Map<String, Object>> data;
+
     @Setter
     private String currentPath;
+
     @Setter
     private int currentRequestNo;
 
@@ -47,10 +49,11 @@ public class RuntimeData {
      * @param vars the runtime-mutable variables
      * @param responseVars the response variables
      */
-    public RuntimeData(Map<String, Object> constants,
-                       Map<String, Object> env,
-                       Map<String, Object> vars,
-                       Map<String, Object> responseVars) {
+    public RuntimeData(
+            Map<String, Object> constants,
+            Map<String, Object> env,
+            Map<String, Object> vars,
+            Map<String, Object> responseVars) {
         this(constants, env, vars, responseVars, new HashMap<>());
     }
 
@@ -63,11 +66,12 @@ public class RuntimeData {
      * @param responseVars the response variables
      * @param params the execution-time parameters
      */
-    public RuntimeData(Map<String, Object> constants,
-                       Map<String, Object> env,
-                       Map<String, Object> vars,
-                       Map<String, Object> responseVars,
-                       Map<String, Object> params) {
+    public RuntimeData(
+            Map<String, Object> constants,
+            Map<String, Object> env,
+            Map<String, Object> vars,
+            Map<String, Object> responseVars,
+            Map<String, Object> params) {
         data = new HashMap<>();
         data.put(CONSTANTS, constants);
         data.put(ENV, env);
@@ -133,5 +137,4 @@ public class RuntimeData {
     public Map<String, Object> getParams() {
         return getData(PARAMS);
     }
-
 }

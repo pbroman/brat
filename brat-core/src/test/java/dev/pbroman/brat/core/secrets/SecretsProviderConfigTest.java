@@ -1,9 +1,5 @@
 package dev.pbroman.brat.core.secrets;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.entry;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -11,6 +7,10 @@ import java.util.Map;
 
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.entry;
 
 class SecretsProviderConfigTest {
 
@@ -82,15 +82,13 @@ class SecretsProviderConfigTest {
     @Test
     void constructor_throwsIfProviderParamsIsNull() {
         // when / then
-        assertThatThrownBy(() -> new SecretsProviderConfig(null, List.of()))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new SecretsProviderConfig(null, List.of())).isInstanceOf(BratException.class);
     }
 
     @Test
     void constructor_throwsIfSourcesIsNull() {
         // when / then
-        assertThatThrownBy(() -> new SecretsProviderConfig(Map.of(), null))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new SecretsProviderConfig(Map.of(), null)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -133,15 +131,14 @@ class SecretsProviderConfigTest {
         sources.add(null);
 
         // when / then
-        assertThatThrownBy(() -> new SecretsProviderConfig(Map.of(), sources))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new SecretsProviderConfig(Map.of(), sources)).isInstanceOf(BratException.class);
     }
 
     @Test
     void paramsFor_returnsTheParamsConfiguredForTheType() {
         // given
-        var underTest = new SecretsProviderConfig(
-                Map.of("vault", Map.of("address", "https://vault.example.com")), List.of());
+        var underTest =
+                new SecretsProviderConfig(Map.of("vault", Map.of("address", "https://vault.example.com")), List.of());
 
         // when
         var result = underTest.paramsFor("vault");
@@ -168,8 +165,7 @@ class SecretsProviderConfigTest {
         var underTest = new SecretsProviderConfig(Map.of(), List.of());
 
         // when / then
-        assertThatThrownBy(() -> underTest.paramsFor(" "))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.paramsFor(" ")).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -203,7 +199,6 @@ class SecretsProviderConfigTest {
         var underTest = new SecretsProviderConfig(Map.of(), List.of());
 
         // when / then
-        assertThatThrownBy(() -> underTest.withSources(null))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.withSources(null)).isInstanceOf(BratException.class);
     }
 }

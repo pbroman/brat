@@ -43,5 +43,4 @@ public final class Require {
             throw new BratException(message);
         }
     }
-
 }

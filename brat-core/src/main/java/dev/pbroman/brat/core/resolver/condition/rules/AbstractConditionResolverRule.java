@@ -1,16 +1,16 @@
 package dev.pbroman.brat.core.resolver.condition.rules;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
 import dev.pbroman.brat.core.api.resolver.ConditionPredicate;
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.exception.BratException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 
 import static dev.pbroman.brat.core.util.Constants.IS_PREFIX;
 import static dev.pbroman.brat.core.util.Constants.NEGATION_PATTERN;
@@ -43,8 +43,10 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
             }
             nullCheckB(condition, prepared.function());
             try {
-                return Optional.of(prepared.negate() != predicateMap.get(prepared.function())
-                        .test(condition.getA(), condition.getB(), condition.getArgs()));
+                return Optional.of(prepared.negate()
+                        != predicateMap
+                                .get(prepared.function())
+                                .test(condition.getA(), condition.getB(), condition.getArgs()));
             } catch (BratException be) {
                 throw be;
             } catch (RuntimeException re) {
@@ -114,7 +116,10 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
      */
     protected static void rejectUnknownArgs(Map<String, String> args, String... legalKeys) {
         var legal = Set.of(legalKeys);
-        var unknown = args.keySet().stream().filter(key -> !legal.contains(key)).sorted().toList();
+        var unknown = args.keySet().stream()
+                .filter(key -> !legal.contains(key))
+                .sorted()
+                .toList();
         if (!unknown.isEmpty()) {
             throw new BratException("Unknown argument(s) " + unknown + "; this function takes " + legal);
         }

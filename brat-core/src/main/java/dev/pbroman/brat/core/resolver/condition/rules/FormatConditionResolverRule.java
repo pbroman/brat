@@ -51,8 +51,10 @@ public final class FormatConditionResolverRule extends AbstractConditionResolver
 
     private static Map<String, ConditionPredicate> predicates() {
         var predicates = new HashMap<String, ConditionPredicate>();
-        predicates.put(FORMAT_UUID, (a, b, args) -> UUID_PATTERN.matcher(parse(a)).matches());
-        predicates.put(FORMAT_EMAIL, (a, b, args) -> EMAIL_PATTERN.matcher(parse(a)).matches());
+        predicates.put(
+                FORMAT_UUID, (a, b, args) -> UUID_PATTERN.matcher(parse(a)).matches());
+        predicates.put(
+                FORMAT_EMAIL, (a, b, args) -> EMAIL_PATTERN.matcher(parse(a)).matches());
         predicates.put(FORMAT_ISO_DATE_TIME, (a, b, args) -> isIsoDateTime(parse(a)));
         predicates.put(FORMAT_URL, (a, b, args) -> isUrl(parse(a)));
         return predicates;
@@ -108,5 +110,4 @@ public final class FormatConditionResolverRule extends AbstractConditionResolver
     protected List<String> ignoreBNullCheck() {
         return List.of(FORMAT_UUID, FORMAT_EMAIL, FORMAT_ISO_DATE_TIME, FORMAT_URL);
     }
-
 }

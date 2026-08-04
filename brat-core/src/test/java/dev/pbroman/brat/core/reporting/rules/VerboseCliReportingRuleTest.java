@@ -1,13 +1,12 @@
 package dev.pbroman.brat.core.reporting.rules;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import org.junit.jupiter.api.Test;
 
-import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class VerboseCliReportingRuleTest {
 
@@ -23,7 +22,8 @@ class VerboseCliReportingRuleTest {
         // given
         var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
         outcomes.put("url", new InterpolationOutcome("resolved", "${x} → resolved"));
-        outcomes.put("header.Authorization", new InterpolationOutcome("Bearer ***", "Bearer ${secrets.token} → Bearer ***"));
+        outcomes.put(
+                "header.Authorization", new InterpolationOutcome("Bearer ***", "Bearer ${secrets.token} → Bearer ***"));
         outcomes.put("auth.type", new InterpolationOutcome("none", "none"));
 
         // when
@@ -37,5 +37,4 @@ class VerboseCliReportingRuleTest {
                 .contains("Auth:")
                 .contains("  type: none");
     }
-
 }

@@ -1,18 +1,16 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static dev.pbroman.brat.core.util.Constants.HEADERS;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-
 import java.util.Map;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.interpolation.AbstractInterpolationTest;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static dev.pbroman.brat.core.util.Constants.HEADERS;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 class ResponseHeaderInterpolationRuleTest extends AbstractInterpolationTest {
-
 
     @BeforeEach
     void setUp() {
@@ -32,7 +30,7 @@ class ResponseHeaderInterpolationRuleTest extends AbstractInterpolationTest {
         // when
         var result = underTest.interpolate(input, runtimeData);
 
-        //then
+        // then
         assertThat(result).isEqualTo(expected);
     }
 
@@ -44,7 +42,7 @@ class ResponseHeaderInterpolationRuleTest extends AbstractInterpolationTest {
         // when
         var result = underTest.interpolate(input, runtimeData);
 
-        //then
+        // then
         assertThat(result).isEqualTo(input);
     }
 
@@ -57,8 +55,7 @@ class ResponseHeaderInterpolationRuleTest extends AbstractInterpolationTest {
         // when
         var result = underTest.interpolate(input, runtimeData);
 
-        //then
+        // then
         assertThat(result).isEqualTo(input);
     }
-
 }

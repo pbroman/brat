@@ -1,12 +1,12 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
-import static dev.pbroman.brat.core.util.Constants.ENV;
-
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
+
+import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
+import static dev.pbroman.brat.core.util.Constants.ENV;
 
 /**
  * An {@link InterpolationRule} for environment values.

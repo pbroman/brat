@@ -1,12 +1,12 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static dev.pbroman.brat.core.util.Constants.BODY;
-import static dev.pbroman.brat.core.util.Constants.RESPONSE_BODY_SHORTHAND;
-
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
+
+import static dev.pbroman.brat.core.util.Constants.BODY;
+import static dev.pbroman.brat.core.util.Constants.RESPONSE_BODY_SHORTHAND;
 
 /**
  * An {@link InterpolationRule} for a response body.
@@ -33,5 +33,4 @@ public final class ResponseBodyInterpolationRule extends AbstractResponseInterpo
         }
         return body.toString();
     }
-
 }

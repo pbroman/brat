@@ -62,12 +62,12 @@ public final class SecretsProviderConfigLoader {
         for (Map.Entry<String, String> entry : FlatYamlLoader.load(yaml).entrySet()) {
             var path = entry.getKey();
             if (PROVIDERS_SECTION.equals(path)) {
-                throw new BratException("The '" + PROVIDERS_SECTION
-                        + "' section must be a mapping of provider type to parameters");
+                throw new BratException(
+                        "The '" + PROVIDERS_SECTION + "' section must be a mapping of provider type to parameters");
             }
             if (!path.startsWith(PROVIDERS_SECTION + ".")) {
-                throw new BratException("The only supported top-level key is '" + PROVIDERS_SECTION
-                        + "', but found '" + StringUtils.substringBefore(path, ".") + "'");
+                throw new BratException("The only supported top-level key is '" + PROVIDERS_SECTION + "', but found '"
+                        + StringUtils.substringBefore(path, ".") + "'");
             }
             var typeAndParam = StringUtils.substringAfter(path, ".");
             var param = StringUtils.substringAfter(typeAndParam, ".");
@@ -75,8 +75,9 @@ public final class SecretsProviderConfigLoader {
                 throw new BratException("The provider type '" + typeAndParam
                         + "' has no parameters, so it must be written as a mapping");
             }
-            providerParams.computeIfAbsent(StringUtils.substringBefore(typeAndParam, "."),
-                    type -> new LinkedHashMap<>()).put(param, entry.getValue());
+            providerParams
+                    .computeIfAbsent(StringUtils.substringBefore(typeAndParam, "."), type -> new LinkedHashMap<>())
+                    .put(param, entry.getValue());
         }
         return new SecretsProviderConfig(providerParams, List.of());
     }

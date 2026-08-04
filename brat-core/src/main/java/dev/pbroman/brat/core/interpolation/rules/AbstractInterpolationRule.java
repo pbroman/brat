@@ -1,15 +1,15 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
+
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 import org.apache.commons.lang3.StringUtils;
-
-import java.util.Map;
-import java.util.Set;
-import java.util.regex.Pattern;
 
 import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
 import static dev.pbroman.brat.core.util.Constants.ENV;
@@ -177,5 +177,4 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
     protected String onMissingReplacement(String placeholder, String input) {
         return input;
     }
-
 }

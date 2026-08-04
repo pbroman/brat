@@ -1,15 +1,13 @@
 package dev.pbroman.brat.core.interpolation;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.when;
-
+import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import dev.pbroman.brat.core.exception.BratException;
+import static org.mockito.Mockito.when;
 
 class InterpolationScannerTest extends AbstractInterpolationTest {
 
@@ -59,13 +57,10 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
     @Test
     void interpolate_inputWithException() {
         // given
-        when(mockRule.outcome(Mockito.anyString(), Mockito.any()))
-                .thenThrow(new BratException("mock"));
+        when(mockRule.outcome(Mockito.anyString(), Mockito.any())).thenThrow(new BratException("mock"));
         var input = "this is a ${mock}";
 
         // when / then
-        assertThatThrownBy(() -> underTest.interpolate(input, runtimeData))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.interpolate(input, runtimeData)).isInstanceOf(BratException.class);
     }
-
 }

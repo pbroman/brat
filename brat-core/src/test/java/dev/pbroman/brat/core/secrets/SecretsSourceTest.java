@@ -1,14 +1,14 @@
 package dev.pbroman.brat.core.secrets;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.entry;
-
 import java.util.HashMap;
 import java.util.Map;
 
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.entry;
 
 class SecretsSourceTest {
 
@@ -48,22 +48,19 @@ class SecretsSourceTest {
     @Test
     void constructor_throwsIfTypeIsNull() {
         // when / then
-        assertThatThrownBy(() -> new SecretsSource(null, Map.of()))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new SecretsSource(null, Map.of())).isInstanceOf(BratException.class);
     }
 
     @Test
     void constructor_throwsIfTypeIsBlank() {
         // when / then
-        assertThatThrownBy(() -> new SecretsSource("  ", Map.of()))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new SecretsSource("  ", Map.of())).isInstanceOf(BratException.class);
     }
 
     @Test
     void constructor_throwsIfParamsIsNull() {
         // when / then
-        assertThatThrownBy(() -> new SecretsSource("file", null))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new SecretsSource("file", null)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -73,8 +70,7 @@ class SecretsSourceTest {
         params.put(" ", "value");
 
         // when / then
-        assertThatThrownBy(() -> new SecretsSource("file", params))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new SecretsSource("file", params)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -84,7 +80,6 @@ class SecretsSourceTest {
         params.put("location", null);
 
         // when / then
-        assertThatThrownBy(() -> new SecretsSource("file", params))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new SecretsSource("file", params)).isInstanceOf(BratException.class);
     }
 }

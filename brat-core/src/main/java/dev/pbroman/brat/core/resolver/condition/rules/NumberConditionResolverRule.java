@@ -4,16 +4,16 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import dev.pbroman.brat.core.api.resolver.ConditionPredicate;
 
+import dev.pbroman.brat.core.api.resolver.ConditionPredicate;
 import dev.pbroman.brat.core.data.Condition;
 
-import static dev.pbroman.brat.core.util.Constants.BETWEEN;
-import static dev.pbroman.brat.core.util.Constants.CLOSE_TO;
-import static dev.pbroman.brat.core.util.Constants.EQUAL_TO;
 import static dev.pbroman.brat.core.util.Constants.ARG_MAX;
 import static dev.pbroman.brat.core.util.Constants.ARG_MIN;
 import static dev.pbroman.brat.core.util.Constants.ARG_OFFSET;
+import static dev.pbroman.brat.core.util.Constants.BETWEEN;
+import static dev.pbroman.brat.core.util.Constants.CLOSE_TO;
+import static dev.pbroman.brat.core.util.Constants.EQUAL_TO;
 import static dev.pbroman.brat.core.util.Constants.GREATER_THAN;
 import static dev.pbroman.brat.core.util.Constants.GREATER_THAN_OR_EQUAL_TO;
 import static dev.pbroman.brat.core.util.Constants.LESS_THAN;
@@ -114,5 +114,4 @@ public final class NumberConditionResolverRule extends AbstractConditionResolver
             return false;
         }
     }
-
 }

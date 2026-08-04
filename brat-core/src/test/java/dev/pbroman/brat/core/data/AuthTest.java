@@ -1,19 +1,17 @@
 package dev.pbroman.brat.core.data;
 
-import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_APIKEY;
-import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_BASIC;
-import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_BEARER;
-import static org.assertj.core.api.Assertions.assertThat;
-
 import java.util.stream.Stream;
 
 import dev.pbroman.brat.core.interpolation.configdata.AuthInterpolator;
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_APIKEY;
+import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_BASIC;
+import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_BEARER;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class AuthTest extends AbstractConfigDataTest {
 
@@ -66,11 +64,6 @@ class AuthTest extends AbstractConfigDataTest {
 
     private static Stream<Arguments> provideAllAuthTypes() {
         return Stream.of(
-                Arguments.of(authNone),
-                Arguments.of(authBasic),
-                Arguments.of(authBearer),
-                Arguments.of(authApiKey)
-        );
+                Arguments.of(authNone), Arguments.of(authBasic), Arguments.of(authBearer), Arguments.of(authApiKey));
     }
-
 }

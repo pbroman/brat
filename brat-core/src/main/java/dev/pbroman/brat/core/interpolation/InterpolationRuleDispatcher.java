@@ -27,7 +27,9 @@ public class InterpolationRuleDispatcher implements Interpolation {
      * @param rules the {@link InterpolationRule}s
      */
     public InterpolationRuleDispatcher(List<InterpolationRule> rules) {
-        this.rules = rules.stream().sorted(Comparator.comparingInt(InterpolationRule::priority).reversed()).toList();
+        this.rules = rules.stream()
+                .sorted(Comparator.comparingInt(InterpolationRule::priority).reversed())
+                .toList();
     }
 
     /**

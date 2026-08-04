@@ -21,5 +21,4 @@ public interface RequestHandler<T extends RequestDefinition> {
      * @throws BratException if the request cannot be completed (e.g. a connection failure)
      */
     Object performRequest(T requestDefinition);
-
 }

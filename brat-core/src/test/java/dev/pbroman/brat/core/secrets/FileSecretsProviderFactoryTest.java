@@ -1,13 +1,13 @@
 package dev.pbroman.brat.core.secrets;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import java.util.HashMap;
 import java.util.Map;
 
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FileSecretsProviderFactoryTest {
 
@@ -64,9 +64,8 @@ class FileSecretsProviderFactoryTest {
     @Test
     void create_ignoresParamsItDoesNotUse() {
         // when
-        var result = underTest.create(Map.of(
-                FileSecretsProviderFactory.LOCATION_PARAM, LOCATION,
-                "address", "https://vault.example.com"));
+        var result = underTest.create(
+                Map.of(FileSecretsProviderFactory.LOCATION_PARAM, LOCATION, "address", "https://vault.example.com"));
 
         // then
         assertThat(result.getSecret("apiKey")).contains("s3cret");
@@ -75,15 +74,13 @@ class FileSecretsProviderFactoryTest {
     @Test
     void create_throwsIfParamsIsNull() {
         // when / then
-        assertThatThrownBy(() -> underTest.create(null))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.create(null)).isInstanceOf(BratException.class);
     }
 
     @Test
     void create_throwsIfTheLocationParamIsMissing() {
         // when / then
-        assertThatThrownBy(() -> underTest.create(Map.of()))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.create(Map.of())).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -93,15 +90,14 @@ class FileSecretsProviderFactoryTest {
         params.put(FileSecretsProviderFactory.LOCATION_PARAM, "  ");
 
         // when / then
-        assertThatThrownBy(() -> underTest.create(params))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.create(params)).isInstanceOf(BratException.class);
     }
 
     @Test
     void create_throwsIfTheFileCannotBeRead() {
         // when / then
         assertThatThrownBy(() -> underTest.create(
-                Map.of(FileSecretsProviderFactory.LOCATION_PARAM, "classpath:secrets/does-not-exist.yaml")))
+                        Map.of(FileSecretsProviderFactory.LOCATION_PARAM, "classpath:secrets/does-not-exist.yaml")))
                 .isInstanceOf(BratException.class);
     }
 
@@ -109,7 +105,7 @@ class FileSecretsProviderFactoryTest {
     void create_throwsIfTheFileIsNotAFlatYamlDocument() {
         // when / then
         assertThatThrownBy(() -> underTest.create(
-                Map.of(FileSecretsProviderFactory.LOCATION_PARAM, "classpath:resource-reader/greeting.txt")))
+                        Map.of(FileSecretsProviderFactory.LOCATION_PARAM, "classpath:resource-reader/greeting.txt")))
                 .isInstanceOf(BratException.class);
     }
 }

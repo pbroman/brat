@@ -57,5 +57,4 @@ public class ChainedCondition {
     public ChainedCondition(String func, Object b) {
         this(func, b, null);
     }
-
 }

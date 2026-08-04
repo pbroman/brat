@@ -46,5 +46,4 @@ public record AssertionResult(Condition condition, String message, boolean passe
         }
         return s;
     }
-
 }

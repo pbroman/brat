@@ -6,8 +6,8 @@ import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import dev.pbroman.brat.core.api.resolver.ConditionPredicate;
 
+import dev.pbroman.brat.core.api.resolver.ConditionPredicate;
 import dev.pbroman.brat.core.data.Condition;
 
 import static dev.pbroman.brat.core.util.Constants.AFTER;
@@ -88,5 +88,4 @@ public final class DateConditionResolverRule extends AbstractConditionResolverRu
     protected List<String> ignoreBNullCheck() {
         return List.of(PAST, FUTURE);
     }
-
 }

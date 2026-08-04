@@ -1,16 +1,15 @@
 package dev.pbroman.brat.core.resolver.condition.rules;
 
-import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import java.util.Optional;
 
+import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.data.Condition;
-
-import static dev.pbroman.brat.core.util.Require.nonNull;
 import org.apache.commons.lang3.Strings;
 
 import static dev.pbroman.brat.core.util.Constants.IS_PREFIX;
 import static dev.pbroman.brat.core.util.Constants.NULL;
 import static dev.pbroman.brat.core.util.Constants.NULL_CONDITION;
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * Core resolver for null conditions.
@@ -40,8 +39,8 @@ public final class NullConditionResolverRule implements ConditionResolverRule {
     public Optional<Boolean> resolve(Condition condition) {
         nonNull(condition, "The condition may not be null");
         if (condition.getA() == null) {
-            return Optional.of(NULL.equals(condition.getFunc())
-                    || Strings.CI.startsWith(IS_PREFIX + NULL, condition.getFunc()));
+            return Optional.of(
+                    NULL.equals(condition.getFunc()) || Strings.CI.startsWith(IS_PREFIX + NULL, condition.getFunc()));
         }
         return Optional.empty();
     }

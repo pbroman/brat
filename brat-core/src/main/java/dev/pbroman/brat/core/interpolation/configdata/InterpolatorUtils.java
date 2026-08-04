@@ -26,7 +26,8 @@ public final class InterpolatorUtils {
      */
     public static void checkNotInterpolated(ConfigData target) {
         if (target.isInterpolated()) {
-            throw new BratException(String.format("This %s (%s) is already an interpolated copy",
+            throw new BratException(String.format(
+                    "This %s (%s) is already an interpolated copy",
                     target.getClass().getSimpleName(), target));
         }
     }
@@ -64,8 +65,12 @@ public final class InterpolatorUtils {
      * @param value the value to interpolate, or {@code null}
      * @return the outcome, or {@code null} if {@code value} was {@code null}
      */
-    public static InterpolationOutcome interpolateIfPresent(Interpolation interpolation, RuntimeData runtimeData,
-            Map<String, InterpolationOutcome> outcomes, String field, String value) {
+    public static InterpolationOutcome interpolateIfPresent(
+            Interpolation interpolation,
+            RuntimeData runtimeData,
+            Map<String, InterpolationOutcome> outcomes,
+            String field,
+            String value) {
         if (value == null) {
             return null;
         }

@@ -1,16 +1,15 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import java.util.Map;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.AbstractInterpolationTest;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class EnvInterpolationRuleTest extends AbstractInterpolationTest {
 
@@ -32,7 +31,7 @@ class EnvInterpolationRuleTest extends AbstractInterpolationTest {
         // when
         var result = underTest.interpolate(input, runtimeData);
 
-        //then
+        // then
         assertThat(result).isEqualTo(expected);
     }
 
@@ -42,8 +41,6 @@ class EnvInterpolationRuleTest extends AbstractInterpolationTest {
         var input = "${env.missing}";
 
         // then
-        assertThatThrownBy(() -> underTest.interpolate(input, runtimeData))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.interpolate(input, runtimeData)).isInstanceOf(BratException.class);
     }
-
 }

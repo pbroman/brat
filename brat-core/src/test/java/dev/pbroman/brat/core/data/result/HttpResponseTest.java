@@ -1,13 +1,13 @@
 package dev.pbroman.brat.core.data.result;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class HttpResponseTest {
 
@@ -77,5 +77,4 @@ class HttpResponseTest {
         assertThat(response.statusCode()).isEqualTo(201);
         assertThat(response.body()).isEqualTo("created");
     }
-
 }

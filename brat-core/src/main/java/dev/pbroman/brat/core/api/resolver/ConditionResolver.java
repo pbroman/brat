@@ -21,5 +21,4 @@ public interface ConditionResolver {
      *         for these operands, or if resolving it fails
      */
     boolean resolve(Condition condition);
-
 }

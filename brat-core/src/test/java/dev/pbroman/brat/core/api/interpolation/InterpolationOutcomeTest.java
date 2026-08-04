@@ -1,11 +1,10 @@
 package dev.pbroman.brat.core.api.interpolation;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
+import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
 
-import dev.pbroman.brat.core.exception.BratException;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class InterpolationOutcomeTest {
 
@@ -30,8 +29,7 @@ class InterpolationOutcomeTest {
     @Test
     void constructor_throwsExceptionWhenReportingStringIsNull() {
         // then
-        assertThatThrownBy(() -> new InterpolationOutcome("value", null, false))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new InterpolationOutcome("value", null, false)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -54,5 +52,4 @@ class InterpolationOutcomeTest {
         // then
         assertThat(result).isEqualTo("42");
     }
-
 }

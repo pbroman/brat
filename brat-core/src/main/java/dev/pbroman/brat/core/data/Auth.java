@@ -1,16 +1,16 @@
 package dev.pbroman.brat.core.data;
 
-import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_APIKEY;
-import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_BASIC;
-import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_BEARER;
-import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_NONE;
-
 import java.util.List;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import lombok.Getter;
 import lombok.Setter;
+
+import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_APIKEY;
+import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_BASIC;
+import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_BEARER;
+import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_NONE;
 
 /**
  * Authentication configuration for a request: a {@code type} plus the fields that type needs.
@@ -19,7 +19,8 @@ import lombok.Setter;
 @Setter
 public class Auth extends ConfigData {
 
-    public static final List<String> AUTH_TYPES = List.of(AUTH_TYPE_NONE, AUTH_TYPE_BASIC, AUTH_TYPE_BEARER, AUTH_TYPE_APIKEY);
+    public static final List<String> AUTH_TYPES =
+            List.of(AUTH_TYPE_NONE, AUTH_TYPE_BASIC, AUTH_TYPE_BEARER, AUTH_TYPE_APIKEY);
 
     private String type;
     private String username;
@@ -76,12 +77,12 @@ public class Auth extends ConfigData {
      * @param token a token or {@code null}
      * @param outcomes the named interpolation outcomes
      */
-    public Auth(String type, String username, String password, String token, Map<String, InterpolationOutcome> outcomes) {
+    public Auth(
+            String type, String username, String password, String token, Map<String, InterpolationOutcome> outcomes) {
         super(outcomes);
         this.type = type;
         this.username = username;
         this.password = password;
         this.token = token;
     }
-
 }

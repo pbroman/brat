@@ -3,8 +3,8 @@ package dev.pbroman.brat.core.resolver.condition.rules;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import dev.pbroman.brat.core.api.resolver.ConditionPredicate;
 
+import dev.pbroman.brat.core.api.resolver.ConditionPredicate;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 
@@ -14,9 +14,9 @@ import static dev.pbroman.brat.core.util.Constants.CONTAINS_IGNORING_CASE;
 import static dev.pbroman.brat.core.util.Constants.EMPTY;
 import static dev.pbroman.brat.core.util.Constants.ENDS_WITH;
 import static dev.pbroman.brat.core.util.Constants.EQUALS;
+import static dev.pbroman.brat.core.util.Constants.EQUALS_IGNORE_CASE;
 import static dev.pbroman.brat.core.util.Constants.EQUAL_TO;
 import static dev.pbroman.brat.core.util.Constants.EQUAL_TO_IGNORING_CASE;
-import static dev.pbroman.brat.core.util.Constants.EQUALS_IGNORE_CASE;
 import static dev.pbroman.brat.core.util.Constants.MATCHES;
 import static dev.pbroman.brat.core.util.Constants.MEDIA_TYPE;
 import static dev.pbroman.brat.core.util.Constants.NULL;
@@ -85,5 +85,4 @@ public final class StringConditionResolverRule extends AbstractConditionResolver
     protected List<String> ignoreBNullCheck() {
         return List.of(NULL, EMPTY, BLANK);
     }
-
 }

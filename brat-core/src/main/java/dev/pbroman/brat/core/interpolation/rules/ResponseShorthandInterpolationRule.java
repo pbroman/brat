@@ -1,15 +1,15 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
-import static dev.pbroman.brat.core.util.Constants.RESPONSE;
-import static dev.pbroman.brat.core.util.Constants.RESPONSE_SHORTHAND;
-
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
-import org.apache.commons.lang3.StringUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+
+import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
+import static dev.pbroman.brat.core.util.Constants.RESPONSE;
+import static dev.pbroman.brat.core.util.Constants.RESPONSE_SHORTHAND;
 
 /**
  * An {@link InterpolationRule} for shorthand response variables.

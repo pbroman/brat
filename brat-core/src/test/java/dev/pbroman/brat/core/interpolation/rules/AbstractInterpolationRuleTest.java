@@ -1,17 +1,16 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import java.util.Map;
 import java.util.function.Function;
-
-import org.junit.jupiter.api.Test;
 
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 import dev.pbroman.brat.core.interpolation.InterpolationProperties;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AbstractInterpolationRuleTest {
 
@@ -53,8 +52,7 @@ class AbstractInterpolationRuleTest {
         });
 
         // then
-        assertThatThrownBy(() -> rule.outcome("${stub.key}", runtimeData))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> rule.outcome("${stub.key}", runtimeData)).isInstanceOf(BratException.class);
     }
 
     private static final class StubInterpolationRule extends AbstractInterpolationRule {
@@ -164,5 +162,4 @@ class AbstractInterpolationRuleTest {
             throw new BratException("The stub value '" + placeholder + "' is not set.");
         }
     }
-
 }

@@ -70,16 +70,18 @@ public final class SecretsBootstrap {
      *         {@link SecretsProviderFactory#type()}, or if {@code bootstrapRules} holds a rule
      *         resolving secrets
      */
-    public SecretsBootstrap(List<SecretsProviderFactory> factories,
-                            List<InterpolationRule> bootstrapRules,
-                            InterpolationPatterns patterns) {
+    public SecretsBootstrap(
+            List<SecretsProviderFactory> factories,
+            List<InterpolationRule> bootstrapRules,
+            InterpolationPatterns patterns) {
         this(factories, bootstrapRules, patterns, System::getenv);
     }
 
-    SecretsBootstrap(List<SecretsProviderFactory> factories,
-                     List<InterpolationRule> bootstrapRules,
-                     InterpolationPatterns patterns,
-                     UnaryOperator<String> envLookup) {
+    SecretsBootstrap(
+            List<SecretsProviderFactory> factories,
+            List<InterpolationRule> bootstrapRules,
+            InterpolationPatterns patterns,
+            UnaryOperator<String> envLookup) {
         noNullElements(factories, "factories or any of its values may not be null");
         noNullElements(bootstrapRules, "bootstrapRules or any of its values may not be null");
         nonNull(patterns, "patterns may not be null");
@@ -129,7 +131,9 @@ public final class SecretsBootstrap {
         nonNull(config, "The config may not be null");
         nonNull(runtimeData, "The runtimeData may not be null");
         var sourceTypesNotAvailable = config.sources().stream()
-                .map(SecretsSource::type).filter(type -> !type2factoryMap.containsKey(type)).toList();
+                .map(SecretsSource::type)
+                .filter(type -> !type2factoryMap.containsKey(type))
+                .toList();
         if (!sourceTypesNotAvailable.isEmpty()) {
             throw new BratException("The following sources have no factory registered for their provider type: "
                     + sourceTypesNotAvailable);
@@ -145,20 +149,21 @@ public final class SecretsBootstrap {
     private EnvVarSecretsProvider createSysenvSecretsProvider(SecretsProviderConfig config) {
         var prefix = config.paramsFor(SYSENV_TYPE).get(PREFIX_PARAM);
         return new EnvVarSecretsProvider(
-                Objects.requireNonNullElse(prefix, EnvVarSecretsProvider.DEFAULT_PREFIX),
-                envLookup);
+                Objects.requireNonNullElse(prefix, EnvVarSecretsProvider.DEFAULT_PREFIX), envLookup);
     }
 
-    private void buildProviders(SecretsProviderConfig config,
-                                RuntimeData runtimeData,
-                                ArrayList<SecretsProvider> providers,
-                                SecretsProvider sysenvProvider,
-                                Map<String, Map<String, String>> type2interpolatedParams) {
+    private void buildProviders(
+            SecretsProviderConfig config,
+            RuntimeData runtimeData,
+            ArrayList<SecretsProvider> providers,
+            SecretsProvider sysenvProvider,
+            Map<String, Map<String, String>> type2interpolatedParams) {
         for (SecretsSource source : config.sources()) {
             if (!type2interpolatedParams.containsKey(source.type())) {
                 var secretsInterpolationRule = createSecretsInterpolationRule(providers, sysenvProvider);
                 try {
-                    var interpolatedParams = interpolateParams(config.paramsFor(source.type()), secretsInterpolationRule, runtimeData);
+                    var interpolatedParams =
+                            interpolateParams(config.paramsFor(source.type()), secretsInterpolationRule, runtimeData);
                     type2interpolatedParams.put(source.type(), interpolatedParams);
                 } catch (BratException e) {
                     closeAndThrow(providers, e.getMessage());
@@ -169,27 +174,26 @@ public final class SecretsBootstrap {
             try {
                 providers.add(type2factoryMap.get(source.type()).create(factoryParams));
             } catch (Exception e) {
-                var detail = switch (e) {
-                    case JacksonException jackson -> locationOf(jackson);
-                    case BratException brat -> ": " + brat.getMessage();
-                    default -> " with " + e.getClass().getSimpleName();
-                };
-                closeAndThrow(providers, "The SecretsProviderFactory for type '" + source.type()
-                        + "' failed" + detail);
+                var detail =
+                        switch (e) {
+                            case JacksonException jackson -> locationOf(jackson);
+                            case BratException brat -> ": " + brat.getMessage();
+                            default -> " with " + e.getClass().getSimpleName();
+                        };
+                closeAndThrow(providers, "The SecretsProviderFactory for type '" + source.type() + "' failed" + detail);
             }
         }
     }
 
-    private SecretsInterpolationRule createSecretsInterpolationRule(ArrayList<SecretsProvider> providers,
-                                                                    SecretsProvider sysenvProvider) {
+    private SecretsInterpolationRule createSecretsInterpolationRule(
+            ArrayList<SecretsProvider> providers, SecretsProvider sysenvProvider) {
         var currentProviders = new ArrayList<>(providers);
         currentProviders.add(sysenvProvider);
         return new SecretsInterpolationRule(new CompositeSecretsProvider(currentProviders), patterns);
     }
 
-    private Map<String, String> interpolateParams(Map<String, String> params,
-                                                  InterpolationRule secretsInterpolationRule,
-                                                  RuntimeData runtimeData) {
+    private Map<String, String> interpolateParams(
+            Map<String, String> params, InterpolationRule secretsInterpolationRule, RuntimeData runtimeData) {
         var interpolated = new HashMap<>(params);
         for (Map.Entry<String, String> param : interpolated.entrySet()) {
             var outcome = createInterpolationScanner(secretsInterpolationRule).outcome(param.getValue(), runtimeData);
@@ -208,5 +212,4 @@ public final class SecretsBootstrap {
         providers.forEach(SecretsProvider::close);
         throw new BratException(message);
     }
-
 }

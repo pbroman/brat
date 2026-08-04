@@ -1,14 +1,13 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import java.util.Map;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.interpolation.AbstractInterpolationTest;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 class VarsInterpolationRuleTest extends AbstractInterpolationTest {
 
@@ -30,7 +29,7 @@ class VarsInterpolationRuleTest extends AbstractInterpolationTest {
         // when
         var result = underTest.interpolate(input, runtimeData);
 
-        //then
+        // then
         assertThat(result).isEqualTo(expected);
     }
 
@@ -43,8 +42,7 @@ class VarsInterpolationRuleTest extends AbstractInterpolationTest {
         // when
         var result = underTest.interpolate(input, runtimeData);
 
-        //then
+        // then
         assertThat(result).isEqualTo(expected);
     }
-
 }

@@ -1,15 +1,15 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+
 import com.jayway.jsonpath.JsonPath;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 import org.apache.commons.lang3.StringUtils;
-
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
 import static dev.pbroman.brat.core.util.Constants.JSON;
@@ -59,7 +59,8 @@ public final class ResponseJsonInterpolationRule extends AbstractInterpolationRu
         }
         requireNamespaces(runtimeData, RESPONSE_VARS);
 
-        var matcher = patterns.getGroupingPatternForVariable(RESPONSE_JSON_SHORTHAND).matcher(input);
+        var matcher =
+                patterns.getGroupingPatternForVariable(RESPONSE_JSON_SHORTHAND).matcher(input);
         if (!matcher.find()) {
             return input;
         }
@@ -79,5 +80,4 @@ public final class ResponseJsonInterpolationRule extends AbstractInterpolationRu
         }
         return result.toString();
     }
-
 }

@@ -1,10 +1,5 @@
 package dev.pbroman.brat.core.secrets;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.api.Assertions.entry;
-import static org.mockito.Mockito.mock;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -24,6 +19,11 @@ import dev.pbroman.brat.core.interpolation.InterpolationProperties;
 import dev.pbroman.brat.core.interpolation.rules.ConstantsInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.SecretsInterpolationRule;
 import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.entry;
+import static org.mockito.Mockito.mock;
 
 class SecretsBootstrapTest {
 
@@ -90,8 +90,7 @@ class SecretsBootstrapTest {
     @Test
     void constructor_throwsIfABootstrapRuleResolvesSecrets() {
         // given
-        var rules = List.<InterpolationRule>of(
-                new SecretsInterpolationRule(mock(SecretsProvider.class), patterns));
+        var rules = List.<InterpolationRule>of(new SecretsInterpolationRule(mock(SecretsProvider.class), patterns));
 
         // when / then
         assertThatThrownBy(() -> new SecretsBootstrap(List.of(), rules, patterns))
@@ -199,22 +198,19 @@ class SecretsBootstrapTest {
         var config = config(Map.of(), source("vault", "prod"));
 
         // when / then
-        assertThatThrownBy(() -> bootstrap().build(config, runtimeData))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> bootstrap().build(config, runtimeData)).isInstanceOf(BratException.class);
     }
 
     @Test
     void build_throwsIfTheConfigIsNull() {
         // when / then
-        assertThatThrownBy(() -> bootstrap().build(null, runtimeData))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> bootstrap().build(null, runtimeData)).isInstanceOf(BratException.class);
     }
 
     @Test
     void build_throwsIfTheRuntimeDataIsNull() {
         // when / then
-        assertThatThrownBy(() -> bootstrap().build(config(Map.of()), null))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> bootstrap().build(config(Map.of()), null)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -224,8 +220,7 @@ class SecretsBootstrapTest {
         var config = config(Map.of(), source("file", "one.yaml"));
 
         // when / then
-        assertThatThrownBy(() -> bootstrap(factory).build(config, runtimeData))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> bootstrap(factory).build(config, runtimeData)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -280,8 +275,10 @@ class SecretsBootstrapTest {
         var closed = new AtomicBoolean();
         var seed = new StubFactory("seed").returning(closeTracking(closed));
         var vault = new StubFactory("vault");
-        var config = config(Map.of("vault", Map.of("token", "${secrets.vaultToken}")),
-                source("seed", "seed.yaml"), source("vault", "prod"));
+        var config = config(
+                Map.of("vault", Map.of("token", "${secrets.vaultToken}")),
+                source("seed", "seed.yaml"),
+                source("vault", "prod"));
 
         // when
         assertThatThrownBy(() -> bootstrap(seed, vault).build(config, runtimeData))
@@ -303,8 +300,10 @@ class SecretsBootstrapTest {
         bootstrap(factory).build(config, runtimeData);
 
         // then
-        assertThat(factory.receivedParams).singleElement().satisfies(params ->
-                assertThat(params).contains(entry("charset", "UTF-8"), entry(LOCATION, "one.yaml")));
+        assertThat(factory.receivedParams)
+                .singleElement()
+                .satisfies(
+                        params -> assertThat(params).contains(entry("charset", "UTF-8"), entry(LOCATION, "one.yaml")));
     }
 
     @Test
@@ -317,7 +316,8 @@ class SecretsBootstrapTest {
         bootstrap(factory).build(config, runtimeData);
 
         // then
-        assertThat(factory.receivedParams).singleElement()
+        assertThat(factory.receivedParams)
+                .singleElement()
                 .satisfies(params -> assertThat(params).contains(entry(LOCATION, "from-source")));
     }
 
@@ -331,7 +331,8 @@ class SecretsBootstrapTest {
         bootstrap(factory).build(config, runtimeData);
 
         // then
-        assertThat(factory.receivedParams).singleElement()
+        assertThat(factory.receivedParams)
+                .singleElement()
                 .satisfies(params -> assertThat(params).contains(entry("stage", "dev")));
     }
 
@@ -345,7 +346,8 @@ class SecretsBootstrapTest {
         bootstrap(factory).build(config, runtimeData);
 
         // then
-        assertThat(factory.receivedParams).singleElement()
+        assertThat(factory.receivedParams)
+                .singleElement()
                 .satisfies(params -> assertThat(params).contains(entry(LOCATION, "${constants.stage}")));
     }
 
@@ -354,14 +356,17 @@ class SecretsBootstrapTest {
         // given
         var seed = new StubFactory("seed").serving("seed.yaml", Map.of("vaultToken", "t0ken"));
         var vault = new StubFactory("vault");
-        var config = config(Map.of("vault", Map.of("url", "https://vault/${secrets.vaultToken}/v1")),
-                source("seed", "seed.yaml"), source("vault", "prod"));
+        var config = config(
+                Map.of("vault", Map.of("url", "https://vault/${secrets.vaultToken}/v1")),
+                source("seed", "seed.yaml"),
+                source("vault", "prod"));
 
         // when
         bootstrap(seed, vault).build(config, runtimeData);
 
         // then
-        assertThat(vault.receivedParams).singleElement()
+        assertThat(vault.receivedParams)
+                .singleElement()
                 .satisfies(params -> assertThat(params).contains(entry("url", "https://vault/t0ken/v1")));
     }
 
@@ -370,14 +375,17 @@ class SecretsBootstrapTest {
         // given
         var seed = new StubFactory("seed").serving("seed.yaml", Map.of("user", "admin", "password", "s3cret"));
         var vault = new StubFactory("vault");
-        var config = config(Map.of("vault", Map.of("credentials", "${secrets.user}:${secrets.password}")),
-                source("seed", "seed.yaml"), source("vault", "prod"));
+        var config = config(
+                Map.of("vault", Map.of("credentials", "${secrets.user}:${secrets.password}")),
+                source("seed", "seed.yaml"),
+                source("vault", "prod"));
 
         // when
         bootstrap(seed, vault).build(config, runtimeData);
 
         // then
-        assertThat(vault.receivedParams).singleElement()
+        assertThat(vault.receivedParams)
+                .singleElement()
                 .satisfies(params -> assertThat(params).contains(entry("credentials", "admin:s3cret")));
     }
 
@@ -386,14 +394,17 @@ class SecretsBootstrapTest {
         // given
         var seed = new StubFactory("seed").serving("seed.yaml", Map.of("vaultToken", "t0ken"));
         var vault = new StubFactory("vault");
-        var config = config(Map.of("vault", Map.of("path", "${constants.stage}/${secrets.vaultToken}")),
-                source("seed", "seed.yaml"), source("vault", "prod"));
+        var config = config(
+                Map.of("vault", Map.of("path", "${constants.stage}/${secrets.vaultToken}")),
+                source("seed", "seed.yaml"),
+                source("vault", "prod"));
 
         // when
         bootstrap(seed, vault).build(config, runtimeData);
 
         // then
-        assertThat(vault.receivedParams).singleElement()
+        assertThat(vault.receivedParams)
+                .singleElement()
                 .satisfies(params -> assertThat(params).contains(entry("path", "dev/t0ken")));
     }
 
@@ -404,14 +415,17 @@ class SecretsBootstrapTest {
         // given
         var seed = new StubFactory("seed").serving("seed.yaml", Map.of("vaultToken", "t0ken"));
         var vault = new StubFactory("vault");
-        var config = config(Map.of("vault", Map.of("token", "${secrets.vaultToken}")),
-                source("seed", "seed.yaml"), source("vault", "prod"));
+        var config = config(
+                Map.of("vault", Map.of("token", "${secrets.vaultToken}")),
+                source("seed", "seed.yaml"),
+                source("vault", "prod"));
 
         // when
         bootstrap(seed, vault).build(config, runtimeData);
 
         // then
-        assertThat(vault.receivedParams).singleElement()
+        assertThat(vault.receivedParams)
+                .singleElement()
                 .satisfies(params -> assertThat(params).contains(entry("token", "t0ken")));
     }
 
@@ -420,8 +434,10 @@ class SecretsBootstrapTest {
         // given
         var seed = new StubFactory("seed").serving("seed.yaml", Map.of("vaultToken", "t0ken"));
         var vault = new StubFactory("vault");
-        var config = config(Map.of("vault", Map.of("token", "${secrets.vaultToken}")),
-                source("vault", "prod"), source("seed", "seed.yaml"));
+        var config = config(
+                Map.of("vault", Map.of("token", "${secrets.vaultToken}")),
+                source("vault", "prod"),
+                source("seed", "seed.yaml"));
 
         // when / then
         assertThatThrownBy(() -> bootstrap(seed, vault).build(config, runtimeData))
@@ -435,8 +451,7 @@ class SecretsBootstrapTest {
         var config = config(Map.of("vault", Map.of("token", "${secrets.vaultToken}")), source("vault", "prod"));
 
         // when / then
-        assertThatThrownBy(() -> bootstrap(vault).build(config, runtimeData))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> bootstrap(vault).build(config, runtimeData)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -450,7 +465,8 @@ class SecretsBootstrapTest {
         bootstrap(vault).build(config, runtimeData);
 
         // then
-        assertThat(vault.receivedParams).singleElement()
+        assertThat(vault.receivedParams)
+                .singleElement()
                 .satisfies(params -> assertThat(params).contains(entry("token", "t0ken")));
     }
 
@@ -460,8 +476,11 @@ class SecretsBootstrapTest {
         var lookups = new AtomicInteger();
         var seed = new StubFactory("seed").returning(counting(lookups, "vaultToken", "t0ken"));
         var vault = new StubFactory("vault");
-        var config = config(Map.of("vault", Map.of("token", "${secrets.vaultToken}")),
-                source("seed", "seed.yaml"), source("vault", "one"), source("vault", "two"));
+        var config = config(
+                Map.of("vault", Map.of("token", "${secrets.vaultToken}")),
+                source("seed", "seed.yaml"),
+                source("vault", "one"),
+                source("vault", "two"));
 
         // when
         bootstrap(seed, vault).build(config, runtimeData);
@@ -495,8 +514,8 @@ class SecretsBootstrapTest {
         return new SecretsBootstrap(List.of(factories), bootstrapRules, patterns, envLookup);
     }
 
-    private static SecretsProviderConfig config(Map<String, Map<String, String>> providerParams,
-                                                SecretsSource... sources) {
+    private static SecretsProviderConfig config(
+            Map<String, Map<String, String>> providerParams, SecretsSource... sources) {
         return new SecretsProviderConfig(providerParams, List.of(sources));
     }
 

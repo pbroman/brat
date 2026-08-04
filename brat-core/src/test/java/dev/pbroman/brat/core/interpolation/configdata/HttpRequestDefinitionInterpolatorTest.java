@@ -1,14 +1,6 @@
 package dev.pbroman.brat.core.interpolation.configdata;
 
-import static org.apache.hc.core5.http.HttpHeaders.CONTENT_TYPE;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-
 import java.util.LinkedHashMap;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
@@ -16,6 +8,13 @@ import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.apache.hc.core5.http.HttpHeaders.CONTENT_TYPE;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 class HttpRequestDefinitionInterpolatorTest {
 
@@ -45,9 +44,17 @@ class HttpRequestDefinitionInterpolatorTest {
         assertThat(interpolated.getUrl()).isEqualTo("http://url-i");
         assertThat(interpolated.getMethod()).isEqualTo("GET-i");
         assertThat(interpolated.getTimeout()).isEqualTo("30-i");
-        assertThat(interpolated.getOutcomes().keySet()).containsExactly(
-                "url", "method", "timeout", "body.raw", "body._bodyString", "header." + CONTENT_TYPE,
-                "header.Authorization", "auth.type", "auth.token");
+        assertThat(interpolated.getOutcomes().keySet())
+                .containsExactly(
+                        "url",
+                        "method",
+                        "timeout",
+                        "body.raw",
+                        "body._bodyString",
+                        "header." + CONTENT_TYPE,
+                        "header.Authorization",
+                        "auth.type",
+                        "auth.token");
         assertThat(interpolated.getHeaders()).containsKey(CONTENT_TYPE);
     }
 
@@ -75,5 +82,4 @@ class HttpRequestDefinitionInterpolatorTest {
         assertThat(interpolated.getBody()).isNull();
         assertThat(interpolated.getHeaders()).isNull();
     }
-
 }

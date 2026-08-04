@@ -1,12 +1,12 @@
 package dev.pbroman.brat.core.data;
 
+import java.util.Map;
+
 import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.util.ResourceReader;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.util.Map;
 
 import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
 import static dev.pbroman.brat.core.util.Constants.FILE_BODY;
@@ -41,13 +41,14 @@ public class HttpRequestDefinition extends ConfigData implements RequestDefiniti
      * @param outcomes the interpolation outcomes of an interpolated copy, or {@code null} on an
      *        as-authored instance
      */
-    public HttpRequestDefinition(String url,
-                                 String method,
-                                 String timeout,
-                                 Map<String, String> body,
-                                 Map<String, String> headers,
-                                 Auth auth,
-                                 Map<String, InterpolationOutcome> outcomes) {
+    public HttpRequestDefinition(
+            String url,
+            String method,
+            String timeout,
+            Map<String, String> body,
+            Map<String, String> headers,
+            Auth auth,
+            Map<String, InterpolationOutcome> outcomes) {
         super(outcomes);
         this.url = url;
         this.method = method;
@@ -68,7 +69,13 @@ public class HttpRequestDefinition extends ConfigData implements RequestDefiniti
      * @param headers the request headers
      * @param auth the auth configuration
      */
-    public HttpRequestDefinition(String url, String method, String timeout, Map<String, String> body, Map<String, String> headers, Auth auth) {
+    public HttpRequestDefinition(
+            String url,
+            String method,
+            String timeout,
+            Map<String, String> body,
+            Map<String, String> headers,
+            Auth auth) {
         this(url, method, timeout, body, headers, auth, null);
     }
 
@@ -83,15 +90,16 @@ public class HttpRequestDefinition extends ConfigData implements RequestDefiniti
                 var bodyFromFile = ResourceReader.readFileToString(body.get(FILE_BODY));
                 body.put(BODY_STRING, bodyFromFile);
             }
-            if ( headers.get(CONTENT_TYPE).startsWith(APPLICATION_FORM_URLENCODED.getMimeType())) {
+            if (headers.get(CONTENT_TYPE).startsWith(APPLICATION_FORM_URLENCODED.getMimeType())) {
                 if (!body.isEmpty() && body.get(BODY_STRING) == null) {
-                    body.put(BODY_STRING, body.entrySet().stream()
-                            .map(e -> e.getKey() + "=" + e.getValue())
-                            .reduce((a, b) -> a + "&" + b)
-                            .orElse(""));
+                    body.put(
+                            BODY_STRING,
+                            body.entrySet().stream()
+                                    .map(e -> e.getKey() + "=" + e.getValue())
+                                    .reduce((a, b) -> a + "&" + b)
+                                    .orElse(""));
                 }
             }
         }
     }
-
 }

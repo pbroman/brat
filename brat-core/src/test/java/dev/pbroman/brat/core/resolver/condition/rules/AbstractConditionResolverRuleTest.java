@@ -1,13 +1,12 @@
 package dev.pbroman.brat.core.resolver.condition.rules;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import org.junit.jupiter.api.Test;
-
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.exception.BratException;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 abstract class AbstractConditionResolverRuleTest {
 
@@ -24,8 +23,6 @@ abstract class AbstractConditionResolverRuleTest {
 
     @Test
     void checksConditionIsNotNull() {
-        assertThatThrownBy(() -> resolver.resolve(null))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> resolver.resolve(null)).isInstanceOf(BratException.class);
     }
-
 }

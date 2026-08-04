@@ -3,6 +3,7 @@ package dev.pbroman.brat.core.resolver.condition.rules;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import dev.pbroman.brat.core.api.resolver.ConditionPredicate;
 
 import static dev.pbroman.brat.core.util.Constants.BOOLEAN_CONDITION;
@@ -41,5 +42,4 @@ public final class BooleanConditionResolverRule extends AbstractConditionResolve
     protected List<String> ignoreBNullCheck() {
         return List.of(TRUE, FALSE);
     }
-
 }

@@ -1,11 +1,11 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
-import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
-
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 import org.apache.commons.lang3.StringUtils;
+
+import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
+import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
 
 /**
  * Base class for the interpolation rules resolving against the response of a previous request, which
@@ -36,5 +36,4 @@ public abstract class AbstractResponseInterpolationRule extends AbstractInterpol
         requireNamespaces(runtimeData, RESPONSE_VARS);
         return StringUtils.isBlank(input) || !input.matches(patterns.getRegexForVariable(interpolationKey));
     }
-
 }

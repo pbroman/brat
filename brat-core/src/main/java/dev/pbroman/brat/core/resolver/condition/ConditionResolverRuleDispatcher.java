@@ -1,7 +1,5 @@
 package dev.pbroman.brat.core.resolver.condition;
 
-import static dev.pbroman.brat.core.util.Require.nonNull;
-
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -10,6 +8,8 @@ import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.exception.BratException;
+
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * Dispatcher of {@link ConditionResolverRule condition resolver rules}.
@@ -40,7 +40,7 @@ public class ConditionResolverRuleDispatcher implements ConditionResolver {
                 .map(resolver -> resolver.resolve(condition))
                 .flatMap(Optional::stream)
                 .findFirst()
-                .orElseThrow(() -> new BratException(
-                        String.format("The condition '%s' could not be resolved", condition)));
+                .orElseThrow(
+                        () -> new BratException(String.format("The condition '%s' could not be resolved", condition)));
     }
 }

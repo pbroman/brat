@@ -1,25 +1,22 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static dev.pbroman.brat.core.util.Constants.JSON;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-
 import java.util.Map;
 import java.util.stream.Stream;
 
+import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.interpolation.AbstractInterpolationTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.interpolation.AbstractInterpolationTest;
+import static dev.pbroman.brat.core.util.Constants.JSON;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest {
 
     protected RuntimeData setUpRuntimeData() {
-        Map<String, Object> responseVars = Map.of(
-                JSON, jsonBody
-        );
+        Map<String, Object> responseVars = Map.of(JSON, jsonBody);
         return new RuntimeData(Map.of(), Map.of(), Map.of(), responseVars);
     }
 
@@ -47,8 +44,7 @@ public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest
                 Arguments.of("${rj.array[0]._length}", "1"),
                 Arguments.of("${rj.object._length}", "0"),
                 Arguments.of("${rj.integer._isInteger}", "true"),
-                Arguments.of("${rj.double._isDouble}", "true")
-        );
+                Arguments.of("${rj.double._isDouble}", "true"));
     }
 
     @BeforeEach
@@ -65,5 +61,4 @@ public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest
         // then
         assertThat(result).isEqualTo(expected);
     }
-
 }

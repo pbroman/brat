@@ -1,13 +1,13 @@
 package dev.pbroman.brat.core.secrets;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import java.util.HashMap;
 import java.util.Map;
 
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MapSecretsProviderTest {
 
@@ -77,8 +77,7 @@ class MapSecretsProviderTest {
         var underTest = new MapSecretsProvider(Map.of("apiKey", "s3cret"));
 
         // then
-        assertThatThrownBy(() -> underTest.getSecret(null))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.getSecret(null)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -87,15 +86,13 @@ class MapSecretsProviderTest {
         var underTest = new MapSecretsProvider(Map.of("apiKey", "s3cret"));
 
         // then
-        assertThatThrownBy(() -> underTest.getSecret("  "))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.getSecret("  ")).isInstanceOf(BratException.class);
     }
 
     @Test
     void constructor_throwsOnNullMap() {
         // then
-        assertThatThrownBy(() -> new MapSecretsProvider(null))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new MapSecretsProvider(null)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -105,8 +102,7 @@ class MapSecretsProviderTest {
         secrets.put(null, "s3cret");
 
         // then
-        assertThatThrownBy(() -> new MapSecretsProvider(secrets))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new MapSecretsProvider(secrets)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -116,8 +112,7 @@ class MapSecretsProviderTest {
         secrets.put("  ", "s3cret");
 
         // then
-        assertThatThrownBy(() -> new MapSecretsProvider(secrets))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new MapSecretsProvider(secrets)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -127,8 +122,7 @@ class MapSecretsProviderTest {
         secrets.put("apiKey", null);
 
         // then
-        assertThatThrownBy(() -> new MapSecretsProvider(secrets))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new MapSecretsProvider(secrets)).isInstanceOf(BratException.class);
     }
 
     @Test

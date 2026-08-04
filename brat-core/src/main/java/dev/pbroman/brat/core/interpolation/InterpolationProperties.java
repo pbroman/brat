@@ -16,5 +16,4 @@ public class InterpolationProperties {
 
     private String variableRegex = "\\$\\{%s}";
     private String groupingVariableRegex = "\\$\\{%s\\.(?<%s>.+)?}";
-
 }

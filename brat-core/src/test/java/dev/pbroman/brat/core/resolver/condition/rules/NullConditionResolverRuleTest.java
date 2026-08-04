@@ -1,11 +1,10 @@
 package dev.pbroman.brat.core.resolver.condition.rules;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
+import dev.pbroman.brat.core.data.Condition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import dev.pbroman.brat.core.data.Condition;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class NullConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
 
@@ -40,5 +39,4 @@ class NullConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
         // then
         assertThat(result).isEmpty();
     }
-
 }

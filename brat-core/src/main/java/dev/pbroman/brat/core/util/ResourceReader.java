@@ -1,7 +1,5 @@
 package dev.pbroman.brat.core.util;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
@@ -9,6 +7,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import dev.pbroman.brat.core.exception.BratException;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * Reads a resource identified by a location string into a {@code String}.
@@ -23,8 +23,7 @@ public final class ResourceReader {
     private static final String CLASSPATH_PREFIX = "classpath:";
     private static final String FILE_PREFIX = "file:";
 
-    private ResourceReader() {
-    }
+    private ResourceReader() {}
 
     /**
      * Reads the resource at {@code location} as a {@code String}, decoded as UTF-8.
@@ -57,14 +56,12 @@ public final class ResourceReader {
         if (location.startsWith(FILE_PREFIX)) {
             return Files.newInputStream(Path.of(location.substring(FILE_PREFIX.length())));
         }
-        var resourcePath = location.startsWith(CLASSPATH_PREFIX)
-                ? location.substring(CLASSPATH_PREFIX.length())
-                : location;
+        var resourcePath =
+                location.startsWith(CLASSPATH_PREFIX) ? location.substring(CLASSPATH_PREFIX.length()) : location;
         var inputStream = ResourceReader.class.getClassLoader().getResourceAsStream(resourcePath);
         if (inputStream == null) {
             throw new IOException("Classpath resource not found: " + resourcePath);
         }
         return inputStream;
     }
-
 }

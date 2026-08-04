@@ -30,8 +30,7 @@ public class ResponseActionsHandler implements ResponseHandler {
      * @param interpolation the interpolation used for {@code setVars} values
      * @param assertionResolver the resolver every declared assertion is passed to
      */
-    public ResponseActionsHandler(Interpolation interpolation,
-                                  AssertionResolver assertionResolver) {
+    public ResponseActionsHandler(Interpolation interpolation, AssertionResolver assertionResolver) {
         this.interpolation = interpolation;
         this.assertionResolver = assertionResolver;
     }
@@ -40,9 +39,9 @@ public class ResponseActionsHandler implements ResponseHandler {
     public List<AssertionResult> handleResponse(ResponseActions responseActions, RuntimeData runtimeData) {
 
         var assertionResults = new ArrayList<AssertionResult>();
-        responseActions.getAssertions().forEach(assertion ->
-            assertionResults.addAll(assertionResolver.resolve(assertion, runtimeData))
-        );
+        responseActions
+                .getAssertions()
+                .forEach(assertion -> assertionResults.addAll(assertionResolver.resolve(assertion, runtimeData)));
 
         responseActions.getSetVars().forEach((key, value) -> {
             runtimeData.getVars().put(key, interpolation.interpolate(value, runtimeData));

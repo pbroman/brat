@@ -1,13 +1,12 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
+import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.interpolation.AbstractInterpolationTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.interpolation.AbstractInterpolationTest;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ConstantsInterpolationRuleTest extends AbstractInterpolationTest {
 
@@ -25,7 +24,7 @@ class ConstantsInterpolationRuleTest extends AbstractInterpolationTest {
         // when
         var result = underTest.interpolate(input, runtimeData);
 
-        //then
+        // then
         assertThat(result).isEqualTo(expected);
     }
 
@@ -35,8 +34,6 @@ class ConstantsInterpolationRuleTest extends AbstractInterpolationTest {
         var input = "${constants.missing}";
 
         // then
-        assertThatThrownBy(() -> underTest.interpolate(input, runtimeData))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.interpolate(input, runtimeData)).isInstanceOf(BratException.class);
     }
-
 }

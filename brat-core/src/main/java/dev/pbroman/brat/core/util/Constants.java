@@ -1,11 +1,11 @@
 package dev.pbroman.brat.core.util;
 
-import static org.apache.commons.lang3.BooleanUtils.FALSE;
-import static org.apache.commons.lang3.BooleanUtils.TRUE;
-
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+
+import static org.apache.commons.lang3.BooleanUtils.FALSE;
+import static org.apache.commons.lang3.BooleanUtils.TRUE;
 
 /**
  * The string literals shared across {@code brat-core}: interpolation namespaces and token shorthands,
@@ -47,8 +47,7 @@ public final class Constants {
             STATUS_CODE, RESPONSE_STATUS_SHORTHAND,
             BODY, RESPONSE_BODY_SHORTHAND,
             JSON, RESPONSE_JSON_SHORTHAND,
-            HEADERS, RESPONSE_HEADER_SHORTHAND
-    );
+            HEADERS, RESPONSE_HEADER_SHORTHAND);
 
     public static final String FORMAT_UUID = "uuid";
     public static final String FORMAT_EMAIL = "email";
@@ -120,7 +119,6 @@ public final class Constants {
 
     public static final List<String> SINGLE_VALUE_OPERATIONS = List.of(NULL, EMPTY, BLANK, TRUE, FALSE);
 
-
     // COLORS
     public static final String COLOR_RESET = "\033[0m";
     public static final String COLOR_RED = "\033[0;31m";
@@ -131,5 +129,4 @@ public final class Constants {
     public static final String COLOR_CYAN = "\033[0;36m";
     public static final String COLOR_WHITE = "\033[0;37m";
     public static final String COLOR_BLACK_BOLD = "\033[1;30m";
-
 }

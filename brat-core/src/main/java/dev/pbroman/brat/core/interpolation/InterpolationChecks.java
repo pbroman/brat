@@ -40,5 +40,4 @@ public final class InterpolationChecks {
             throw new IllegalArgumentException(StringUtils.join(missing, ','));
         }
     }
-
 }

@@ -1,13 +1,13 @@
 package dev.pbroman.brat.core.secrets;
 
-import dev.pbroman.brat.core.api.secrets.SecretsProvider;
-import dev.pbroman.brat.core.exception.BratException;
-import org.apache.commons.lang3.StringUtils;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+
+import dev.pbroman.brat.core.api.secrets.SecretsProvider;
+import dev.pbroman.brat.core.exception.BratException;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * A {@link SecretsProvider} that resolves a key against an ordered chain of other providers,
@@ -86,8 +86,10 @@ public final class CompositeSecretsProvider implements SecretsProvider {
         }
         if (!exceptions.isEmpty()) {
             var bratException = new BratException(
-                    String.format("%s secrets providers could not be closed, first exception saved as cause.",
-                            exceptions.size()), exceptions.getFirst());
+                    String.format(
+                            "%s secrets providers could not be closed, first exception saved as cause.",
+                            exceptions.size()),
+                    exceptions.getFirst());
             exceptions.stream().skip(1).forEach(bratException::addSuppressed);
             throw bratException;
         }

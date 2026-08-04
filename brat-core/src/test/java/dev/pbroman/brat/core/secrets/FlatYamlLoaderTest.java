@@ -1,11 +1,11 @@
 package dev.pbroman.brat.core.secrets;
 
+import dev.pbroman.brat.core.exception.BratException;
+import org.junit.jupiter.api.Test;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.entry;
-
-import dev.pbroman.brat.core.exception.BratException;
-import org.junit.jupiter.api.Test;
 
 class FlatYamlLoaderTest {
 
@@ -72,12 +72,13 @@ class FlatYamlLoaderTest {
         var result = FlatYamlLoader.load(yaml);
 
         // then
-        assertThat(result).containsOnly(
-                entry("float", "1.50"),
-                entry("leadingZero", "0123"),
-                entry("bool", "true"),
-                entry("integer", "12345"),
-                entry("infinity", ".inf"));
+        assertThat(result)
+                .containsOnly(
+                        entry("float", "1.50"),
+                        entry("leadingZero", "0123"),
+                        entry("bool", "true"),
+                        entry("integer", "12345"),
+                        entry("infinity", ".inf"));
     }
 
     @Test
@@ -164,15 +165,13 @@ class FlatYamlLoaderTest {
         var result = FlatYamlLoader.load("apiKey: s3cret\n");
 
         // then
-        assertThatThrownBy(() -> result.put("dbToken", "t0ken"))
-                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> result.put("dbToken", "t0ken")).isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
     void load_throwsOnNullInput() {
         // then
-        assertThatThrownBy(() -> FlatYamlLoader.load(null))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> FlatYamlLoader.load(null)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -181,8 +180,7 @@ class FlatYamlLoaderTest {
         var yaml = "apiKey: \"unterminated\n";
 
         // then
-        assertThatThrownBy(() -> FlatYamlLoader.load(yaml))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> FlatYamlLoader.load(yaml)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -203,8 +201,7 @@ class FlatYamlLoaderTest {
         var yaml = "justAScalar\n";
 
         // then
-        assertThatThrownBy(() -> FlatYamlLoader.load(yaml))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> FlatYamlLoader.load(yaml)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -217,8 +214,7 @@ class FlatYamlLoaderTest {
                 """;
 
         // then
-        assertThatThrownBy(() -> FlatYamlLoader.load(yaml))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> FlatYamlLoader.load(yaml)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -231,8 +227,7 @@ class FlatYamlLoaderTest {
                 """;
 
         // then
-        assertThatThrownBy(() -> FlatYamlLoader.load(yaml))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> FlatYamlLoader.load(yaml)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -244,8 +239,7 @@ class FlatYamlLoaderTest {
                 """;
 
         // then
-        assertThatThrownBy(() -> FlatYamlLoader.load(yaml))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> FlatYamlLoader.load(yaml)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -256,8 +250,7 @@ class FlatYamlLoaderTest {
                 """;
 
         // then
-        assertThatThrownBy(() -> FlatYamlLoader.load(yaml))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> FlatYamlLoader.load(yaml)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -268,8 +261,7 @@ class FlatYamlLoaderTest {
                 """;
 
         // then
-        assertThatThrownBy(() -> FlatYamlLoader.load(yaml))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> FlatYamlLoader.load(yaml)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -280,8 +272,7 @@ class FlatYamlLoaderTest {
                 """;
 
         // then
-        assertThatThrownBy(() -> FlatYamlLoader.load(yaml))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> FlatYamlLoader.load(yaml)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -293,8 +284,7 @@ class FlatYamlLoaderTest {
                 """;
 
         // then
-        assertThatThrownBy(() -> FlatYamlLoader.load(yaml))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> FlatYamlLoader.load(yaml)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -308,8 +298,7 @@ class FlatYamlLoaderTest {
                 """;
 
         // then
-        assertThatThrownBy(() -> FlatYamlLoader.load(yaml))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> FlatYamlLoader.load(yaml)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -322,7 +311,6 @@ class FlatYamlLoaderTest {
                 """;
 
         // then
-        assertThatThrownBy(() -> FlatYamlLoader.load(yaml))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> FlatYamlLoader.load(yaml)).isInstanceOf(BratException.class);
     }
 }

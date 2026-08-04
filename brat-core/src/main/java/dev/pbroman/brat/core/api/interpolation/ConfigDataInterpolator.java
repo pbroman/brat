@@ -1,7 +1,5 @@
 package dev.pbroman.brat.core.api.interpolation;
 
-import dev.pbroman.brat.core.api.interpolation.Interpolation;
-import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.ConfigData;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;

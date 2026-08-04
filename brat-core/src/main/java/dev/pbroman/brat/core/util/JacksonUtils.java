@@ -22,5 +22,4 @@ public final class JacksonUtils {
         var location = e.getLocation();
         return location == null ? "" : " at line " + location.getLineNr() + ", column " + location.getColumnNr();
     }
-
 }

@@ -94,7 +94,7 @@ public final class FlatYamlLoader {
                 case START_ARRAY -> throw new BratException("Sequences are not supported, but '" + path + "' is one");
                 case VALUE_NULL -> throw new BratException("Null value for '" + path + "'");
                 case VALUE_STRING, VALUE_NUMBER_INT, VALUE_NUMBER_FLOAT, VALUE_TRUE, VALUE_FALSE ->
-                        put(path, parser.getString(), flattened);
+                    put(path, parser.getString(), flattened);
                 case null, default -> throw new BratException("Unsupported value for '" + path + "'");
             }
         }
@@ -106,5 +106,4 @@ public final class FlatYamlLoader {
                     + "so a nested mapping collides with a literal dotted key");
         }
     }
-
 }

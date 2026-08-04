@@ -1,17 +1,16 @@
 package dev.pbroman.brat.core.util;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import dev.pbroman.brat.core.exception.BratException;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ResourceReaderTest {
 
@@ -61,7 +60,8 @@ class ResourceReaderTest {
     @Test
     void readFileToString_appliesGivenCharset() {
         // when
-        var content = ResourceReader.readFileToString("resource-reader/greeting-latin1.txt", StandardCharsets.ISO_8859_1);
+        var content =
+                ResourceReader.readFileToString("resource-reader/greeting-latin1.txt", StandardCharsets.ISO_8859_1);
 
         // then
         assertThat(content).isEqualTo("café");
@@ -90,5 +90,4 @@ class ResourceReaderTest {
         assertThatThrownBy(() -> ResourceReader.readFileToString("http://example.com/greeting.txt"))
                 .isInstanceOf(BratException.class);
     }
-
 }

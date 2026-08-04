@@ -1,8 +1,5 @@
 package dev.pbroman.brat.core.interpolation.configdata;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -14,6 +11,9 @@ import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ConditionInterpolatorTest {
 

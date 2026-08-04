@@ -1,22 +1,19 @@
 package dev.pbroman.brat.core.interpolation;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-
 import java.util.Map;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
-import dev.pbroman.brat.core.interpolation.InterpolationProperties;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
 
 public abstract class AbstractInterpolationTest {
 
@@ -50,15 +47,15 @@ public abstract class AbstractInterpolationTest {
     @Test
     void inputNull_throwsException() {
         // then
-        assertThatThrownBy(() -> underTest.interpolate(null, runtimeData))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.interpolate(null, runtimeData)).isInstanceOf(BratException.class);
     }
 
     @Test
     void runtimeDataNull_throwsIllegalArgumentException() {
         assertThatThrownBy(() -> {
-            underTest.interpolate("moo", null);
-        }).isInstanceOf(IllegalArgumentException.class);
+                    underTest.interpolate("moo", null);
+                })
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -72,5 +69,4 @@ public abstract class AbstractInterpolationTest {
         // then
         assertThat(result).isEqualTo(input);
     }
-
 }

@@ -1,14 +1,5 @@
 package dev.pbroman.brat.core.secrets;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -17,6 +8,15 @@ import java.util.Optional;
 import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class CompositeSecretsProviderTest {
 
@@ -98,8 +98,7 @@ class CompositeSecretsProviderTest {
         var underTest = new CompositeSecretsProvider(List.of(first, second));
 
         // then
-        assertThatThrownBy(() -> underTest.getSecret("apiKey"))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.getSecret("apiKey")).isInstanceOf(BratException.class);
         verify(second, never()).getSecret("apiKey");
     }
 
@@ -109,8 +108,7 @@ class CompositeSecretsProviderTest {
         var underTest = new CompositeSecretsProvider(List.of(first));
 
         // then
-        assertThatThrownBy(() -> underTest.getSecret(null))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.getSecret(null)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -119,15 +117,13 @@ class CompositeSecretsProviderTest {
         var underTest = new CompositeSecretsProvider(List.of(first));
 
         // then
-        assertThatThrownBy(() -> underTest.getSecret("  "))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.getSecret("  ")).isInstanceOf(BratException.class);
     }
 
     @Test
     void constructor_throwsOnNullProviders() {
         // then
-        assertThatThrownBy(() -> new CompositeSecretsProvider(null))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new CompositeSecretsProvider(null)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -136,8 +132,7 @@ class CompositeSecretsProviderTest {
         var providers = Arrays.asList(first, null);
 
         // then
-        assertThatThrownBy(() -> new CompositeSecretsProvider(providers))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new CompositeSecretsProvider(providers)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -176,8 +171,7 @@ class CompositeSecretsProviderTest {
         var underTest = new CompositeSecretsProvider(List.of(first, second));
 
         // then
-        assertThatThrownBy(underTest::close)
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(underTest::close).isInstanceOf(BratException.class);
         verify(second).close();
     }
 
@@ -192,7 +186,8 @@ class CompositeSecretsProviderTest {
         // then
         assertThatThrownBy(underTest::close)
                 .isInstanceOf(BratException.class)
-                .cause().isSameAs(firstFailure);
+                .cause()
+                .isSameAs(firstFailure);
     }
 
     @Test

@@ -1,11 +1,5 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
-
 import java.util.Optional;
 
 import dev.pbroman.brat.core.api.secrets.SecretsProvider;
@@ -13,6 +7,12 @@ import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.AbstractInterpolationTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class SecretsInterpolationRuleTest extends AbstractInterpolationTest {
 
@@ -56,9 +56,7 @@ class SecretsInterpolationRuleTest extends AbstractInterpolationTest {
         var result = underTest.outcome("${secrets.apiKey}", runtimeData);
 
         // then
-        assertThat(result.reportingString())
-                .doesNotContain("s3cr3t")
-                .isEqualTo("${secrets.apiKey} → ***");
+        assertThat(result.reportingString()).doesNotContain("s3cr3t").isEqualTo("${secrets.apiKey} → ***");
     }
 
     @Test
@@ -97,23 +95,20 @@ class SecretsInterpolationRuleTest extends AbstractInterpolationTest {
     @Test
     void outcome_throwsIfTheTokenHasNoKey() {
         // then
-        assertThatThrownBy(() -> underTest.outcome("${secrets.}", runtimeData))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.outcome("${secrets.}", runtimeData)).isInstanceOf(BratException.class);
         verifyNoInteractions(provider);
     }
 
     @Test
     void constructor_throwsOnNullProvider() {
         // then
-        assertThatThrownBy(() -> new SecretsInterpolationRule(null, patterns))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new SecretsInterpolationRule(null, patterns)).isInstanceOf(BratException.class);
     }
 
     @Test
     void constructor_throwsOnNullTools() {
         // then
-        assertThatThrownBy(() -> new SecretsInterpolationRule(provider, null))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new SecretsInterpolationRule(provider, null)).isInstanceOf(BratException.class);
     }
 
     @Test

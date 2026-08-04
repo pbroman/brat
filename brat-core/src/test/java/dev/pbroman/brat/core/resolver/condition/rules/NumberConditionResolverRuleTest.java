@@ -1,17 +1,17 @@
 package dev.pbroman.brat.core.resolver.condition.rules;
 
-import static dev.pbroman.brat.core.util.Constants.EQUAL_TO;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import java.util.Map;
 
+import dev.pbroman.brat.core.data.Condition;
+import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import dev.pbroman.brat.core.data.Condition;
-import dev.pbroman.brat.core.exception.BratException;
-import java.util.Map;
+import static dev.pbroman.brat.core.util.Constants.EQUAL_TO;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
 
@@ -22,14 +22,7 @@ class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
 
     @ParameterizedTest
     @CsvSource({
-            "=,1,1",
-            "=,1,1.0",
-            ">=,1,1",
-            ">=,2,1",
-            ">,2,1",
-            "<=,1,1",
-            "<=,1,2",
-            "<,1,2",
+        "=,1,1", "=,1,1.0", ">=,1,1", ">=,2,1", ">,2,1", "<=,1,1", "<=,1,2", "<,1,2",
     })
     void trueConditions(String func, String a, String b) {
         // given
@@ -44,11 +37,7 @@ class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
 
     @ParameterizedTest
     @CsvSource({
-            "=,1,1.1",
-            ">=,1,2",
-            ">,1,2",
-            "<=,2,1",
-            "<,2,1",
+        "=,1,1.1", ">=,1,2", ">,1,2", "<=,2,1", "<,2,1",
     })
     void falseConditions(String func, String a, String b) {
         // given
@@ -85,17 +74,23 @@ class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
     @Test
     void resolve_isBetweenIsInclusiveOnBothBounds() {
         // when / then
-        assertThat(resolver.resolve(withArgs("isBetween", "10", null, Map.of("min", "10", "max", "100")))).contains(true);
-        assertThat(resolver.resolve(withArgs("isBetween", "100", null, Map.of("min", "10", "max", "100")))).contains(true);
-        assertThat(resolver.resolve(withArgs("isBetween", "55", null, Map.of("min", "10", "max", "100")))).contains(true);
-        assertThat(resolver.resolve(withArgs("isBetween", "9", null, Map.of("min", "10", "max", "100")))).contains(false);
+        assertThat(resolver.resolve(withArgs("isBetween", "10", null, Map.of("min", "10", "max", "100"))))
+                .contains(true);
+        assertThat(resolver.resolve(withArgs("isBetween", "100", null, Map.of("min", "10", "max", "100"))))
+                .contains(true);
+        assertThat(resolver.resolve(withArgs("isBetween", "55", null, Map.of("min", "10", "max", "100"))))
+                .contains(true);
+        assertThat(resolver.resolve(withArgs("isBetween", "9", null, Map.of("min", "10", "max", "100"))))
+                .contains(false);
     }
 
     @Test
     void resolve_isCloseToComparesWithinTheOffset() {
         // when / then
-        assertThat(resolver.resolve(withArgs("isCloseTo", "0.51", "0.5", Map.of("offset", "0.01")))).contains(true);
-        assertThat(resolver.resolve(withArgs("isCloseTo", "0.52", "0.5", Map.of("offset", "0.01")))).contains(false);
+        assertThat(resolver.resolve(withArgs("isCloseTo", "0.51", "0.5", Map.of("offset", "0.01"))))
+                .contains(true);
+        assertThat(resolver.resolve(withArgs("isCloseTo", "0.52", "0.5", Map.of("offset", "0.01"))))
+                .contains(false);
     }
 
     @Test
@@ -137,7 +132,8 @@ class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
     void resolve_declinesValuesThatAreNotDecimals() {
         // when / then — NaN and Infinity are doubles but not decimals, so this rule is not theirs
         assertThat(resolver.resolve(new Condition("isEqualTo", "NaN", "NaN"))).isEmpty();
-        assertThat(resolver.resolve(new Condition("isGreaterThan", "Infinity", "1"))).isEmpty();
+        assertThat(resolver.resolve(new Condition("isGreaterThan", "Infinity", "1")))
+                .isEmpty();
     }
 
     @Test
@@ -145,5 +141,4 @@ class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
         // when / then
         assertThat(resolver.resolve(new Condition("isEqualTo", " 1.5 ", "1.5"))).contains(true);
     }
-
 }

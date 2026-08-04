@@ -1,13 +1,12 @@
 package dev.pbroman.brat.core.reporting.rules;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import org.junit.jupiter.api.Test;
 
-import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class LogReportingRuleTest {
 
@@ -58,5 +57,4 @@ class LogReportingRuleTest {
         // followed by the real closing quote, not as an escaped quote
         assertThat(result).isEqualTo("path=\"C:\\\\path\\\\\"");
     }
-
 }

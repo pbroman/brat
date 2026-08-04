@@ -1,10 +1,10 @@
 package dev.pbroman.brat.core.interpolation;
 
-import static dev.pbroman.brat.core.util.Constants.VARIABLE_GROUP_NAME;
-
 import java.util.regex.Pattern;
 
 import lombok.Getter;
+
+import static dev.pbroman.brat.core.util.Constants.VARIABLE_GROUP_NAME;
 
 /**
  * Builds the regexes and {@link Pattern}s the interpolation rules match tokens with, from the
@@ -75,5 +75,4 @@ public class InterpolationPatterns {
     public Pattern getGroupingPatternForVariable(String variable) {
         return Pattern.compile(getGroupingRegexForVariable(variable));
     }
-
 }

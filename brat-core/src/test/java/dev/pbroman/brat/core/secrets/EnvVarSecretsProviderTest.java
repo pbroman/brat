@@ -1,12 +1,12 @@
 package dev.pbroman.brat.core.secrets;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import java.util.Map;
 
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class EnvVarSecretsProviderTest {
 
@@ -15,8 +15,7 @@ class EnvVarSecretsProviderTest {
             "BRAT_SECRET_API_URL", "fromApiUrl",
             "BRAT_SECRET_OAUTH2_TOKEN", "fromOauth2Token",
             "BRAT_SECRET_DB_PASSWORD", "fromDbPassword",
-            "CUSTOM_API_KEY", "fromCustomPrefix"
-    );
+            "CUSTOM_API_KEY", "fromCustomPrefix");
 
     private final EnvVarSecretsProvider underTest =
             new EnvVarSecretsProvider(EnvVarSecretsProvider.DEFAULT_PREFIX, environment::get);
@@ -88,8 +87,8 @@ class EnvVarSecretsProviderTest {
     @Test
     void getSecret_treatsAnEmptyVariableAsUnset() {
         // given
-        var withEmptyValue = new EnvVarSecretsProvider(
-                EnvVarSecretsProvider.DEFAULT_PREFIX, Map.of("BRAT_SECRET_API_KEY", "")::get);
+        var withEmptyValue =
+                new EnvVarSecretsProvider(EnvVarSecretsProvider.DEFAULT_PREFIX, Map.of("BRAT_SECRET_API_KEY", "")::get);
 
         // when
         var result = withEmptyValue.getSecret("apiKey");
@@ -113,14 +112,12 @@ class EnvVarSecretsProviderTest {
     @Test
     void getSecret_throwsOnNullKey() {
         // then
-        assertThatThrownBy(() -> underTest.getSecret(null))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.getSecret(null)).isInstanceOf(BratException.class);
     }
 
     @Test
     void getSecret_throwsOnBlankKey() {
         // then
-        assertThatThrownBy(() -> underTest.getSecret("  "))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.getSecret("  ")).isInstanceOf(BratException.class);
     }
 }

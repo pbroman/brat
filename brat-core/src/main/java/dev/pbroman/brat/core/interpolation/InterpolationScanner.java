@@ -1,12 +1,12 @@
 package dev.pbroman.brat.core.interpolation;
 
-import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
-import static dev.pbroman.brat.core.util.Require.nonNull;
-
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
+
+import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * Top-level {@link Interpolation} entry point: finds every {@code ${...}} token in a whole

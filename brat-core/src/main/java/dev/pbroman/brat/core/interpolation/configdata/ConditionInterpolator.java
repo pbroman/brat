@@ -1,8 +1,5 @@
 package dev.pbroman.brat.core.interpolation.configdata;
 
-import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
-import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateIfPresent;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -12,6 +9,9 @@ import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
+
+import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
+import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateIfPresent;
 
 /**
  * Interpolates every field of a {@link Condition}.
@@ -40,14 +40,16 @@ public final class ConditionInterpolator implements ConfigDataInterpolator<Condi
             if (arg.getValue() == null) {
                 throw new BratException("The argument '" + arg.getKey() + "' has no value");
             }
-            var outcome = interpolateIfPresent(interpolation, runtimeData, outcomes,
-                    ARGS_PREFIX + arg.getKey(), arg.getValue());
+            var outcome = interpolateIfPresent(
+                    interpolation, runtimeData, outcomes, ARGS_PREFIX + arg.getKey(), arg.getValue());
             args.put(arg.getKey(), String.valueOf(outcome.value()));
         }
 
-        var interpolated = new Condition(target.getFunc(),
+        var interpolated = new Condition(
+                target.getFunc(),
                 aOutcome == null ? null : aOutcome.value(),
-                bOutcome == null ? null : bOutcome.value(), outcomes);
+                bOutcome == null ? null : bOutcome.value(),
+                outcomes);
         interpolated.setArgs(Map.copyOf(args));
         return interpolated;
     }

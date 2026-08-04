@@ -1,23 +1,23 @@
 package dev.pbroman.brat.core.interpolation.configdata;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
-
-import org.junit.jupiter.api.Test;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 class ConfigDataInterpolationUtilsTest {
 
-    Interpolation interpolation = (input, runtimeData) -> new InterpolationOutcome(input + "-resolved", input + " -> " + input + "-resolved");
+    Interpolation interpolation =
+            (input, runtimeData) -> new InterpolationOutcome(input + "-resolved", input + " -> " + input + "-resolved");
     RuntimeData runtimeData = mock(RuntimeData.class);
 
     @Test
@@ -35,8 +35,7 @@ class ConfigDataInterpolationUtilsTest {
         var auth = new Auth("none", null, null, null, Map.of());
 
         // when / then
-        assertThatThrownBy(() -> InterpolatorUtils.checkNotInterpolated(auth))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> InterpolatorUtils.checkNotInterpolated(auth)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -100,5 +99,4 @@ class ConfigDataInterpolationUtilsTest {
         // when / then
         assertThat(InterpolatorUtils.asStringOrNull(null)).isNull();
     }
-
 }

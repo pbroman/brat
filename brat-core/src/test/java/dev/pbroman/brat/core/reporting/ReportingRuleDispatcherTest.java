@@ -1,16 +1,15 @@
 package dev.pbroman.brat.core.reporting;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import java.util.List;
 import java.util.Map;
-
-import org.junit.jupiter.api.Test;
 
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.reporting.ReportingRule;
 import dev.pbroman.brat.core.exception.BratException;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ReportingRuleDispatcherTest {
 
@@ -64,8 +63,7 @@ class ReportingRuleDispatcherTest {
         var underTest = new ReportingRuleDispatcher(List.of(declining));
 
         // when / then
-        assertThatThrownBy(() -> underTest.report("any", Map.of()))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.report("any", Map.of())).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -74,8 +72,6 @@ class ReportingRuleDispatcherTest {
         var underTest = new ReportingRuleDispatcher(List.of());
 
         // when / then
-        assertThatThrownBy(() -> underTest.report(null, Map.of()))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.report(null, Map.of())).isInstanceOf(BratException.class);
     }
-
 }

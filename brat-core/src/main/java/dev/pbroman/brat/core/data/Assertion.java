@@ -93,5 +93,4 @@ public class Assertion extends Condition {
     public Assertion(String func, Object a) {
         this(func, a, null, List.of(), null);
     }
-
 }

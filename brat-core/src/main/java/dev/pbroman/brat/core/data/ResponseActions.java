@@ -24,5 +24,4 @@ public class ResponseActions {
         this.assertions = assertions == null ? List.of() : assertions;
         this.setVars = setVars == null ? Map.of() : setVars;
     }
-
 }

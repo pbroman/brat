@@ -1,11 +1,11 @@
 package dev.pbroman.brat.core.secrets;
 
+import dev.pbroman.brat.core.exception.BratException;
+import org.junit.jupiter.api.Test;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.entry;
-
-import dev.pbroman.brat.core.exception.BratException;
-import org.junit.jupiter.api.Test;
 
 class SecretsProviderConfigLoaderTest {
 
@@ -126,8 +126,7 @@ class SecretsProviderConfigLoaderTest {
     @Test
     void load_throwsIfTheYamlIsNull() {
         // when / then
-        assertThatThrownBy(() -> SecretsProviderConfigLoader.load(null))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> SecretsProviderConfigLoader.load(null)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -162,8 +161,7 @@ class SecretsProviderConfigLoaderTest {
                 """;
 
         // when / then
-        assertThatThrownBy(() -> SecretsProviderConfigLoader.load(yaml))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> SecretsProviderConfigLoader.load(yaml)).isInstanceOf(BratException.class);
     }
 
     @Test

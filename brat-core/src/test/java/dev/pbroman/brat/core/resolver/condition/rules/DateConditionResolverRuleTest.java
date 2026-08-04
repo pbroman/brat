@@ -1,18 +1,17 @@
 package dev.pbroman.brat.core.resolver.condition.rules;
 
-import static dev.pbroman.brat.core.util.Constants.EQUAL;
-import static dev.pbroman.brat.core.util.Constants.PAST;
-import static org.assertj.core.api.Assertions.assertThat;
-
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
+import dev.pbroman.brat.core.data.Condition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
-import dev.pbroman.brat.core.data.Condition;
+import static dev.pbroman.brat.core.util.Constants.EQUAL;
+import static dev.pbroman.brat.core.util.Constants.PAST;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class DateConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
 
@@ -23,16 +22,16 @@ class DateConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
 
     @ParameterizedTest
     @CsvSource({
-            "equal,2002-12-21,2002-12-21",
-            "equal,2002-12-21,21.12.2002",
-            "equal,21.12.2002,12/21/2002",
-            "equal,2002-12-21,12/21/2002",
-            "before,2002-12-21,2002-12-22",
-            "after,2002-12-22,2002-12-21",
-            "past,2002-12-21,",
-            "future,3002-12-21,",
-            "!after,2002-12-21,2002-12-22",
-            "!before,2002-12-22,2002-12-21",
+        "equal,2002-12-21,2002-12-21",
+        "equal,2002-12-21,21.12.2002",
+        "equal,21.12.2002,12/21/2002",
+        "equal,2002-12-21,12/21/2002",
+        "before,2002-12-21,2002-12-22",
+        "after,2002-12-22,2002-12-21",
+        "past,2002-12-21,",
+        "future,3002-12-21,",
+        "!after,2002-12-21,2002-12-22",
+        "!before,2002-12-22,2002-12-21",
     })
     void trueConditions(String func, String a, String b) {
         // given
@@ -84,5 +83,4 @@ class DateConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
         // then
         assertThat(result).isEmpty();
     }
-
 }

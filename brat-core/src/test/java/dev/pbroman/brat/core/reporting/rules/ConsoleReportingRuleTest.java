@@ -1,13 +1,12 @@
 package dev.pbroman.brat.core.reporting.rules;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import org.junit.jupiter.api.Test;
 
-import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class ConsoleReportingRuleTest {
 
@@ -31,5 +30,4 @@ class ConsoleReportingRuleTest {
         // then
         assertThat(result).isEqualTo("url: ${x} → resolved" + System.lineSeparator() + "method: GET");
     }
-
 }

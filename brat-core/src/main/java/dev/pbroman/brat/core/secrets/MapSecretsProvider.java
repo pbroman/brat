@@ -39,7 +39,8 @@ public final class MapSecretsProvider implements SecretsProvider {
         nonNull(secrets, "The secrets map may not be null.");
         for (Map.Entry<String, String> entry : secrets.entrySet()) {
             if (StringUtils.isBlank(entry.getKey()) || entry.getValue() == null) {
-                throw new BratException("Keys may not be null or blank; values may not be null. Invalid state for key: '" + entry.getKey() + "'");
+                throw new BratException("Keys may not be null or blank; values may not be null."
+                        + " Invalid state for key: '" + entry.getKey() + "'");
             }
         }
         this.secrets = Map.copyOf(secrets);
@@ -56,7 +57,7 @@ public final class MapSecretsProvider implements SecretsProvider {
      */
     @Override
     public Optional<String> getSecret(String key) {
-        nonNull(key , "The secrets key may not be null.");
+        nonNull(key, "The secrets key may not be null.");
         if (StringUtils.isBlank(key)) {
             throw new BratException("The secrets key may not be blank.");
         }

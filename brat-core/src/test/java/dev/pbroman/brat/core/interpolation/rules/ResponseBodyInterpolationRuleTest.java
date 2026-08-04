@@ -1,17 +1,16 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
-import static dev.pbroman.brat.core.util.Constants.BODY;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import java.util.Map;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.AbstractInterpolationTest;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static dev.pbroman.brat.core.util.Constants.BODY;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ResponseBodyInterpolationRuleTest extends AbstractInterpolationTest {
 
@@ -34,7 +33,7 @@ class ResponseBodyInterpolationRuleTest extends AbstractInterpolationTest {
         // when
         var result = underTest.interpolate(input, runtimeData);
 
-        //then
+        // then
         assertThat(result).isEqualTo(expected);
     }
 
@@ -44,8 +43,6 @@ class ResponseBodyInterpolationRuleTest extends AbstractInterpolationTest {
         runtimeData = new RuntimeData(Map.of(), Map.of(), Map.of(), Map.of());
 
         // then
-        assertThatThrownBy(() -> underTest.interpolate(input, runtimeData))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.interpolate(input, runtimeData)).isInstanceOf(BratException.class);
     }
-
 }

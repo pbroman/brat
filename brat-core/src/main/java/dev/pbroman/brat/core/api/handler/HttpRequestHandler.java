@@ -20,5 +20,4 @@ public interface HttpRequestHandler extends RequestHandler<HttpRequestDefinition
      */
     @Override
     HttpResponse performRequest(HttpRequestDefinition requestDefinition);
-
 }

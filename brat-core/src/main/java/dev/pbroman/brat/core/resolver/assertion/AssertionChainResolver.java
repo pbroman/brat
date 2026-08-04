@@ -36,7 +36,9 @@ public class AssertionChainResolver implements AssertionResolver {
      * @param conditionResolver the resolver each interpolated condition is tested with
      * @param conditionInterpolation the interpolator producing the interpolated copy of a condition
      */
-    public AssertionChainResolver(Interpolation interpolation, ConditionResolver conditionResolver,
+    public AssertionChainResolver(
+            Interpolation interpolation,
+            ConditionResolver conditionResolver,
             ConfigDataInterpolator<Condition> conditionInterpolation) {
         this.interpolation = interpolation;
         this.conditionResolver = conditionResolver;
@@ -67,16 +69,19 @@ public class AssertionChainResolver implements AssertionResolver {
      * @param severity the severity to record on the result
      * @param runtimeData the object containing values
      */
-    protected void resolve(Condition condition, List<AssertionResult> assertionResults, String message,
-            AssertionSeverity severity, RuntimeData runtimeData) {
+    protected void resolve(
+            Condition condition,
+            List<AssertionResult> assertionResults,
+            String message,
+            AssertionSeverity severity,
+            RuntimeData runtimeData) {
         try {
             var interpolatedCondition = conditionInterpolation.interpolated(condition, interpolation, runtimeData);
-            assertionResults.add(new AssertionResult(interpolatedCondition, message,
-                    conditionResolver.resolve(interpolatedCondition), severity));
+            assertionResults.add(new AssertionResult(
+                    interpolatedCondition, message, conditionResolver.resolve(interpolatedCondition), severity));
         } catch (BratException e) {
             var failMessage = String.format("Error interpolating assertion: %s, message: %s", message, e.getMessage());
             assertionResults.add(new AssertionResult(condition, failMessage, false, severity));
         }
     }
-
 }

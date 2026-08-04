@@ -34,7 +34,8 @@ public final class VerboseCliReportingRule implements ReportingRule {
         var sections = new ArrayList<String>();
         grouped.forEach((group, entries) -> {
             var lines = entries.stream()
-                    .map(entry -> "  " + fieldName(group, entry.getKey()) + ": " + entry.getValue().reportingString())
+                    .map(entry -> "  " + fieldName(group, entry.getKey()) + ": "
+                            + entry.getValue().reportingString())
                     .collect(Collectors.joining(System.lineSeparator()));
             sections.add(group.isEmpty() ? lines : capitalize(group) + ":" + System.lineSeparator() + lines);
         });

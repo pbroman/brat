@@ -1,37 +1,7 @@
 package dev.pbroman.brat.core.resolver.condition;
 
-import static dev.pbroman.brat.core.util.Constants.AFTER;
-import static dev.pbroman.brat.core.util.Constants.BEFORE;
-import static dev.pbroman.brat.core.util.Constants.BLANK;
-import static dev.pbroman.brat.core.util.Constants.CONTAINS;
-import static dev.pbroman.brat.core.util.Constants.EMPTY;
-import static dev.pbroman.brat.core.util.Constants.ENDS_WITH;
-import static dev.pbroman.brat.core.util.Constants.EQUAL;
-import static dev.pbroman.brat.core.util.Constants.EQUALS;
-import static dev.pbroman.brat.core.util.Constants.EQUALS_IGNORE_CASE;
-import static dev.pbroman.brat.core.util.Constants.SYMBOL_EQUAL_TO;
-import static dev.pbroman.brat.core.util.Constants.FUTURE;
-import static dev.pbroman.brat.core.util.Constants.SYMBOL_GREATER_THAN;
-import static dev.pbroman.brat.core.util.Constants.SYMBOL_GREATER_THAN_OR_EQUAL_TO;
-import static dev.pbroman.brat.core.util.Constants.SYMBOL_LESS_THAN;
-import static dev.pbroman.brat.core.util.Constants.SYMBOL_LESS_THAN_OR_EQUAL_TO;
-import static dev.pbroman.brat.core.util.Constants.MATCHES;
-import static dev.pbroman.brat.core.util.Constants.NULL;
-import static dev.pbroman.brat.core.util.Constants.PAST;
-import static dev.pbroman.brat.core.util.Constants.STARTS_WITH;
-import static org.apache.commons.lang3.BooleanUtils.FALSE;
-import static org.apache.commons.lang3.BooleanUtils.TRUE;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import java.util.List;
 import java.util.stream.Stream;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.exception.BratException;
@@ -41,6 +11,35 @@ import dev.pbroman.brat.core.resolver.condition.rules.FormatConditionResolverRul
 import dev.pbroman.brat.core.resolver.condition.rules.NullConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.NumberConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.StringConditionResolverRule;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+
+import static dev.pbroman.brat.core.util.Constants.AFTER;
+import static dev.pbroman.brat.core.util.Constants.BEFORE;
+import static dev.pbroman.brat.core.util.Constants.BLANK;
+import static dev.pbroman.brat.core.util.Constants.CONTAINS;
+import static dev.pbroman.brat.core.util.Constants.EMPTY;
+import static dev.pbroman.brat.core.util.Constants.ENDS_WITH;
+import static dev.pbroman.brat.core.util.Constants.EQUAL;
+import static dev.pbroman.brat.core.util.Constants.EQUALS;
+import static dev.pbroman.brat.core.util.Constants.EQUALS_IGNORE_CASE;
+import static dev.pbroman.brat.core.util.Constants.FUTURE;
+import static dev.pbroman.brat.core.util.Constants.MATCHES;
+import static dev.pbroman.brat.core.util.Constants.NULL;
+import static dev.pbroman.brat.core.util.Constants.PAST;
+import static dev.pbroman.brat.core.util.Constants.STARTS_WITH;
+import static dev.pbroman.brat.core.util.Constants.SYMBOL_EQUAL_TO;
+import static dev.pbroman.brat.core.util.Constants.SYMBOL_GREATER_THAN;
+import static dev.pbroman.brat.core.util.Constants.SYMBOL_GREATER_THAN_OR_EQUAL_TO;
+import static dev.pbroman.brat.core.util.Constants.SYMBOL_LESS_THAN;
+import static dev.pbroman.brat.core.util.Constants.SYMBOL_LESS_THAN_OR_EQUAL_TO;
+import static org.apache.commons.lang3.BooleanUtils.FALSE;
+import static org.apache.commons.lang3.BooleanUtils.TRUE;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ConditionResolverIntegrationTest {
 
@@ -54,8 +53,7 @@ class ConditionResolverIntegrationTest {
                 new NumberConditionResolverRule(),
                 new NullConditionResolverRule(),
                 new DateConditionResolverRule(),
-                new StringConditionResolverRule()
-        ));
+                new StringConditionResolverRule()));
     }
 
     @ParameterizedTest
@@ -66,14 +64,13 @@ class ConditionResolverIntegrationTest {
 
     @Test
     void functionNotFound() {
-        assertThatThrownBy(
-                () -> ruleDispatcher.resolve(new Condition("bollocks", 1, 2))
-        ).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> ruleDispatcher.resolve(new Condition("bollocks", 1, 2)))
+                .isInstanceOf(BratException.class);
     }
 
     private static Stream<Arguments> happyPaths() {
         return Stream.of(
-                // String conditions 
+                // String conditions
                 Arguments.of(new Condition(NULL, null, null)),
                 Arguments.of(new Condition("isnull", null, null)),
                 Arguments.of(new Condition("notNull", "a", null)),
@@ -101,7 +98,7 @@ class ConditionResolverIntegrationTest {
                 Arguments.of(new Condition("!blank", "foo", null)),
                 Arguments.of(new Condition("notblank", "foo", null)),
                 Arguments.of(new Condition("notisblank", "foo", null)),
-                
+
                 // Integer conditions
                 Arguments.of(new Condition("!null", 1, null)),
                 Arguments.of(new Condition(SYMBOL_EQUAL_TO, 1, 1)),
@@ -130,10 +127,10 @@ class ConditionResolverIntegrationTest {
                 Arguments.of(new Condition(FALSE, Boolean.FALSE, null)),
 
                 // Mixed conditions
-                Arguments.of(new Condition(EQUALS,"1", 1)),
+                Arguments.of(new Condition(EQUALS, "1", 1)),
                 Arguments.of(new Condition(EQUALS, "true", Boolean.TRUE)),
                 Arguments.of(new Condition(EQUALS, "1.0", 1.0)),
-                Arguments.of(new Condition(EQUALS,1, "1")),
+                Arguments.of(new Condition(EQUALS, 1, "1")),
                 Arguments.of(new Condition(EQUALS, Boolean.TRUE, "true")),
                 Arguments.of(new Condition(EQUALS, 1.0, "1.0")),
                 Arguments.of(new Condition(SYMBOL_EQUAL_TO, 1.0, "1.0")),
@@ -141,21 +138,19 @@ class ConditionResolverIntegrationTest {
                 Arguments.of(new Condition(TRUE, "true", null)),
 
                 // Date conditions
-                Arguments.of(new Condition(EQUAL,"2000-02-01", "2000-02-01")),
-                Arguments.of(new Condition(EQUAL,"2000-02-01", "02/01/2000")),
-                Arguments.of(new Condition(EQUAL,"2000-02-01", "01.02.2000")),
-                Arguments.of(new Condition(EQUAL,"02/01/2000", "01.02.2000")),
+                Arguments.of(new Condition(EQUAL, "2000-02-01", "2000-02-01")),
+                Arguments.of(new Condition(EQUAL, "2000-02-01", "02/01/2000")),
+                Arguments.of(new Condition(EQUAL, "2000-02-01", "01.02.2000")),
+                Arguments.of(new Condition(EQUAL, "02/01/2000", "01.02.2000")),
                 Arguments.of(new Condition(BEFORE, "2000-01-01", "2000-02-01")),
                 Arguments.of(new Condition(AFTER, "2000-03-01", "2000-02-01")),
                 Arguments.of(new Condition(PAST, "2000-02-01", null)),
-                Arguments.of(new Condition(FUTURE, "3000-02-01", null))
-        );
+                Arguments.of(new Condition(FUTURE, "3000-02-01", null)));
     }
 
     @Test
     void resolve_throwsForANullCondition() {
         // when / then — the dispatcher answers or throws; it never returns "no verdict"
-        assertThatThrownBy(() -> ruleDispatcher.resolve(null))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> ruleDispatcher.resolve(null)).isInstanceOf(BratException.class);
     }
 }

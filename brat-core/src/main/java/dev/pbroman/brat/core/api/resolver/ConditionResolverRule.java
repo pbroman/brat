@@ -63,5 +63,4 @@ public interface ConditionResolverRule {
      * @return the placeholder
      */
     String category();
-
 }

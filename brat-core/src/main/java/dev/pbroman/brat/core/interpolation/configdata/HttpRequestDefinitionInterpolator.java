@@ -1,10 +1,5 @@
 package dev.pbroman.brat.core.interpolation.configdata;
 
-import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.asStringOrNull;
-import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
-import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateIfPresent;
-import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateMapWithOutcomes;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -14,6 +9,11 @@ import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+
+import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.asStringOrNull;
+import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
+import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateIfPresent;
+import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateMapWithOutcomes;
 
 /**
  * Interpolates every field of an {@link HttpRequestDefinition}.
@@ -32,7 +32,8 @@ public final class HttpRequestDefinitionInterpolator implements ConfigDataInterp
     }
 
     @Override
-    public HttpRequestDefinition interpolated(HttpRequestDefinition target, Interpolation interpolation, RuntimeData runtimeData) {
+    public HttpRequestDefinition interpolated(
+            HttpRequestDefinition target, Interpolation interpolation, RuntimeData runtimeData) {
         checkNotInterpolated(target);
 
         var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
@@ -64,7 +65,8 @@ public final class HttpRequestDefinitionInterpolator implements ConfigDataInterp
                 outcomes);
     }
 
-    private Map<String, String> resolveOrNull(Map<String, String> original, Map<String, InterpolationOutcome> outcomes) {
+    private Map<String, String> resolveOrNull(
+            Map<String, String> original, Map<String, InterpolationOutcome> outcomes) {
         if (original == null) {
             return null;
         }

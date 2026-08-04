@@ -19,5 +19,4 @@ public interface AssertionResolver {
      * @return a list of assertion results
      */
     List<AssertionResult> resolve(Assertion assertion, RuntimeData runtimeData);
-
 }

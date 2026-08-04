@@ -1,14 +1,6 @@
 package dev.pbroman.brat.core.resolver.assertion;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
-
 import java.util.List;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
@@ -21,6 +13,13 @@ import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.configdata.ConditionInterpolator;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 class AssertionChainResolverTest {
 
@@ -48,8 +47,7 @@ class AssertionChainResolverTest {
         var result = assertionResolver.resolve(assertion, runtimeData);
 
         // then
-        assertThat(result).hasSize(2)
-                .allMatch(AssertionResult::passed);
+        assertThat(result).hasSize(2).allMatch(AssertionResult::passed);
     }
 
     @Test
@@ -62,8 +60,7 @@ class AssertionChainResolverTest {
         var result = assertionResolver.resolve(assertion, runtimeData);
 
         // then
-        assertThat(result).hasSize(2)
-                .allMatch(r -> r.severity() == AssertionSeverity.FAIL);
+        assertThat(result).hasSize(2).allMatch(r -> r.severity() == AssertionSeverity.FAIL);
     }
 
     @Test
@@ -77,8 +74,7 @@ class AssertionChainResolverTest {
         var result = assertionResolver.resolve(assertion, runtimeData);
 
         // then
-        assertThat(result).hasSize(2)
-                .allMatch(r -> r.severity() == AssertionSeverity.WARN);
+        assertThat(result).hasSize(2).allMatch(r -> r.severity() == AssertionSeverity.WARN);
     }
 
     @Test
@@ -92,7 +88,8 @@ class AssertionChainResolverTest {
         var result = assertionResolver.resolve(assertion, runtimeData);
 
         // then
-        assertThat(result).singleElement()
+        assertThat(result)
+                .singleElement()
                 .satisfies(r -> assertThat(r.severity()).isEqualTo(AssertionSeverity.WARN));
     }
 
@@ -100,7 +97,7 @@ class AssertionChainResolverTest {
     void allAssertionsFail() {
         // given
         var chain = List.of(new ChainedCondition("!equals", "c", "chainedFail"));
-        var assertion = new Assertion("equals", "a",  "b", chain, "primaryFail");
+        var assertion = new Assertion("equals", "a", "b", chain, "primaryFail");
         when(conditionResolver.resolve(any())).thenReturn(false);
 
         // when
@@ -116,7 +113,7 @@ class AssertionChainResolverTest {
     void addsFailByBratException() {
         // given
         var chain = List.of(new ChainedCondition("!equals", "c", "chainedFail"));
-        var assertion = new Assertion("equals", "a",  "b", chain, "primaryFail");
+        var assertion = new Assertion("equals", "a", "b", chain, "primaryFail");
         when(conditionResolver.resolve(any())).thenReturn(true);
         when(interpolation.outcome(any(), any())).thenThrow(new BratException("interpolation failed"));
 
@@ -124,7 +121,8 @@ class AssertionChainResolverTest {
         var result = assertionResolver.resolve(assertion, runtimeData);
 
         // then
-        assertThat(result).hasSize(2)
+        assertThat(result)
+                .hasSize(2)
                 .allMatch(assertionResult -> assertionResult.message().startsWith("Error interpolating"));
     }
 
@@ -132,7 +130,7 @@ class AssertionChainResolverTest {
     void allAssertionsAreInterpolated() {
         // given
         var chain = List.of(new ChainedCondition("!equals", "c", "chainedFail"));
-        var assertion = new Assertion("equals", "a",  "b", chain, "primaryFail");
+        var assertion = new Assertion("equals", "a", "b", chain, "primaryFail");
         when(conditionResolver.resolve(any())).thenReturn(true);
         when(interpolation.outcome(any(), any())).thenReturn(new InterpolationOutcome("interpolated", "interpolated"));
 
@@ -140,10 +138,10 @@ class AssertionChainResolverTest {
         var result = assertionResolver.resolve(assertion, runtimeData);
 
         // then
-        assertThat(result).hasSize(2)
+        assertThat(result)
+                .hasSize(2)
                 .allMatch(AssertionResult::passed)
                 .allMatch(assertionResult -> assertionResult.condition().getA().equals("interpolated"))
                 .allMatch(assertionResult -> assertionResult.condition().getB().equals("interpolated"));
     }
-
 }

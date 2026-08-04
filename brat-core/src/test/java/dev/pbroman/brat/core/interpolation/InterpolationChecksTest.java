@@ -1,14 +1,14 @@
 package dev.pbroman.brat.core.interpolation;
 
-import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
-import static dev.pbroman.brat.core.util.Constants.ENV;
-import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import java.util.Map;
 
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import org.junit.jupiter.api.Test;
+
+import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
+import static dev.pbroman.brat.core.util.Constants.ENV;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class InterpolationChecksTest {
 

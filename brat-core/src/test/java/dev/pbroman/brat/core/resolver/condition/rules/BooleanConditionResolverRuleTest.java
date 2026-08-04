@@ -1,11 +1,10 @@
 package dev.pbroman.brat.core.resolver.condition.rules;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
+import dev.pbroman.brat.core.data.Condition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import dev.pbroman.brat.core.data.Condition;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class BooleanConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
 
@@ -31,5 +30,4 @@ class BooleanConditionResolverRuleTest extends AbstractConditionResolverRuleTest
         // then
         assertThat(result).contains(true);
     }
-
 }
