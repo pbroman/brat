@@ -40,6 +40,11 @@ public class Assertion extends Condition {
 
     /**
      * Constructs an assertion with no message.
+     *
+     * @param func the condition function
+     * @param a the first operand
+     * @param b the second operand, or {@code null}
+     * @param chain further conditions on the same {@code a}
      */
     public Assertion(String func, Object a, Object b, List<ChainedCondition> chain) {
         this(func, a, b, chain, null);
@@ -47,6 +52,11 @@ public class Assertion extends Condition {
 
     /**
      * Constructs an assertion with no chain.
+     *
+     * @param func the condition function
+     * @param a the first operand
+     * @param b the second operand, or {@code null}
+     * @param message the message to report if the condition fails
      */
     public Assertion(String func, Object a, Object b, String message) {
         this(func, a, b, List.of(), message);
@@ -54,6 +64,10 @@ public class Assertion extends Condition {
 
     /**
      * Constructs an assertion with no {@code b} and no message.
+     *
+     * @param func the condition function
+     * @param a the first operand
+     * @param chain further conditions on the same {@code a}
      */
     public Assertion(String func, Object a, List<ChainedCondition> chain) {
         this(func, a, null, chain, null);
@@ -61,6 +75,10 @@ public class Assertion extends Condition {
 
     /**
      * Constructs an assertion with no chain and no message.
+     *
+     * @param func the condition function
+     * @param a the first operand
+     * @param b the second operand, or {@code null}
      */
     public Assertion(String func, Object a, Object b) {
         this(func, a, b, List.of(), null);
@@ -68,6 +86,9 @@ public class Assertion extends Condition {
 
     /**
      * Constructs an assertion with no {@code b}, no chain and no message.
+     *
+     * @param func the condition function
+     * @param a the first operand
      */
     public Assertion(String func, Object a) {
         this(func, a, null, List.of(), null);

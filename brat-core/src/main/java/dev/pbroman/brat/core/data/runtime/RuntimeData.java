@@ -77,26 +77,59 @@ public class RuntimeData {
         data.put(PARAMS, params);
     }
 
+    /**
+     * Returns one namespace by key.
+     *
+     * @param key the namespace, e.g. {@code constants}
+     * @return the namespace's values, or {@code null} if there is no such namespace
+     */
     public Map<String, Object> getData(String key) {
         return data.get(key);
     }
 
+    /**
+     * Returns the {@code constants} namespace.
+     *
+     * @return the constants
+     */
     public Map<String, Object> getConstants() {
         return getData(CONSTANTS);
     }
 
+    /**
+     * Returns the {@code env} namespace — the per-environment values, nothing to do with OS
+     * environment variables.
+     *
+     * @return the environment values
+     */
     public Map<String, Object> getEnv() {
         return getData(ENV);
     }
 
+    /**
+     * Returns the {@code vars} namespace, which a suite writes to at run time.
+     *
+     * @return the runtime variables
+     */
     public Map<String, Object> getVars() {
         return getData(VARS);
     }
 
+    /**
+     * Returns the {@code responseVars} namespace, holding the previous response.
+     *
+     * @return the response variables
+     */
     public Map<String, Object> getResponseVars() {
         return getData(RESPONSE_VARS);
     }
 
+    /**
+     * Returns the {@code params} namespace — the execution-time parameters behind
+     * {@code ${params.x}}, unrelated to a condition func's {@code args}.
+     *
+     * @return the execution parameters
+     */
     public Map<String, Object> getParams() {
         return getData(PARAMS);
     }

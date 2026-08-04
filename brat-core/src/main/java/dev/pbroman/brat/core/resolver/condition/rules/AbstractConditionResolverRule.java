@@ -24,6 +24,9 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
 
     /**
      * Constructor receiving a predicate map from extending classes.
+     *
+     * @param predicates the predicate for each func this rule answers to, keyed by the normalised
+     *        func name
      */
     protected AbstractConditionResolverRule(Map<String, ConditionPredicate> predicates) {
         this.predicateMap = Map.copyOf(predicates);

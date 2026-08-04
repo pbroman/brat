@@ -30,6 +30,8 @@ public class AssertionChainResolver implements AssertionResolver {
     private final ConfigDataInterpolator<Condition> conditionInterpolation;
 
     /**
+     * Constructs a resolver over the collaborators it delegates to.
+     *
      * @param interpolation the interpolation handed to {@code conditionInterpolation}
      * @param conditionResolver the resolver each interpolated condition is tested with
      * @param conditionInterpolation the interpolator producing the interpolated copy of a condition
@@ -55,6 +57,16 @@ public class AssertionChainResolver implements AssertionResolver {
         return assertionResults;
     }
 
+    /**
+     * Resolves one condition of the chain and appends its result, converting a failure to
+     * interpolate into a failed result rather than letting it escape.
+     *
+     * @param condition the condition to resolve
+     * @param assertionResults the results collected so far, appended to
+     * @param message the message to report if the condition fails
+     * @param severity the severity to record on the result
+     * @param runtimeData the object containing values
+     */
     protected void resolve(Condition condition, List<AssertionResult> assertionResults, String message,
             AssertionSeverity severity, RuntimeData runtimeData) {
         try {

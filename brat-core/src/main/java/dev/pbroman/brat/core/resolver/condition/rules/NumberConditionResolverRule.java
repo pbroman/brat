@@ -30,6 +30,9 @@ import static dev.pbroman.brat.core.util.Constants.SYMBOL_LESS_THAN_OR_EQUAL_TO;
  */
 public final class NumberConditionResolverRule extends AbstractConditionResolverRule {
 
+    /**
+     * Constructs the number condition rule with its predicates.
+     */
     public NumberConditionResolverRule() {
         super(predicates());
     }

@@ -14,6 +14,9 @@ import static org.apache.commons.lang3.BooleanUtils.TRUE;
  */
 public final class BooleanConditionResolverRule extends AbstractConditionResolverRule {
 
+    /**
+     * Constructs the boolean condition rule with its predicates.
+     */
     public BooleanConditionResolverRule() {
         super(predicates());
     }

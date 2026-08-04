@@ -50,6 +50,11 @@ public final class Constants {
             HEADERS, RESPONSE_HEADER_SHORTHAND
     );
 
+    public static final String FORMAT_UUID = "uuid";
+    public static final String FORMAT_EMAIL = "email";
+    public static final String FORMAT_ISO_DATE_TIME = "isodatetime";
+    public static final String FORMAT_URL = "url";
+
     public static final String NUMBER_CONDITION = "Number";
     public static final String STRING_CONDITION = "String";
     public static final String BOOLEAN_CONDITION = "Boolean";
@@ -57,6 +62,7 @@ public final class Constants {
     public static final String DATE_CONDITION = "Date";
     public static final String TIME_CONDITION = "Time";
     public static final String DATETIME_CONDITION = "DateTime";
+    public static final String FORMAT_CONDITION = "Format";
 
     public static final String DEFAULT_TIMEOUT_MS = "30000";
 

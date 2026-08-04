@@ -75,6 +75,11 @@ public class Condition extends ConfigData {
         this.args = args == null ? Map.of() : args;
     }
 
+    /**
+     * Renders the condition as {@code a func b}, which is how it appears in a failure message.
+     *
+     * @return the rendered condition
+     */
     public String toString() {
         return String.format("%s %s %s", a, func, b == null ? "" : b);
     }

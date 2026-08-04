@@ -36,6 +36,8 @@ public final class DateConditionResolverRule extends AbstractConditionResolverRu
 
     /**
      * Constructor receiving a {@link DateTimeFormatter}.
+     *
+     * @param dateTimeFormatter the formatter operands are parsed with
      */
     public DateConditionResolverRule(DateTimeFormatter dateTimeFormatter) {
         super(predicates(dateTimeFormatter));

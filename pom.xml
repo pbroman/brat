@@ -129,6 +129,12 @@
                 <configuration>
                     <source>25</source>
                     <target>25</target>
+                    <compilerArgs>
+                        <!-- Javadoc correctness (broken {@link}s, malformed tags) at compile time.
+                             `-missing` because "is a Javadoc block required here" is checkstyle's
+                             job, and the two disagree about which members need one. -->
+                        <arg>-Xdoclint:all,-missing</arg>
+                    </compilerArgs>
                     <annotationProcessorPathsUseDepMgmt>true</annotationProcessorPathsUseDepMgmt>
                     <annotationProcessorPaths>
                         <path>
@@ -137,6 +143,26 @@
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>3.6.0</version>
+                <configuration>
+                    <configLocation>config/checkstyle/checkstyle.xml</configLocation>
+                    <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                    <violationSeverity>warning</violationSeverity>
+                    <failOnViolation>true</failOnViolation>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>checkstyle</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

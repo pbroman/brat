@@ -16,6 +16,10 @@ import java.util.TreeMap;
  */
 public record HttpResponse(int statusCode, Map<String, List<String>> headers, String body) {
 
+    /**
+     * Copies the headers into a case-insensitive, unmodifiable map, so lookups need not guess at
+     * the casing a server used.
+     */
     public HttpResponse {
         var caseInsensitiveHeaders = new TreeMap<String, List<String>>(String.CASE_INSENSITIVE_ORDER);
         if (headers != null) {

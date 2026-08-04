@@ -23,6 +23,8 @@ public final class HttpRequestDefinitionInterpolator implements ConfigDataInterp
     private final ConfigDataInterpolator<Auth> authInterpolation;
 
     /**
+     * Constructs an interpolator delegating the nested {@link Auth}.
+     *
      * @param authInterpolation the interpolator this delegates the nested {@link Auth} to
      */
     public HttpRequestDefinitionInterpolator(ConfigDataInterpolator<Auth> authInterpolation) {

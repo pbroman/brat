@@ -25,6 +25,8 @@ public class ResponseActionsHandler implements ResponseHandler {
     private final AssertionResolver assertionResolver;
 
     /**
+     * Constructs a handler over the collaborators it delegates to.
+     *
      * @param interpolation the interpolation used for {@code setVars} values
      * @param assertionResolver the resolver every declared assertion is passed to
      */

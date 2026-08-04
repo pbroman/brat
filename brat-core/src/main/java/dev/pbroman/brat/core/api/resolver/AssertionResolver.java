@@ -15,6 +15,7 @@ public interface AssertionResolver {
      * Resolves an {@link Assertion}, testing if all contained conditions are true.
      *
      * @param assertion the {@link Assertion}
+     * @param runtimeData the object containing values
      * @return a list of assertion results
      */
     List<AssertionResult> resolve(Assertion assertion, RuntimeData runtimeData);

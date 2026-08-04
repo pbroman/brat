@@ -28,6 +28,9 @@ import static dev.pbroman.brat.core.util.Constants.STRING_CONDITION;
  */
 public final class StringConditionResolverRule extends AbstractConditionResolverRule {
 
+    /**
+     * Constructs the string condition rule with its predicates.
+     */
     public StringConditionResolverRule() {
         super(predicates());
     }
