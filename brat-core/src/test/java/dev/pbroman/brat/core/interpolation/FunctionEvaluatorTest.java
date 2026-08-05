@@ -41,17 +41,16 @@ class FunctionEvaluatorTest {
                 underTest);
     }
 
-    private static Map<String, BratFunction> functions() {
-        return Map.of(
-                "upper", args -> args.getFirst().toUpperCase(),
-                "join", args -> String.join("-", args),
-                "count", args -> String.valueOf(args.size()),
-                "id", args -> args.isEmpty() ? "none" : args.getFirst(),
-                "boom",
-                        args -> {
-                            throw new BratException("function failed");
-                        },
-                "nothing", args -> null);
+    private static List<BratFunction> functions() {
+        return List.of(
+                BratFunction.of("upper", args -> args.getFirst().toUpperCase()),
+                BratFunction.of("join", args -> String.join("-", args)),
+                BratFunction.of("count", args -> String.valueOf(args.size())),
+                BratFunction.of("id", args -> args.isEmpty() ? "none" : args.getFirst()),
+                BratFunction.of("boom", args -> {
+                    throw new BratException("function failed");
+                }),
+                BratFunction.of("nothing", args -> null));
     }
 
     private InterpolationOutcome evaluate(String call) {

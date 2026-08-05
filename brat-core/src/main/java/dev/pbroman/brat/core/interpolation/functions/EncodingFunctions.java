@@ -8,7 +8,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.Map;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -52,19 +51,19 @@ public final class EncodingFunctions {
     }
 
     /**
-     * The encoding and hashing functions, keyed by their bare names.
+     * The encoding and hashing functions.
      *
      * @return the functions
      */
-    public static Map<String, BratFunction> functions() {
-        return Map.of(
-                "base64", EncodingFunctions::base64,
-                "base64Decode", EncodingFunctions::base64Decode,
-                "urlEncode", EncodingFunctions::urlEncode,
-                "urlDecode", EncodingFunctions::urlDecode,
-                "md5", EncodingFunctions::md5,
-                "sha256", EncodingFunctions::sha256,
-                "hmacSha256", EncodingFunctions::hmacSha256);
+    public static List<BratFunction> functions() {
+        return List.of(
+                BratFunction.of("base64", EncodingFunctions::base64),
+                BratFunction.of("base64Decode", EncodingFunctions::base64Decode),
+                BratFunction.of("urlEncode", EncodingFunctions::urlEncode),
+                BratFunction.of("urlDecode", EncodingFunctions::urlDecode),
+                BratFunction.of("md5", EncodingFunctions::md5),
+                BratFunction.of("sha256", EncodingFunctions::sha256),
+                BratFunction.of("hmacSha256", EncodingFunctions::hmacSha256));
     }
 
     private static String base64(List<String> args) {

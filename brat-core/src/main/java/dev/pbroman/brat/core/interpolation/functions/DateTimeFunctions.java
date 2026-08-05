@@ -7,7 +7,6 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern;
 
 import dev.pbroman.brat.core.api.interpolation.BratFunction;
@@ -49,15 +48,15 @@ public final class DateTimeFunctions {
     }
 
     /**
-     * The date and time functions, keyed by their bare names.
+     * The date and time functions.
      *
      * @return the functions
      */
-    public static Map<String, BratFunction> functions() {
-        return Map.of(
-                "now", DateTimeFunctions::now,
-                "epoch", DateTimeFunctions::epoch,
-                "date", DateTimeFunctions::date);
+    public static List<BratFunction> functions() {
+        return List.of(
+                BratFunction.of("now", DateTimeFunctions::now),
+                BratFunction.of("epoch", DateTimeFunctions::epoch),
+                BratFunction.of("date", DateTimeFunctions::date));
     }
 
     private static String epoch(List<String> args) {

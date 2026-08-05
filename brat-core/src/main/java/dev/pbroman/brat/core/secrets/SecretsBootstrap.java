@@ -210,7 +210,7 @@ public final class SecretsBootstrap {
         // narrow chain, and an empty registry makes a ${__…} here fail loudly rather than resolve
         // against something this layer never meant to offer.
         return new InterpolationScanner(
-                new InterpolationRuleDispatcher(rules), new FunctionEvaluator(new FunctionRegistry(Map.of())));
+                new InterpolationRuleDispatcher(rules), new FunctionEvaluator(new FunctionRegistry(List.of())));
     }
 
     private void closeAndThrow(ArrayList<SecretsProvider> providers, String message) {

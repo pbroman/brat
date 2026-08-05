@@ -1,11 +1,13 @@
 package dev.pbroman.brat.core.interpolation;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.BratFunction;
 import dev.pbroman.brat.core.exception.BratException;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationPatterns.FUNCTION_PREFIX;
@@ -18,26 +20,48 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  * {@code uuid} and answers {@code ${__uuid}}, {@code ${__UUID}} and {@code ${__Uuid}} alike.
  * <p>
  * A plugin adds functions by supplying them here — the same shape as adding a rule to a dispatcher,
- * and needing no change to core.
+ * and needing no change to core. Each function carries its own name
+ * ({@link BratFunction#name()}), so a plugin discovered as bare instances registers identically to
+ * one wired by hand.
+ * <p>
+ * This registry is the <strong>single validator</strong> of function names: nothing else checks
+ * them, so every implementation reaches the same rules whether it was written as a class, a lambda
+ * through {@link BratFunction#of}, or loaded from a jar.
  */
+@Slf4j
 public final class FunctionRegistry {
 
     private final Map<String, BratFunction> functions;
 
     /**
      * Constructs a registry over the functions a run has available.
+     * <p>
+     * The order of {@code functions} matters only for repeated names: a function whose
+     * {@link BratFunction#name()} exactly repeats an earlier one <strong>replaces</strong> it, and
+     * the replacement is logged at WARN describing both functions. That is how a plugin
+     * overrides a standard function, so the caller controls the order — a consumer offering
+     * overrides puts {@code StandardFunctions.all()} first and contributed functions after it.
+     * <p>
+     * Two names that resolve to the same lookup key without being identical ({@code uuid} and
+     * {@code UUID}) are an error rather than an override. An exact repeat is evidence of intent —
+     * whoever wrote it meant that function; a differing spelling is evidence of unawareness, since
+     * anyone meaning to override would have spelled the name the same way.
      *
-     * @param functions the functions by name, written without the {@code __} prefix; may be empty,
-     *        which is a registry that recognises nothing
-     * @throws BratException if {@code functions} is {@code null}, if a name is {@code null} or
-     *         blank, if a name carries the {@code __} prefix (it is the syntax, not part of the
-     *         name), if a function is {@code null}, or if two names differ only in case
+     * @param functions the functions a run has available, written without the {@code __} prefix, in
+     *        registration order; may be empty, which is a registry that recognises nothing. Not
+     *        retained — a later change to the collection does not affect the registry
+     * @throws BratException if {@code functions} is {@code null}, if it holds a {@code null}
+     *         element, if a {@link BratFunction#name()} is {@code null} or blank, if a name carries
+     *         the {@code __} prefix (it is the syntax, not part of the name), or if two names differ
+     *         only in case
      */
-    public FunctionRegistry(Map<String, BratFunction> functions) {
+    public FunctionRegistry(Collection<BratFunction> functions) {
         nonNull(functions, "The functions of a registry must be set");
-        var byLowerCaseName = new HashMap<String, BratFunction>();
-        for (var entry : functions.entrySet()) {
-            var name = entry.getKey();
+        var byLookupKey = new HashMap<String, BratFunction>();
+        var spellingByLookupKey = new HashMap<String, String>();
+        for (var function : functions) {
+            nonNull(function, "A function of a registry must not be null");
+            var name = function.name();
             if (StringUtils.isBlank(name)) {
                 throw new BratException("A function name must not be null or blank");
             }
@@ -45,16 +69,19 @@ public final class FunctionRegistry {
                 throw new BratException("The function name '" + name + "' must not carry the '" + FUNCTION_PREFIX
                         + "' prefix, which is syntax rather than part of the name");
             }
-            nonNull(entry.getValue(), "The function '" + name + "' must not be null");
             var key = name.toLowerCase(Locale.ROOT);
-            if (byLowerCaseName.put(key, entry.getValue()) != null) {
-                // Named by the lookup key rather than by the offending spelling: the map's iteration
-                // order decides which of the two is seen second, and for Map.of that varies per JVM.
-                throw new BratException("Two function names differ only in case and both resolve to '" + key
+            var previousSpelling = spellingByLookupKey.put(key, name);
+            if (previousSpelling != null && !previousSpelling.equals(name)) {
+                throw new BratException("The function names '" + previousSpelling + "' and '" + name
+                        + "' differ only in case and both resolve to '" + key
                         + "'. Lookup is case-insensitive, so only one could ever be reached");
             }
+            var replaced = byLookupKey.put(key, function);
+            if (replaced != null) {
+                log.warn("Two functions are named '{}': {} replaces {}. The later one wins", name, function, replaced);
+            }
         }
-        this.functions = Map.copyOf(byLowerCaseName);
+        this.functions = Map.copyOf(byLookupKey);
     }
 
     /**

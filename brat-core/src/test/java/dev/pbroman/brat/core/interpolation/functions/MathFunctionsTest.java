@@ -11,7 +11,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class MathFunctionsTest {
 
     private static String call(String name, String... args) {
-        return MathFunctions.functions().get(name).apply(List.of(args));
+        return MathFunctions.functions().stream()
+                .filter(function -> function.name().equals(name))
+                .findFirst()
+                .orElseThrow()
+                .apply(List.of(args));
     }
 
     @Test

@@ -16,7 +16,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class DateTimeFunctionsTest {
 
     private static String call(String name, String... args) {
-        return DateTimeFunctions.functions().get(name).apply(List.of(args));
+        return DateTimeFunctions.functions().stream()
+                .filter(function -> function.name().equals(name))
+                .findFirst()
+                .orElseThrow()
+                .apply(List.of(args));
     }
 
     // --- now ---

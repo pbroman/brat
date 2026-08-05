@@ -1,7 +1,6 @@
 package dev.pbroman.brat.core.interpolation;
 
 import java.util.List;
-import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.BratFunction;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
@@ -24,7 +23,7 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
         // for the dispatcher, and anything reaching it that should have gone to the evaluator (or
         // the other way round) shows up as the wrong value
         var registry = new FunctionRegistry(
-                Map.<String, BratFunction>of("upper", args -> args.getFirst().toUpperCase()));
+                List.of(BratFunction.of("upper", args -> args.getFirst().toUpperCase())));
         underTest = new InterpolationScanner(mockRule, new FunctionEvaluator(registry));
     }
 

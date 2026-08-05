@@ -2,7 +2,6 @@ package dev.pbroman.brat.core.interpolation.functions;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.BratFunction;
 import dev.pbroman.brat.core.exception.BratException;
@@ -44,19 +43,19 @@ public final class TextFunctions {
     }
 
     /**
-     * The text functions, keyed by their bare names.
+     * The text functions.
      *
      * @return the functions
      */
-    public static Map<String, BratFunction> functions() {
-        return Map.of(
-                "upper", TextFunctions::upper,
-                "lower", TextFunctions::lower,
-                "trim", TextFunctions::trim,
-                "length", TextFunctions::length,
-                "substring", TextFunctions::substring,
-                "replace", TextFunctions::replace,
-                "default", TextFunctions::defaultTo);
+    public static List<BratFunction> functions() {
+        return List.of(
+                BratFunction.of("upper", TextFunctions::upper),
+                BratFunction.of("lower", TextFunctions::lower),
+                BratFunction.of("trim", TextFunctions::trim),
+                BratFunction.of("length", TextFunctions::length),
+                BratFunction.of("substring", TextFunctions::substring),
+                BratFunction.of("replace", TextFunctions::replace),
+                BratFunction.of("default", TextFunctions::defaultTo));
     }
 
     private static String upper(List<String> args) {

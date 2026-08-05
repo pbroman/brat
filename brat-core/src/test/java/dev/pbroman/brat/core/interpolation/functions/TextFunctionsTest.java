@@ -12,7 +12,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class TextFunctionsTest {
 
     private static String call(String name, String... args) {
-        return TextFunctions.functions().get(name).apply(List.of(args));
+        return TextFunctions.functions().stream()
+                .filter(function -> function.name().equals(name))
+                .findFirst()
+                .orElseThrow()
+                .apply(List.of(args));
     }
 
     // --- upper / lower ---

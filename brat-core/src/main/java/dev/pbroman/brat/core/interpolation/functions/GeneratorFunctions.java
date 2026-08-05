@@ -1,7 +1,6 @@
 package dev.pbroman.brat.core.interpolation.functions;
 
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -52,18 +51,18 @@ public final class GeneratorFunctions {
     }
 
     /**
-     * The generator functions, keyed by their bare names.
+     * The generator functions.
      *
      * @return the functions
      */
-    public static Map<String, BratFunction> functions() {
-        return Map.of(
-                "uuid", GeneratorFunctions::uuid,
-                "randomInt", GeneratorFunctions::randomInt,
-                "randomLong", GeneratorFunctions::randomLong,
-                "randomFloat", GeneratorFunctions::randomFloat,
-                "randomFrom", GeneratorFunctions::randomFrom,
-                "randomString", GeneratorFunctions::randomString);
+    public static List<BratFunction> functions() {
+        return List.of(
+                BratFunction.of("uuid", GeneratorFunctions::uuid),
+                BratFunction.of("randomInt", GeneratorFunctions::randomInt),
+                BratFunction.of("randomLong", GeneratorFunctions::randomLong),
+                BratFunction.of("randomFloat", GeneratorFunctions::randomFloat),
+                BratFunction.of("randomFrom", GeneratorFunctions::randomFrom),
+                BratFunction.of("randomString", GeneratorFunctions::randomString));
     }
 
     private static String uuid(List<String> args) {

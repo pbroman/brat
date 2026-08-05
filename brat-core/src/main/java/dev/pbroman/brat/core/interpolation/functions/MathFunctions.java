@@ -3,7 +3,6 @@ package dev.pbroman.brat.core.interpolation.functions;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.List;
-import java.util.Map;
 import java.util.function.BinaryOperator;
 
 import dev.pbroman.brat.core.api.interpolation.BratFunction;
@@ -38,21 +37,25 @@ public final class MathFunctions {
     }
 
     /**
-     * The math functions, keyed by their bare names.
+     * The math functions.
      *
      * @return the functions
      */
-    public static Map<String, BratFunction> functions() {
-        return Map.of(
-                "add", args -> apply("add", args, BigDecimal::add),
-                "subtract", args -> apply("subtract", args, BigDecimal::subtract),
-                "multiply", args -> apply("multiply", args, BigDecimal::multiply),
-                "divide",
+    public static List<BratFunction> functions() {
+        return List.of(
+                BratFunction.of("add", args -> apply("add", args, BigDecimal::add)),
+                BratFunction.of("subtract", args -> apply("subtract", args, BigDecimal::subtract)),
+                BratFunction.of("multiply", args -> apply("multiply", args, BigDecimal::multiply)),
+                BratFunction.of(
+                        "divide",
                         args -> apply(
                                 "divide",
                                 args,
-                                (a, b) -> nonZero("divide", a, b).divide(b, DECIMAL_16)),
-                "mod", args -> apply("mod", args, (a, b) -> nonZero("mod", a, b).remainder(b)));
+                                (a, b) -> nonZero("divide", a, b).divide(b, DECIMAL_16))),
+                BratFunction.of(
+                        "mod",
+                        args -> apply(
+                                "mod", args, (a, b) -> nonZero("mod", a, b).remainder(b))));
     }
 
     private static String apply(String name, List<String> args, BinaryOperator<BigDecimal> operation) {

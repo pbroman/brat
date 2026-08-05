@@ -11,7 +11,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class EncodingFunctionsTest {
 
     private static String call(String name, String... args) {
-        return EncodingFunctions.functions().get(name).apply(List.of(args));
+        return EncodingFunctions.functions().stream()
+                .filter(function -> function.name().equals(name))
+                .findFirst()
+                .orElseThrow()
+                .apply(List.of(args));
     }
 
     // --- base64 ---
