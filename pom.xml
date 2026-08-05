@@ -14,13 +14,18 @@
         <!-- Overridden by jacoco:prepare-agent under -Pchecks; empty otherwise, so surefire's
              @{argLine} resolves either way. -->
         <argLine></argLine>
+        <!-- A family whose artifacts must move together gets a property, so a version can never
+             skew between them — and so Dependabot raises one PR for the family rather than one per
+             artifact. -->
         <httpcore5.version>5.4.3</httpcore5.version>
         <jackson.version>3.2.1</jackson.version>
+        <bytebuddy.version>1.18.11</bytebuddy.version>
+        <mockito.version>5.23.0</mockito.version>
+        <slf4j.version>2.0.18</slf4j.version>
     </properties>
 
     <modules>
         <module>brat-core</module>
-        <!--module>brat-spring-boot-starter</module-->
     </modules>
 
     <dependencyManagement>
@@ -28,7 +33,7 @@
             <dependency>
                 <groupId>org.apache.httpcomponents.client5</groupId>
                 <artifactId>httpclient5</artifactId>
-                <version>5.6.2</version>
+                <version>5.6.3</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.httpcomponents.core5</groupId>
@@ -43,7 +48,7 @@
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
-                <version>2.0.18</version>
+                <version>${slf4j.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.apache.commons</groupId>
@@ -73,12 +78,12 @@
             <dependency>
                 <groupId>net.bytebuddy</groupId>
                 <artifactId>byte-buddy</artifactId>
-                <version>1.18.10</version>
+                <version>${bytebuddy.version}</version>
             </dependency>
             <dependency>
                 <groupId>net.bytebuddy</groupId>
                 <artifactId>byte-buddy-agent</artifactId>
-                <version>1.18.11</version>
+                <version>${bytebuddy.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.projectlombok</groupId>
@@ -98,7 +103,7 @@
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter</artifactId>
-                <version>6.0.3</version>
+                <version>6.1.2</version>
             </dependency>
             <dependency>
                 <groupId>org.assertj</groupId>
@@ -108,17 +113,17 @@
             <dependency>
                 <groupId>org.mockito</groupId>
                 <artifactId>mockito-core</artifactId>
-                <version>5.23.0</version>
+                <version>${mockito.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.mockito</groupId>
                 <artifactId>mockito-junit-jupiter</artifactId>
-                <version>5.23.0</version>
+                <version>${mockito.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-simple</artifactId>
-                <version>2.0.18</version>
+                <version>${slf4j.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
