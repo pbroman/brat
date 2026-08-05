@@ -8,24 +8,34 @@ import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
+import static dev.pbroman.brat.core.interpolation.InterpolationPatterns.FUNCTION_CALL_PREFIX;
 import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * Top-level {@link Interpolation} entry point: finds every {@code ${...}} token in a whole
- * field string, resolves each in isolation via the {@link InterpolationRuleDispatcher}, and
- * splices the results back into the original string.
+ * field string, resolves each in isolation, and splices the results back into the original string.
+ * <p>
+ * Resolving one token means choosing between two resolvers, and that choice is this class's alone:
+ * a token beginning {@code ${__} } is a function call and goes to the {@link FunctionEvaluator};
+ * anything else is a namespace lookup and goes to the {@link InterpolationRuleDispatcher}. The
+ * evaluator is handed this scanner so that a call's arguments resolve as fields do — which is what
+ * lets an argument hold a nested token or another call.
  */
 public class InterpolationScanner implements Interpolation {
 
     private final Interpolation dispatcher;
 
+    private final FunctionEvaluator functionEvaluator;
+
     /**
-     * Constructs an interpolation handler with a dispatcher and {@link InterpolationPatterns}.
+     * Constructs a scanner over the two resolvers a token can be routed to.
      *
-     * @param dispatcher the interpolation dispatcher
+     * @param dispatcher resolves a namespace lookup, e.g. {@code ${vars.name}}
+     * @param functionEvaluator resolves a function call, e.g. {@code ${__uuid}}
      */
-    public InterpolationScanner(Interpolation dispatcher) {
+    public InterpolationScanner(Interpolation dispatcher, FunctionEvaluator functionEvaluator) {
         this.dispatcher = dispatcher;
+        this.functionEvaluator = functionEvaluator;
     }
 
     /**
@@ -33,8 +43,14 @@ public class InterpolationScanner implements Interpolation {
      * back into the original string.
      * <p>
      * Tokens are found by {@link TokenScanner}, which counts braces — so a token holding another token
-     * ({@code ${__upper(${vars.name})}}) is passed to the dispatcher whole rather than truncated at the
-     * inner brace, and resolving the nested part is the resolving rule's business.
+     * ({@code ${__upper(${vars.name})}}) is passed on whole rather than truncated at the inner brace,
+     * and resolving the nested part is the resolving collaborator's business.
+     * <p>
+     * <strong>Each token is routed by its prefix.</strong> One beginning {@code ${__} } goes to the
+     * {@link FunctionEvaluator}, everything else to the dispatcher. A call therefore never reaches a
+     * rule, whatever that rule's priority, and an unknown function name fails rather than passing
+     * through — unlike an unrecognised namespace, which passes through so that a field holding
+     * {@code ${HOME}} survives.
      * <p>
      * <strong>A field that is nothing but a single token keeps its resolved value's type</strong> —
      * the outcome is returned as the resolving rule produced it, so {@code ${response.json.$.items}}
@@ -67,7 +83,7 @@ public class InterpolationScanner implements Interpolation {
         if (tokens.size() == 1
                 && tokens.getFirst().start() == 0
                 && tokens.getFirst().end() == input.length()) {
-            return dispatcher.outcome(input, runtimeData);
+            return resolveToken(input, runtimeData);
         }
         // Resolved in reading order, then spliced back to front. Both halves matter: replacing by
         // text would substitute every copy of a repeated token from a single resolution, so
@@ -76,7 +92,7 @@ public class InterpolationScanner implements Interpolation {
         var outcomes = new ArrayList<InterpolationOutcome>(tokens.size());
         var containsSecret = false;
         for (var token : tokens) {
-            var tokenOutcome = dispatcher.outcome(token.text(), runtimeData);
+            var tokenOutcome = resolveToken(token.text(), runtimeData);
             outcomes.add(tokenOutcome);
             containsSecret |= tokenOutcome.containsSecret();
         }
@@ -95,5 +111,15 @@ public class InterpolationScanner implements Interpolation {
             return new InterpolationOutcome(resolved, resolved, containsSecret);
         }
         return new InterpolationOutcome(resolved, input + " → " + masked, containsSecret);
+    }
+
+    /**
+     * Routes one token to the resolver its prefix names: the function evaluator for a call, the
+     * dispatcher for anything else.
+     */
+    private InterpolationOutcome resolveToken(String token, RuntimeData runtimeData) {
+        return token.startsWith(FUNCTION_CALL_PREFIX)
+                ? functionEvaluator.evaluate(token, this, runtimeData)
+                : dispatcher.outcome(token, runtimeData);
     }
 }

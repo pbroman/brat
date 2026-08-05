@@ -12,6 +12,8 @@ import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.api.secrets.SecretsProviderFactory;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.interpolation.FunctionEvaluator;
+import dev.pbroman.brat.core.interpolation.FunctionRegistry;
 import dev.pbroman.brat.core.interpolation.InterpolationRuleDispatcher;
 import dev.pbroman.brat.core.interpolation.InterpolationScanner;
 import dev.pbroman.brat.core.interpolation.rules.SecretsInterpolationRule;
@@ -196,7 +198,11 @@ public final class SecretsBootstrap {
     private InterpolationScanner createInterpolationScanner(InterpolationRule secretsInterpolationRule) {
         var rules = new ArrayList<>(bootstrapRules);
         rules.add(secretsInterpolationRule);
-        return new InterpolationScanner(new InterpolationRuleDispatcher(rules));
+        // No functions during bootstrap: provider configuration is resolved against a deliberately
+        // narrow chain, and an empty registry makes a ${__…} here fail loudly rather than resolve
+        // against something this layer never meant to offer.
+        return new InterpolationScanner(
+                new InterpolationRuleDispatcher(rules), new FunctionEvaluator(new FunctionRegistry(Map.of())));
     }
 
     private void closeAndThrow(ArrayList<SecretsProvider> providers, String message) {

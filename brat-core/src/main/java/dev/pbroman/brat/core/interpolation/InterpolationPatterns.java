@@ -29,6 +29,18 @@ public final class InterpolationPatterns {
     public static final String TOKEN_SUFFIX = "}";
 
     /**
+     * Marks a token as a function call rather than a namespace lookup. Syntax, not part of the
+     * function's name — a registry holds {@code uuid} and answers {@code ${__uuid}}.
+     */
+    public static final String FUNCTION_PREFIX = "__";
+
+    /**
+     * Opens a function call: the token prefix followed by the function marker. A token starting with
+     * this is routed to the function evaluator rather than to the rule dispatcher.
+     */
+    public static final String FUNCTION_CALL_PREFIX = TOKEN_PREFIX + FUNCTION_PREFIX;
+
+    /**
      * Matches a single token, lazily — so it stops at the first closing brace and does <em>not</em>
      * handle nesting. Use {@link TokenScanner} to find the tokens in a field; this answers the
      * simpler question of whether a string is, or holds, a token at all.

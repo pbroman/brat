@@ -1,7 +1,9 @@
 package dev.pbroman.brat.core.interpolation;
 
 import java.util.List;
+import java.util.Map;
 
+import dev.pbroman.brat.core.api.interpolation.BratFunction;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,7 +20,12 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
 
     @BeforeEach
     void setUp() {
-        underTest = new InterpolationScanner(mockRule);
+        // one real function, so routing can be observed rather than mocked: the mock rule stands in
+        // for the dispatcher, and anything reaching it that should have gone to the evaluator (or
+        // the other way round) shows up as the wrong value
+        var registry = new FunctionRegistry(
+                Map.<String, BratFunction>of("upper", args -> args.getFirst().toUpperCase()));
+        underTest = new InterpolationScanner(mockRule, new FunctionEvaluator(registry));
     }
 
     @Test
@@ -110,17 +117,44 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
         assertThat(result).isEqualTo(mockResult + mockResult);
     }
 
+    // --- routing: ${__…} goes to the evaluator, everything else to the dispatcher ---
+
     @Test
-    void interpolate_passesANestedTokenToTheRuleWhole() {
-        // given — the regex this replaced cut this at the inner closing brace
-        var input = "${__upper(${vars.name})}";
-        when(mockRule.outcome(input, runtimeData)).thenReturn(new InterpolationOutcome("JOHN", input + " → JOHN"));
+    void interpolate_routesACallToTheFunctionEvaluatorWhole() {
+        // given — the regex this replaced cut this at the inner closing brace; the mock rule
+        // resolves the argument once the evaluator sends it back through the scanner
+        var input = "${__upper(${mock})}";
 
         // when
         var result = underTest.interpolate(input, runtimeData);
 
         // then
-        assertThat(result).isEqualTo("JOHN");
+        assertThat(result).isEqualTo(mockResult.toUpperCase());
+    }
+
+    @Test
+    void interpolate_routesALookupToTheDispatcher() {
+        // when
+        var result = underTest.interpolate("${mock}", runtimeData);
+
+        // then — never offered to the evaluator, which knows no such function
+        assertThat(result).isEqualTo(mockResult);
+    }
+
+    @Test
+    void interpolate_splicesACallAndALookupInOneField() {
+        // when
+        var result = underTest.interpolate("${mock} then ${__upper(abc)}", runtimeData);
+
+        // then
+        assertThat(result).isEqualTo(mockResult + " then ABC");
+    }
+
+    @Test
+    void interpolate_failsForAnUnknownFunctionRatherThanPassingItThrough() {
+        // when / then — unlike an unrecognised namespace, a call is BRAT-specific and a typo is fatal
+        assertThatThrownBy(() -> underTest.interpolate("${__nosuch(a)}", runtimeData))
+                .isInstanceOf(BratException.class);
     }
 
     @Test
