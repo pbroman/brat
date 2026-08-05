@@ -167,9 +167,7 @@
                         </palantirJavaFormat>
                         <removeUnusedImports/>
                         <!-- java, then javax, then everything else alphabetically, then statics
-                             last. Matches IntelliJ's default layout and the codebase majority; the
-                             repo had no convention before this (17 files put statics first, 23
-                             last), so this settles it rather than codifying it. -->
+                             last. Matches IntelliJ's default layout and the codebase majority. -->
                         <importOrder>
                             <order>java,javax,,\#</order>
                         </importOrder>
@@ -192,7 +190,10 @@
                 <artifactId>maven-checkstyle-plugin</artifactId>
                 <version>3.6.0</version>
                 <configuration>
-                    <configLocation>config/checkstyle/checkstyle.xml</configLocation>
+                    <!-- Anchored at the repo root, not the module: one ruleset for every module, and a new
+                         module is covered without opting in. `.mvn/` at the root is what pins this
+                         variable there regardless of the directory Maven is invoked from. -->
+                    <configLocation>${maven.multiModuleProjectDirectory}/config/checkstyle/checkstyle.xml</configLocation>
                     <includeTestSourceDirectory>true</includeTestSourceDirectory>
                     <violationSeverity>warning</violationSeverity>
                     <failOnViolation>true</failOnViolation>
@@ -294,7 +295,8 @@
                     <effort>Max</effort>
                     <threshold>Default</threshold>
                     <includeTests>false</includeTests>
-                    <excludeFilterFile>config/spotbugs/spotbugs-exclude.xml</excludeFilterFile>
+                    <!-- Root-anchored for the same reason as checkstyle's configLocation above. -->
+                    <excludeFilterFile>${maven.multiModuleProjectDirectory}/config/spotbugs/spotbugs-exclude.xml</excludeFilterFile>
                 </configuration>
                 <executions>
                     <execution>
