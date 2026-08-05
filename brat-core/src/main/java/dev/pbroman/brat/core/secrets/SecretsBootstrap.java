@@ -17,6 +17,7 @@ import dev.pbroman.brat.core.interpolation.FunctionRegistry;
 import dev.pbroman.brat.core.interpolation.InterpolationRuleDispatcher;
 import dev.pbroman.brat.core.interpolation.InterpolationScanner;
 import dev.pbroman.brat.core.interpolation.rules.SecretsInterpolationRule;
+import lombok.extern.slf4j.Slf4j;
 import tools.jackson.core.JacksonException;
 
 import static dev.pbroman.brat.core.util.JacksonUtils.locationOf;
@@ -40,6 +41,7 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  * Resolved parameter values may be secrets and do not pass through the masking that interpolated
  * suite configuration gets, so they appear in no log line and no exception message from here.
  */
+@Slf4j
 public final class SecretsBootstrap {
 
     /**
@@ -59,15 +61,16 @@ public final class SecretsBootstrap {
     /**
      * Constructs a bootstrap over the factories and interpolation rules a run has available.
      *
-     * @param factories the factories to create providers with, one per type; may be empty, which
-     *        only builds chains needing no sources
+     * @param factories the factories to create providers with; may be empty, which only builds
+     *        chains needing no sources. Two factories declaring the same
+     *        {@link SecretsProviderFactory#type()} is not an error — the later one wins and the
+     *        replacement is logged at WARN, which is how a plugin overrides a built-in provider
      * @param bootstrapRules the interpolation rules provider parameters are resolved with,
      *        typically the {@code constants}, {@code env} and {@code params} rules; the rule
      *        resolving {@code ${secrets.…}} is supplied per step and must not be among them
      * @throws BratException if any argument is {@code null}, if {@code factories} or
-     *         {@code bootstrapRules} holds a {@code null} element, if two factories report the same
-     *         {@link SecretsProviderFactory#type()}, or if {@code bootstrapRules} holds a rule
-     *         resolving secrets
+     *         {@code bootstrapRules} holds a {@code null} element, or if {@code bootstrapRules}
+     *         holds a rule resolving secrets
      */
     public SecretsBootstrap(List<SecretsProviderFactory> factories, List<InterpolationRule> bootstrapRules) {
         this(factories, bootstrapRules, System::getenv);
@@ -83,8 +86,13 @@ public final class SecretsBootstrap {
             throw new BratException("The bootstrapRules may not contain the SecretsInterpolationRule.");
         }
         for (SecretsProviderFactory factory : factories) {
-            if (type2factoryMap.put(factory.type(), factory) != null) {
-                throw new BratException("Multiple factories found for type: " + factory.type());
+            var replaced = type2factoryMap.put(factory.type(), factory);
+            if (replaced != null) {
+                log.warn(
+                        "Two factories declare the secrets provider type '{}': {} replaces {}. The later one wins",
+                        factory.type(),
+                        factory.getClass().getName(),
+                        replaced.getClass().getName());
             }
         }
         this.bootstrapRules = bootstrapRules;

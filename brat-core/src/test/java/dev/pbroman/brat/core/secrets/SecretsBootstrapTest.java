@@ -38,13 +38,17 @@ class SecretsBootstrapTest {
     // --- constructor ---
 
     @Test
-    void constructor_throwsIfTwoFactoriesShareAType() {
+    void constructor_letsTheLaterFactoryWinASharedType() {
         // given
-        var factories = List.<SecretsProviderFactory>of(new StubFactory("file"), new StubFactory("file"));
+        var builtIn = new StubFactory("file").serving("one.yaml", Map.of("apiKey", "from-built-in"));
+        var override = new StubFactory("file").serving("one.yaml", Map.of("apiKey", "from-override"));
+        var config = config(Map.of(), source("file", "one.yaml"));
 
-        // when / then
-        assertThatThrownBy(() -> new SecretsBootstrap(factories, bootstrapRules))
-                .isInstanceOf(BratException.class);
+        // when
+        var result = bootstrap(builtIn, override).build(config, runtimeData);
+
+        // then
+        assertThat(result.getSecret("apiKey")).contains("from-override");
     }
 
     @Test
