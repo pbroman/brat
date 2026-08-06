@@ -1,0 +1,52 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+# Least privilege: the build reads the repo and writes nothing back.
+permissions:
+  contents: read
+
+# Supersede an in-flight run when a PR is pushed to again; never cancel a run on main,
+# where each commit's result is the record of whether that commit was green.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      # From the root, never `-pl brat-core`: the aggregator is where a parent-pom
+      # misconfiguration shows up, and `-Pchecks` is the full gate (spotless check,
+      # checkstyle, doclint, tests, jacoco floor, spotbugs) — every one of them binds
+      # at or before `test`, so `test` is enough.
+      - name: Build
+        run: mvn -B --no-transfer-progress clean test -Pchecks
+
+      # Only on failure: a CI-only failure is otherwise very hard to diagnose from the log
+      # alone, particularly a jacoco floor breach or a spotbugs finding.
+      - name: Upload reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            **/target/surefire-reports/
+            **/target/site/jacoco/
+            **/target/spotbugsXml.xml
+          retention-days: 7
+          if-no-files-found: ignore
