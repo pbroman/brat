@@ -41,7 +41,7 @@ jobs:
       # alone, particularly a jacoco floor breach or a spotbugs finding.
       - name: Upload reports
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reports
           path: |
