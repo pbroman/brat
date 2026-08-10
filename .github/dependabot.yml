@@ -4,9 +4,16 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # Squash merge makes the PR title the commit subject, so Dependabot's default
+    # "Bump x from 1 to 2" would put non-Conventional-Commits subjects into the history
+    # that release tooling is meant to read. A prefix makes them "build(deps): bump ...".
+    commit-message:
+      prefix: "build"
   # Action versions rot the same way dependency versions do, and a pinned major tag
   # does not pick up a new major on its own.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    commit-message:
+      prefix: "ci"
