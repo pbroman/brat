@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
-class ConfigDataInterpolationUtilsTest {
+class InterpolatorUtilsTest {
 
     Interpolation interpolation =
             (input, runtimeData) -> new InterpolationOutcome(input + "-resolved", input + " -> " + input + "-resolved");
@@ -98,5 +98,104 @@ class ConfigDataInterpolationUtilsTest {
     void asStringOrNull_returnsNullIfOutcomeIsNull() {
         // when / then
         assertThat(InterpolatorUtils.asStringOrNull(null)).isNull();
+    }
+
+    @Test
+    void interpolateArgs_interpolatesEveryValue() {
+        // given
+        var args = new LinkedHashMap<String, String>();
+        args.put("offset", "0.01");
+        args.put("unit", "seconds");
+        var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
+
+        // when
+        var result = InterpolatorUtils.interpolateArgs(args, interpolation, runtimeData, outcomes);
+
+        // then
+        assertThat(result).containsExactly(Map.entry("offset", "0.01-resolved"), Map.entry("unit", "seconds-resolved"));
+    }
+
+    @Test
+    void interpolateArgs_recordsOutcomesUnderTheArgsPrefix() {
+        // given
+        var args = Map.of("offset", "0.01");
+        var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
+
+        // when
+        InterpolatorUtils.interpolateArgs(args, interpolation, runtimeData, outcomes);
+
+        // then — the prefix is what keeps an argument from colliding with a field of the same name
+        assertThat(outcomes).containsOnlyKeys("args.offset");
+    }
+
+    @Test
+    void interpolateArgs_addsToOutcomesRatherThanReplacingThem() {
+        // given — the caller has already recorded its own fields
+        var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
+        outcomes.put("a", new InterpolationOutcome("already", "already"));
+
+        // when
+        InterpolatorUtils.interpolateArgs(Map.of("offset", "0.01"), interpolation, runtimeData, outcomes);
+
+        // then
+        assertThat(outcomes).containsOnlyKeys("a", "args.offset");
+    }
+
+    @Test
+    void interpolateArgs_preservesIterationOrder() {
+        // given
+        var args = new LinkedHashMap<String, String>();
+        args.put("z", "1");
+        args.put("a", "2");
+        args.put("m", "3");
+        var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
+
+        // when
+        var result = InterpolatorUtils.interpolateArgs(args, interpolation, runtimeData, outcomes);
+
+        // then
+        assertThat(result.keySet()).containsExactly("z", "a", "m");
+        assertThat(outcomes.keySet()).containsExactly("args.z", "args.a", "args.m");
+    }
+
+    @Test
+    void interpolateArgs_returnsAnEmptyMapForAnEmptyBag() {
+        // given
+        var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
+
+        // when
+        var result = InterpolatorUtils.interpolateArgs(Map.of(), interpolation, runtimeData, outcomes);
+
+        // then
+        assertThat(result).isEmpty();
+        assertThat(outcomes).isEmpty();
+    }
+
+    @Test
+    void interpolateArgs_throwsNamingTheArgumentWithNoValue() {
+        // given
+        var args = new LinkedHashMap<String, String>();
+        args.put("offset", null);
+        var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
+
+        // when / then
+        assertThatThrownBy(() -> InterpolatorUtils.interpolateArgs(args, interpolation, runtimeData, outcomes))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("offset");
+    }
+
+    @Test
+    void interpolateArgs_returnsAFreshMutableMap() {
+        // given
+        var args = Map.of("offset", "0.01");
+        var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
+
+        // when
+        var result = InterpolatorUtils.interpolateArgs(args, interpolation, runtimeData, outcomes);
+        result.put("added", "later");
+
+        // then — the caller owns the result; the bag it was given is untouched
+        assertThat(result).containsKey("added");
+        assertThat(args).containsOnlyKeys("offset");
     }
 }

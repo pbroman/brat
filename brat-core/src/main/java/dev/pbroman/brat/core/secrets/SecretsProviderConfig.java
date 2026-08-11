@@ -44,18 +44,21 @@ public record SecretsProviderConfig(Map<String, Map<String, String>> providerPar
     public SecretsProviderConfig {
         nonNull(providerParams, "The provider params must not be null");
         nonNull(sources, "The sources must not be null");
-        providerParams.forEach((type, params) -> {
+        for (var providerEntry : providerParams.entrySet()) {
+            var type = providerEntry.getKey();
+            var params = providerEntry.getValue();
             if (StringUtils.isBlank(type)) {
                 throw new BratException("A provider type must not be null or blank");
             }
             nonNull(params, "The params of provider type '" + type + "' must not be null");
-            params.forEach((key, value) -> {
-                if (StringUtils.isBlank(key) || value == null) {
+            for (var paramEntry : params.entrySet()) {
+                if (StringUtils.isBlank(paramEntry.getKey()) || paramEntry.getValue() == null) {
                     throw new BratException("Param keys must not be null or blank and values must not be null,"
-                            + " but provider type '" + type + "' has an invalid entry for key: '" + key + "'");
+                            + " but provider type '" + type + "' has an invalid entry for key: '"
+                            + paramEntry.getKey() + "'");
                 }
-            });
-        });
+            }
+        }
         if (sources.stream().anyMatch(Objects::isNull)) {
             throw new BratException("The sources must not contain null");
         }

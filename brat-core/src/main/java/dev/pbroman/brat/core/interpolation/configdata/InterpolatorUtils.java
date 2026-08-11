@@ -16,6 +16,12 @@ import dev.pbroman.brat.core.exception.BratException;
  */
 public final class InterpolatorUtils {
 
+    /**
+     * Outcomes for the func's arguments are keyed by dotted path, so an argument never collides with
+     * a field outcome of the enclosing type.
+     */
+    private static final String ARGS_PREFIX = "args.";
+
     private InterpolatorUtils() {
         // utility class
     }
@@ -144,5 +150,46 @@ public final class InterpolatorUtils {
                 yield outcome == null ? null : outcome.value();
             }
         };
+    }
+
+    /**
+     * Interpolates an {@code args} bag, recording one outcome per entry.
+     * <p>
+     * Every discriminated type carrying an {@code args} bag interpolates it identically — same
+     * outcome-key prefix, same rejection of a valueless argument — so this lives here rather than in
+     * each interpolator. Both {@code Condition} and {@code ChainedCondition} use it.
+     * <p>
+     * An argument's value is always interpolated as a scalar, never walked as a structure: an
+     * {@code args} bag is {@code Map<String, String>} by declaration, so there is nothing to walk.
+     *
+     * @param args the bag to interpolate; an empty map is valid and contributes nothing
+     * @param interpolation the interpolation implementation
+     * @param runtimeData the runtime data
+     * @param outcomes the map to record outcomes in — <strong>mutated</strong>: one entry is added
+     *        per argument, keyed {@code args.<name>}, so an argument can never collide with a field
+     *        outcome of the enclosing type
+     * @return a new, mutable map of argument name to interpolated value, in the iteration order of
+     *         {@code args}. Never {@code null}, and holds no {@code null} value; empty when
+     *         {@code args} is empty
+     * @throws dev.pbroman.brat.core.exception.BratException if an {@code args} entry has a
+     *         {@code null} value. This is deliberate rather than treating it as absent: a key the
+     *         author wrote with nothing after it is a mistake, and an unread argument would otherwise
+     *         never reach a point of use
+     */
+    public static Map<String, String> interpolateArgs(
+            Map<String, String> args,
+            Interpolation interpolation,
+            RuntimeData runtimeData,
+            Map<String, InterpolationOutcome> outcomes) {
+        var argsValues = new LinkedHashMap<String, String>();
+        for (var arg : args.entrySet()) {
+            if (arg.getValue() == null) {
+                throw new BratException("The argument '" + arg.getKey() + "' has no value");
+            }
+            var outcome = interpolateIfPresent(
+                    interpolation, runtimeData, outcomes, ARGS_PREFIX + arg.getKey(), arg.getValue());
+            argsValues.put(arg.getKey(), outcome.asString());
+        }
+        return argsValues;
     }
 }

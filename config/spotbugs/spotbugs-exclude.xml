@@ -2,23 +2,37 @@
 <!--
     SpotBugs exclusions for brat-core.
 
-    EI_EXPOSE_REP / EI_EXPOSE_REP2 - "may expose internal representation" - is excluded
-    deliberately and temporarily. It was the *only* family SpotBugs found when the plugin was
-    introduced (2026-08-04), and every hit is the same open design question, already tracked in
-    flight-plan.md's Backlog as "Data-class leaves: final, and some as records?": the data classes
-    are mutable, hand their interiors out, and it is undecided whether they should become records,
-    gain defensive copies, or lose their setters.
+    EI_EXPOSE_REP / EI_EXPOSE_REP2 - "may expose internal representation" - was excluded as a whole
+    family from 2026-08-04 until Phase 7c (2026-08-11), because every one of the nine hits was the
+    same open question: whether the data classes should become records, gain defensive copies, or
+    lose their setters. That question is now decided and applied - the authored data types are final
+    or sealed, hold final fields, copy their collections in, and hand out unmodifiable views - so the
+    blanket exclusion is gone and only the three classes below are still listed, each for its own
+    stated reason. Anything new that trips this pattern now fails the build, which is the point.
 
-    Suppressing it here buys the rest of SpotBugs - null dereferences, resource leaks, bad
-    equals/hashCode, and everything else it detects - as a build gate immediately, without
-    pre-empting that decision with nine reflexive copyOf calls. Delete this exclusion when the
-    Backlog item is settled; if the answer is "records", most of it disappears on its own.
+    - SecretsProviderConfig: a false positive. It already copies its maps in the compact
+      constructor, which SpotBugs cannot see through.
 
-    Note one of the nine was a false positive: SecretsProviderConfig already copies its maps in the
-    compact constructor, which SpotBugs cannot see.
+    - AssertionResult: a record whose `condition` component is a mutable Condition. Fixing it means
+      deciding whether a result may hand out the condition it reports on, which belongs with the
+      result types being designed in Phase 8a/8b - see flight-plan.md, "RequestResult / outcome
+      shape". Listed rather than fixed so the decision is made once, with the rest of them.
+
+    - RenderTarget: the same shape one layer out, in api.rendering. It is a plugin-facing contract,
+      so changing what it hands a renderer is an API decision rather than a cleanup; it belongs with
+      the reporter-layer work rather than here.
 -->
 <FindBugsFilter>
     <Match>
+        <Class name="dev.pbroman.brat.core.secrets.SecretsProviderConfig"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="dev.pbroman.brat.core.data.result.AssertionResult"/>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="dev.pbroman.brat.core.api.rendering.RenderTarget"/>
         <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
     </Match>
 </FindBugsFilter>

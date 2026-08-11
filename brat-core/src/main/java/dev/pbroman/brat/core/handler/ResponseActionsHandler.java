@@ -39,13 +39,13 @@ public class ResponseActionsHandler implements ResponseHandler {
     public List<AssertionResult> handleResponse(ResponseActions responseActions, RuntimeData runtimeData) {
 
         var assertionResults = new ArrayList<AssertionResult>();
-        responseActions
-                .getAssertions()
-                .forEach(assertion -> assertionResults.addAll(assertionResolver.resolve(assertion, runtimeData)));
+        for (var assertion : responseActions.getAssertions()) {
+            assertionResults.addAll(assertionResolver.resolve(assertion, runtimeData));
+        }
 
-        responseActions.getSetVars().forEach((key, value) -> {
-            runtimeData.getVars().put(key, interpolation.interpolate(value, runtimeData));
-        });
+        for (var setVar : responseActions.getSetVars().entrySet()) {
+            runtimeData.getVars().put(setVar.getKey(), interpolation.interpolate(setVar.getValue(), runtimeData));
+        }
 
         return assertionResults;
     }

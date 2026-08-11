@@ -36,6 +36,19 @@ class HttpRequestDefinitionInterpolatorTest {
     }
 
     @Test
+    void interpolated_handlesARequestWithoutAnAuthBlock() {
+        // given - the constructor's Javadoc explicitly permits a null auth
+        var request = new HttpRequestDefinition("http://url", "GET", null, null, null, null);
+
+        // when
+        var interpolated = underTest.interpolated(request, interpolation, runtimeData);
+
+        // then - no auth.* outcomes, and a null auth on the copy
+        assertThat(interpolated.getAuth()).isNull();
+        assertThat(interpolated.getOutcomes()).doesNotContainKey("auth.type");
+    }
+
+    @Test
     void interpolated_isCorrect() {
         // when
         var interpolated = underTest.interpolated(validRequest, interpolation, runtimeData);

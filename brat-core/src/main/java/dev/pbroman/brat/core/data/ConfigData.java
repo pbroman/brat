@@ -1,5 +1,7 @@
 package dev.pbroman.brat.core.data;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
@@ -18,7 +20,7 @@ public abstract class ConfigData {
      *        an as-authored instance
      */
     protected ConfigData(Map<String, InterpolationOutcome> outcomes) {
-        this.outcomes = outcomes;
+        this.outcomes = outcomes == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(outcomes));
     }
 
     /**
@@ -33,7 +35,7 @@ public abstract class ConfigData {
     /**
      * The interpolation outcomes recorded on this copy, keyed by field name.
      *
-     * @return this instance's named outcomes, or {@code null} if not yet interpolated
+     * @return this instance's named outcomes, unmodifiable, or {@code null} if not yet interpolated
      */
     public Map<String, InterpolationOutcome> getOutcomes() {
         return outcomes;

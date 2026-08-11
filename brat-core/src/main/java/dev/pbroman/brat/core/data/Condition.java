@@ -1,21 +1,27 @@
 package dev.pbroman.brat.core.data;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import lombok.Getter;
-import lombok.Setter;
 
 /**
  * A condition is a function 'a func b' that can be evaluated to true or false.
+ * <p>
+ * {@code sealed} rather than {@code final}: {@link Assertion} is the one designed subclass, and no
+ * extender has a path to a second one — an {@code assertions:} entry binds to {@link Assertion} and a
+ * {@code skipCondition:} to this type, each by field with a known static type, so nothing picks a
+ * subclass at runtime.
  */
 @Getter
-@Setter
-public class Condition extends ConfigData {
+public sealed class Condition extends ConfigData permits Assertion {
 
-    private String func;
-    private Object a;
-    private Object b;
+    private final String func;
+    private final Object a;
+    private final Object b;
 
     /**
      * The func's own arguments, e.g. {@code offset} for {@code isCloseTo}. Never {@code null};
@@ -44,12 +50,14 @@ public class Condition extends ConfigData {
     }
 
     /**
-     * {@code outcomes} defaults to {@code null} (not yet an interpolated copy).
+     * {@code outcomes} defaults to {@code null} (not yet an interpolated copy). This is the
+     * constructor the loader binds an authored condition to.
      *
      * @param func the function name
      * @param a the first operand
      * @param b the second operand
      */
+    @JsonCreator
     public Condition(String func, Object a, Object b) {
         this(func, a, b, null);
     }
@@ -72,7 +80,7 @@ public class Condition extends ConfigData {
      * @param args the func's arguments, or {@code null} for none
      */
     public void setArgs(Map<String, String> args) {
-        this.args = args == null ? Map.of() : args;
+        this.args = args == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(args));
     }
 
     /**

@@ -33,12 +33,13 @@ public record SecretsSource(String type, Map<String, String> params) {
             throw new BratException("A secrets source type must not be null or blank");
         }
         nonNull(params, "The params of secrets source '" + type + "' must not be null");
-        params.forEach((key, value) -> {
-            if (StringUtils.isBlank(key) || value == null) {
+        for (var entry : params.entrySet()) {
+            if (StringUtils.isBlank(entry.getKey()) || entry.getValue() == null) {
                 throw new BratException("Param keys must not be null or blank and values must not be null,"
-                        + " but secrets source '" + type + "' has an invalid entry for key: '" + key + "'");
+                        + " but secrets source '" + type + "' has an invalid entry for key: '"
+                        + entry.getKey() + "'");
             }
-        });
+        }
         params = Map.copyOf(params);
     }
 }

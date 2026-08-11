@@ -3,9 +3,9 @@ package dev.pbroman.brat.core.data;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import lombok.Getter;
-import lombok.Setter;
 
 import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_APIKEY;
 import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_BASIC;
@@ -14,27 +14,33 @@ import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_NONE;
 
 /**
  * Authentication configuration for a request: a {@code type} plus the fields that type needs.
+ * <p>
+ * {@code final}: a new auth mechanism is added by writing an {@code AuthHandler} for its
+ * {@code type}, never by subclassing this. A subclass could not be reached from a suite file anyway
+ * — an {@code auth:} block carries no discriminator the loader could dispatch on, so it always binds
+ * to this type.
  */
 @Getter
-@Setter
-public class Auth extends ConfigData {
+public final class Auth extends ConfigData {
 
     public static final List<String> AUTH_TYPES =
             List.of(AUTH_TYPE_NONE, AUTH_TYPE_BASIC, AUTH_TYPE_BEARER, AUTH_TYPE_APIKEY);
 
-    private String type;
-    private String username;
-    private String password;
-    private String token;
+    private final String type;
+    private final String username;
+    private final String password;
+    private final String token;
 
     /**
-     * {@code outcomes} defaults to {@code null} (not yet an interpolated copy).
+     * {@code outcomes} defaults to {@code null} (not yet an interpolated copy). This is the
+     * constructor the loader binds an authored {@code auth:} block to.
      *
      * @param type the auth type
      * @param username the username
      * @param password the password
      * @param token the token
      */
+    @JsonCreator
     public Auth(String type, String username, String password, String token) {
         this(type, username, password, token, null);
     }

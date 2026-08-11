@@ -1,5 +1,6 @@
 package dev.pbroman.brat.core.data.result;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -76,5 +77,35 @@ class HttpResponseTest {
         // then
         assertThat(response.statusCode()).isEqualTo(201);
         assertThat(response.body()).isEqualTo("created");
+    }
+
+    @Test
+    void headers_treatANullValueListAsEmpty() {
+        // given - a header present with nothing after it
+        var headers = new HashMap<String, List<String>>();
+        headers.put("X-Trace-Id", null);
+
+        // when
+        var response = new HttpResponse(200, headers, "body");
+
+        // then - same policy as a null headers map: treated as empty rather than rejected
+        assertThat(response.headers()).containsKey("X-Trace-Id");
+        assertThat(response.headers().get("X-Trace-Id")).isEmpty();
+    }
+
+    @Test
+    void headers_preserveANullValueWithinAList() {
+        // given - a malformed value list; copying must not reject it outright
+        var headers = new HashMap<String, List<String>>();
+        var values = new ArrayList<String>();
+        values.add("keep-alive");
+        values.add(null);
+        headers.put("Connection", values);
+
+        // when
+        var response = new HttpResponse(200, headers, "body");
+
+        // then
+        assertThat(response.headers().get("Connection")).containsExactly("keep-alive", null);
     }
 }

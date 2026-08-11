@@ -39,13 +39,14 @@ public final class VerboseCliOutcomeRendererRule implements OutcomeRendererRule 
         if (target.label() != null) {
             sections.add(target.label() + ":");
         }
-        grouped.forEach((group, entries) -> {
-            var lines = entries.stream()
+        for (var groupEntry : grouped.entrySet()) {
+            var group = groupEntry.getKey();
+            var lines = groupEntry.getValue().stream()
                     .map(entry -> "  " + fieldName(group, entry.getKey()) + ": "
                             + entry.getValue().reportingString())
                     .collect(Collectors.joining(System.lineSeparator()));
             sections.add(group.isEmpty() ? lines : capitalize(group) + ":" + System.lineSeparator() + lines);
-        });
+        }
         return String.join(System.lineSeparator(), sections);
     }
 
