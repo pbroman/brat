@@ -10,7 +10,8 @@ import dev.pbroman.brat.core.data.Assertion;
 import dev.pbroman.brat.core.data.ResponseActions;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.interpolation.configdata.ConditionInterpolator;
+import dev.pbroman.brat.core.interpolation.configdata.AssertionInterpolator;
+import dev.pbroman.brat.core.interpolation.configdata.ChainedConditionInterpolator;
 import dev.pbroman.brat.core.resolver.assertion.AssertionChainResolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,8 +36,8 @@ class ResponseActionsHandlerTest {
         // This is just to avoid a NPE
         when(interpolation.outcome(any(), any())).thenReturn(new InterpolationOutcome("something", "something"));
         var conditionResolver = mock(ConditionResolver.class);
-        var assertionResolver =
-                new AssertionChainResolver(interpolation, conditionResolver, new ConditionInterpolator());
+        var assertionResolver = new AssertionChainResolver(
+                interpolation, conditionResolver, new AssertionInterpolator(new ChainedConditionInterpolator()));
         underTest = new ResponseActionsHandler(interpolation, assertionResolver);
     }
 

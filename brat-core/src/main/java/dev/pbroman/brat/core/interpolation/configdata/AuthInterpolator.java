@@ -17,6 +17,24 @@ import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.i
  */
 public final class AuthInterpolator implements ConfigDataInterpolator<Auth> {
 
+    /**
+     * Interpolates the auth block's {@code type}, {@code username}, {@code password} and
+     * {@code token}.
+     * <p>
+     * Outcome keys are the field names themselves. {@code type} is always interpolated and always
+     * recorded — an auth block without one is not a legal auth block — while the other three are
+     * optional and contribute nothing when absent.
+     *
+     * @param target the auth block to interpolate
+     * @param interpolation the interpolation implementation
+     * @param runtimeData the runtime data
+     * @return a new auth block with every declared field interpolated, carrying one outcome per
+     *         interpolated field in field-declaration order. A {@code null} {@code username},
+     *         {@code password} or {@code token} yields no outcome for that field and stays
+     *         {@code null} on the copy
+     * @throws dev.pbroman.brat.core.exception.BratException if {@code target} is already an
+     *         interpolated copy
+     */
     @Override
     public Auth interpolated(Auth target, Interpolation interpolation, RuntimeData runtimeData) {
         checkNotInterpolated(target);

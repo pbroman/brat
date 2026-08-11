@@ -26,6 +26,37 @@
         <property name="ignorePattern" value="^ *\* *([^ ]+|@see .*)$"/>
     </module>
 
+    <!--
+        "Never accumulate into a captured collection from forEach" (CLAUDE.md, "Other established
+        conventions"). Written down after the pattern was removed three times and written fresh
+        again; a 2026-08-11 sweep found four more instances, which is what moved it from a review
+        target to a build gate - it is the kind of thing that is obvious in review and invisible
+        while typing.
+
+        Two forms, because they read differently: the one-liner `x.forEach(e -> result.add(e))` and
+        the block `x.forEach((k, v) -> { ...; result.put(k, v); })`. Both are matched on the literal
+        call, so a method reference (`list.forEach(other::add)`) and a stream that *collects* are
+        deliberately untouched - collecting is the sanctioned alternative, not the problem.
+
+        What this cannot catch: a `throw` trapped inside a forEach lambda, which is the other half of
+        why the convention exists. That still needs review.
+    -->
+    <module name="RegexpMultiline">
+        <property name="id" value="ForEachAccumulationInline"/>
+        <property name="format" value="\.forEach\s*\([^;{}\n]*\.(add|addAll|put|putAll)\s*\("/>
+        <property name="fileExtensions" value="java"/>
+        <property name="message"
+                  value="Do not accumulate into a captured collection from forEach - use a plain for loop over the collection, or a stream that collects. See CLAUDE.md, 'Other established conventions'."/>
+    </module>
+    <module name="RegexpMultiline">
+        <property name="id" value="ForEachAccumulationBlock"/>
+        <property name="format"
+                  value="\.forEach\s*\((\([^)]*\)|\w+)\s*->\s*\{[^{}]*\.(add|addAll|put|putAll)\s*\("/>
+        <property name="fileExtensions" value="java"/>
+        <property name="message"
+                  value="Do not accumulate into a captured collection from forEach - use a plain for loop over the collection, or a stream that collects. See CLAUDE.md, 'Other established conventions'."/>
+    </module>
+
     <module name="TreeWalker">
 
         <!--

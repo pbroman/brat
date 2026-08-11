@@ -19,6 +19,7 @@
              artifact. -->
         <httpcore5.version>5.4.3</httpcore5.version>
         <jackson.version>3.2.1</jackson.version>
+        <jackson.annotations.version>2.22</jackson.annotations.version>
         <bytebuddy.version>1.18.11</bytebuddy.version>
         <mockito.version>5.23.0</mockito.version>
         <slf4j.version>2.0.18</slf4j.version>
@@ -59,6 +60,15 @@
                 <groupId>tools.jackson.core</groupId>
                 <artifactId>jackson-databind</artifactId>
                 <version>${jackson.version}</version>
+            </dependency>
+            <!-- Jackson 3 kept its annotations under the old com.fasterxml coordinates and on their
+                 own 2.x version line. It arrives transitively via databind; declared here because
+                 brat-core now uses @JsonCreator directly, and a directly-used artifact should not
+                 depend on someone else's transitive graph. -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-annotations</artifactId>
+                <version>${jackson.annotations.version}</version>
             </dependency>
             <dependency>
                 <groupId>tools.jackson.dataformat</groupId>
@@ -142,6 +152,12 @@
                              `-missing` because "is a Javadoc block required here" is checkstyle's
                              job, and the two disagree about which members need one. -->
                         <arg>-Xdoclint:all,-missing</arg>
+                        <!-- Emit constructor/method parameter names into the class files. Jackson
+                             matches an authored YAML key to a constructor parameter by name, and
+                             without this javac discards those names, so no constructor binding
+                             resolves at all - verified against Jackson 3.2.1, 2026-08-11. The
+                             alternative is @JsonProperty on every parameter of every data type. -->
+                        <arg>-parameters</arg>
                     </compilerArgs>
                     <annotationProcessorPathsUseDepMgmt>true</annotationProcessorPathsUseDepMgmt>
                     <annotationProcessorPaths>
@@ -235,78 +251,78 @@
             <build>
                 <plugins>
                     <plugin>
-                <groupId>org.jacoco</groupId>
-                <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.15</version>
-                <executions>
-                    <execution>
-                        <id>prepare-agent</id>
-                        <phase>initialize</phase>
-                        <goals>
-                            <goal>prepare-agent</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>report</id>
-                        <phase>test</phase>
-                        <goals>
-                            <goal>report</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>check</id>
-                        <phase>test</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <configuration>
-                            <rules>
-                                <!-- A floor against regression, not a target. Set below the level
-                                     contract-first testing already reaches (94% line / 90% branch
-                                     when this was introduced), so it catches a slide rather than
-                                     inviting tests written to move a number. Bundle-level: a
-                                     per-class rule would fail on the next class with a defensive
-                                     branch and teach everyone to add exclusions. -->
-                                <rule>
-                                    <element>BUNDLE</element>
-                                    <limits>
-                                        <limit>
-                                            <counter>LINE</counter>
-                                            <value>COVEREDRATIO</value>
-                                            <minimum>0.85</minimum>
-                                        </limit>
-                                        <limit>
-                                            <counter>BRANCH</counter>
-                                            <value>COVEREDRATIO</value>
-                                            <minimum>0.80</minimum>
-                                        </limit>
-                                    </limits>
-                                </rule>
-                            </rules>
-                        </configuration>
-                    </execution>
-                </executions>
+                        <groupId>org.jacoco</groupId>
+                        <artifactId>jacoco-maven-plugin</artifactId>
+                        <version>0.8.15</version>
+                        <executions>
+                            <execution>
+                                <id>prepare-agent</id>
+                                <phase>initialize</phase>
+                                <goals>
+                                    <goal>prepare-agent</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>report</id>
+                                <phase>test</phase>
+                                <goals>
+                                    <goal>report</goal>
+                                </goals>
+                            </execution>
+                            <execution>
+                                <id>check</id>
+                                <phase>test</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <!-- A floor against regression, not a target. Set below the level
+                                             contract-first testing already reaches (94% line / 90% branch
+                                             when this was introduced), so it catches a slide rather than
+                                             inviting tests written to move a number. Bundle-level: a
+                                             per-class rule would fail on the next class with a defensive
+                                             branch and teach everyone to add exclusions. -->
+                                        <rule>
+                                            <element>BUNDLE</element>
+                                            <limits>
+                                                <limit>
+                                                    <counter>LINE</counter>
+                                                    <value>COVEREDRATIO</value>
+                                                    <minimum>0.85</minimum>
+                                                </limit>
+                                                <limit>
+                                                    <counter>BRANCH</counter>
+                                                    <value>COVEREDRATIO</value>
+                                                    <minimum>0.80</minimum>
+                                                </limit>
+                                            </limits>
+                                        </rule>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
                     </plugin>
                     <plugin>
-                <groupId>com.github.spotbugs</groupId>
-                <artifactId>spotbugs-maven-plugin</artifactId>
-                <version>4.10.3.0</version>
-                <configuration>
-                    <effort>Max</effort>
-                    <threshold>Default</threshold>
-                    <includeTests>false</includeTests>
-                    <!-- Root-anchored for the same reason as checkstyle's configLocation above. -->
-                    <excludeFilterFile>${maven.multiModuleProjectDirectory}/config/spotbugs/spotbugs-exclude.xml</excludeFilterFile>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>spotbugs</id>
-                        <phase>test</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
+                        <groupId>com.github.spotbugs</groupId>
+                        <artifactId>spotbugs-maven-plugin</artifactId>
+                        <version>4.10.3.0</version>
+                        <configuration>
+                            <effort>Max</effort>
+                            <threshold>Default</threshold>
+                            <includeTests>false</includeTests>
+                            <!-- Root-anchored for the same reason as checkstyle's configLocation above. -->
+                            <excludeFilterFile>${maven.multiModuleProjectDirectory}/config/spotbugs/spotbugs-exclude.xml</excludeFilterFile>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>spotbugs</id>
+                                <phase>test</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
                     </plugin>
                 </plugins>
             </build>
