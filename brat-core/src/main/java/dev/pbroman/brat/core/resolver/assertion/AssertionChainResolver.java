@@ -128,8 +128,6 @@ public final class AssertionChainResolver implements AssertionResolver {
             outcomes.put("a", aOutcome);
         }
         outcomes.putAll(link.getOutcomes());
-        var condition = new Condition(link.getFunc(), assertion.getA(), link.getB(), outcomes);
-        condition.setArgs(link.getArgs());
-        return condition;
+        return new Condition(link.getFunc(), assertion.getA(), link.getB(), link.getArgs(), outcomes);
     }
 }

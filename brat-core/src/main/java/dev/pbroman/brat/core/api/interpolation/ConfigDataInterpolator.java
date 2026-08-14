@@ -20,7 +20,9 @@ public interface ConfigDataInterpolator<T extends ConfigData> {
      * @return a new instance with every field interpolated; {@link ConfigData#getOutcomes()} on
      *         the result holds every field's {@link InterpolationOutcome}, keyed by field name,
      *         in field-declaration order
-     * @throws BratException if {@code target} is already an interpolated copy
+     * @throws BratException if {@code target} is {@code null}, or is already an interpolated copy.
+     *         An implementation may throw for more than this — a required nested value that is
+     *         absent, or a field that fails to interpolate — and states those conditions itself
      */
     T interpolated(T target, Interpolation interpolation, RuntimeData runtimeData);
 }

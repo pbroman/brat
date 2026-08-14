@@ -28,6 +28,7 @@ public final class Constants {
     public static final String SECRETS = "secrets";
     public static final String MISC = "misc";
     public static final String FALLBACK_DELIMITER = ":-";
+
     public static final String REQUEST_RESULTS = "requestResults";
     public static final String RESPONSE = "response";
     public static final String RESPONSE_VARS = "responseVars";
@@ -68,7 +69,12 @@ public final class Constants {
 
     public static final Integer DEFAULT_MAX_ATTEMPTS = 3;
 
-    public static final String PATH_DELIMITER = " |o| ";
+    /**
+     * Separates the segments of a node's path, which is built from the suite and request names from
+     * the root down. {@code /} is illegal inside a name for this reason, so a path stays readable in
+     * a report and typeable as {@code --select "happy path/create an order"}.
+     */
+    public static final String PATH_DELIMITER = "/";
 
     public static final String AUTH_TYPE_BASIC = "basic";
     public static final String AUTH_TYPE_BEARER = "bearer";

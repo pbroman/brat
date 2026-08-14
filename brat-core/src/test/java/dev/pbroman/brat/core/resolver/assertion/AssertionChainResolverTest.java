@@ -75,8 +75,8 @@ class AssertionChainResolverTest {
     @Test
     void resolve_carriesTheAssertionsSeverityOntoEveryResultInTheChain() {
         // given
-        var assertion = new Assertion("equals", "a", "b", List.of(new ChainedCondition("!equals", "c")));
-        assertion.setSeverity(AssertionSeverity.WARN);
+        var assertion = new Assertion(
+                "equals", "a", "b", List.of(new ChainedCondition("!equals", "c")), null, null, AssertionSeverity.WARN);
         when(conditionResolver.resolve(any())).thenReturn(true);
 
         // when
@@ -89,8 +89,7 @@ class AssertionChainResolverTest {
     @Test
     void resolve_carriesTheSeverityOntoAResultThatFailedToInterpolate() {
         // given
-        var assertion = new Assertion("equals", "a", "b");
-        assertion.setSeverity(AssertionSeverity.WARN);
+        var assertion = new Assertion("equals", "a", "b", null, null, null, AssertionSeverity.WARN);
         when(interpolation.outcome(any(), any())).thenThrow(new BratException("nope"));
 
         // when

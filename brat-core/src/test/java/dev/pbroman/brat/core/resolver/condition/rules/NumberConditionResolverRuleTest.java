@@ -66,9 +66,7 @@ class NumberConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
     // --- funcs taking their parameters from the params bag ---
 
     private Condition withArgs(String func, Object a, Object b, Map<String, String> args) {
-        var condition = new Condition(func, a, b);
-        condition.setArgs(args);
-        return condition;
+        return new Condition(func, a, b, args);
     }
 
     @Test

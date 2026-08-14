@@ -1,7 +1,6 @@
 package dev.pbroman.brat.core.data;
 
 import java.util.List;
-import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
@@ -10,26 +9,36 @@ import static org.assertj.core.api.Assertions.assertThat;
 class NullToleranceTest {
 
     @Test
-    void setSeverity_treatsNullAsFail() {
-        // given
-        var assertion = new Assertion("isEqualTo", "a", "b");
-        assertion.setSeverity(AssertionSeverity.WARN);
+    void constructor_treatsANullSeverityAsFail() {
+        // when - an explicitly-null severity: key must not leave an assertion without one
+        var assertion = new Assertion("isEqualTo", "a", "b", null, null, null, null);
 
-        // when
-        assertion.setSeverity(null);
-
-        // then - an explicitly-null severity: key cannot leave an assertion without one
+        // then
         assertThat(assertion.getSeverity()).isEqualTo(AssertionSeverity.FAIL);
     }
 
     @Test
-    void setArgs_treatsNullAsNoArguments() {
-        // given
-        var link = new ChainedCondition("contains", "x");
-        link.setArgs(Map.of("offset", "0.01"));
-
+    void constructor_treatsNullArgsAsNoArgumentsOnACondition() {
         // when
-        link.setArgs(null);
+        var condition = new Condition("isNull", "a", null, null);
+
+        // then
+        assertThat(condition.getArgs()).isEmpty();
+    }
+
+    @Test
+    void constructor_treatsNullArgsAsNoArgumentsOnAnAssertion() {
+        // when - `args:` written with nothing after it binds null
+        var assertion = new Assertion("isEqualTo", "a", "b", null, null, null, null);
+
+        // then
+        assertThat(assertion.getArgs()).isEmpty();
+    }
+
+    @Test
+    void constructor_treatsNullArgsAsNoArgumentsOnAChainLink() {
+        // when
+        var link = new ChainedCondition("contains", "x", null, null);
 
         // then
         assertThat(link.getArgs()).isEmpty();

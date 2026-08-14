@@ -30,6 +30,12 @@ class InterpolatorUtilsTest {
     }
 
     @Test
+    void checkNotInterpolated_throwsIfNull() {
+        // when / then - a backstop, so that a null never leaves an interpolator as an NPE
+        assertThatThrownBy(() -> InterpolatorUtils.checkNotInterpolated(null)).isInstanceOf(BratException.class);
+    }
+
+    @Test
     void checkNotInterpolated_throwsIfAlreadyInterpolated() {
         // given
         var auth = new Auth("none", null, null, null, Map.of());

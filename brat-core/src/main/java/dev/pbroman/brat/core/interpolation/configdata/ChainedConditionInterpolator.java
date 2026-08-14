@@ -51,8 +51,6 @@ public final class ChainedConditionInterpolator implements ConfigDataInterpolato
         var messageValue = asStringOrNull(
                 interpolateIfPresent(interpolation, runtimeData, outcomes, "message", target.getMessage()));
 
-        var interpolated = new ChainedCondition(target.getFunc(), bValue, messageValue, outcomes);
-        interpolated.setArgs(argsValues);
-        return interpolated;
+        return new ChainedCondition(target.getFunc(), bValue, messageValue, argsValues, outcomes);
     }
 }

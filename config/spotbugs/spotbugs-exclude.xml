@@ -2,37 +2,34 @@
 <!--
     SpotBugs exclusions for brat-core.
 
-    EI_EXPOSE_REP / EI_EXPOSE_REP2 - "may expose internal representation" - was excluded as a whole
-    family from 2026-08-04 until Phase 7c (2026-08-11), because every one of the nine hits was the
-    same open question: whether the data classes should become records, gain defensive copies, or
-    lose their setters. That question is now decided and applied - the authored data types are final
-    or sealed, hold final fields, copy their collections in, and hand out unmodifiable views - so the
-    blanket exclusion is gone and only the three classes below are still listed, each for its own
-    stated reason. Anything new that trips this pattern now fails the build, which is the point.
+    One rule, not a class list. EI_EXPOSE_REP - "may expose internal representation by *returning*"
+    - is excluded; EI_EXPOSE_REP2 - "...by *storing* an externally mutable object" - is NOT, and
+    currently reports nothing.
 
-    - SecretsProviderConfig: a false positive. It already copies its maps in the compact
-      constructor, which SpotBugs cannot see through.
+    Why the split is safe rather than convenient: every authored data type freezes its collections in
+    its constructor (`Collections.unmodifiableMap(new LinkedHashMap<>(...))`, `List.copyOf`,
+    `toUnmodifiableMap`). Returning such a field cannot expose anything, but SpotBugs cannot see
+    through a compact constructor's reassignment and flags the accessor anyway. The *storing* half is
+    where a real mistake shows up - a type that keeps a caller's collection without copying - and that
+    half stays a build gate.
 
-    - AssertionResult: a record whose `condition` component is a mutable Condition. Fixing it means
-      deciding whether a result may hand out the condition it reports on, which belongs with the
-      result types being designed in Phase 8a/8b - see flight-plan.md, "RequestResult / outcome
-      shape". Listed rather than fixed so the decision is made once, with the rest of them.
+    The limit worth knowing: a field created mutable *inside* a type and then returned would be missed,
+    since EI_EXPOSE_REP2 never fires for it. For records that cannot happen - every field comes from a
+    constructor parameter - which is what makes the rule sound for the data model as it stands.
 
-    - RenderTarget: the same shape one layer out, in api.rendering. It is a plugin-facing contract,
-      so changing what it hands a renderer is an API decision rather than a cleanup; it belongs with
-      the reporter-layer work rather than here.
+    History, kept because it is the argument for not going back to a blanket exclusion:
+    - 2026-08-04: the whole EI_EXPOSE_REP/REP2 family was excluded, all nine hits being one open
+      question about data-class mutability.
+    - 2026-08-11 (Phase 7c): the family exclusion was replaced by three named classes, and the
+      question was settled for the authored types - final or sealed, final fields, no setters.
+    - 2026-08-14 (Phase 8a step 1): the last two exceptions went. `Condition`, `Assertion` and
+      `ChainedCondition` took `args`/`severity` into their creators and dropped their setters, which
+      cleared five findings *and* `AssertionResult` - a record whose `condition` component had been
+      excluded pending exactly this decision. `RenderTarget` turned out to be a genuine defect rather
+      than a false positive and now copies. Nothing is excluded by name any more.
 -->
 <FindBugsFilter>
     <Match>
-        <Class name="dev.pbroman.brat.core.secrets.SecretsProviderConfig"/>
-        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
-    </Match>
-    <Match>
-        <Class name="dev.pbroman.brat.core.data.result.AssertionResult"/>
-        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
-    </Match>
-    <Match>
-        <Class name="dev.pbroman.brat.core.api.rendering.RenderTarget"/>
-        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+        <Bug pattern="EI_EXPOSE_REP"/>
     </Match>
 </FindBugsFilter>

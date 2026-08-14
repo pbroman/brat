@@ -25,7 +25,7 @@ public final class ChainedCondition extends ConfigData {
     /**
      * This link's own func arguments, independent of the parent assertion's. Never {@code null}.
      */
-    private Map<String, String> args = Map.of();
+    private final Map<String, String> args;
 
     /**
      * Constructs an interpolated copy of a chained condition, carrying its named outcomes.
@@ -33,47 +33,57 @@ public final class ChainedCondition extends ConfigData {
      * @param func the condition function, resolved against the parent assertion's {@code a}
      * @param b the second operand, or {@code null} for a func that needs none
      * @param message the message to report if this condition fails, overriding the parent's
+     * @param args the func's arguments, or {@code null} for none
      * @param outcomes the named interpolation outcomes of an interpolated copy, or {@code null} on
      *        an as-authored instance
      */
-    public ChainedCondition(String func, Object b, String message, Map<String, InterpolationOutcome> outcomes) {
+    public ChainedCondition(
+            String func,
+            Object b,
+            String message,
+            Map<String, String> args,
+            Map<String, InterpolationOutcome> outcomes) {
         super(outcomes);
         this.func = func;
         this.b = b;
         this.message = message;
+        this.args = args == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(args));
     }
 
     /**
-     * Constructs a chained condition with its own failure message. This is the constructor the
-     * loader binds a {@code chain:} entry to; {@code outcomes} defaults to {@code null}, so a bound
-     * instance is always an as-authored one.
+     * The constructor the loader binds a {@code chain:} entry to, and the only one taking
+     * {@code args}; {@code outcomes} defaults to {@code null}, so a bound instance is always an
+     * as-authored one.
+     *
+     * @param func the condition function, resolved against the parent assertion's {@code a}
+     * @param b the second operand, or {@code null} for a func that needs none
+     * @param message the message to report if this condition fails, overriding the parent's
+     * @param args the func's arguments, or {@code null} for none
+     */
+    @JsonCreator
+    public ChainedCondition(String func, Object b, String message, Map<String, String> args) {
+        this(func, b, message, args, null);
+    }
+
+    /**
+     * Constructs a chained condition with its own failure message and no arguments.
      *
      * @param func the condition function, resolved against the parent assertion's {@code a}
      * @param b the second operand, or {@code null} for a func that needs none
      * @param message the message to report if this condition fails, overriding the parent's
      */
-    @JsonCreator
     public ChainedCondition(String func, Object b, String message) {
-        this(func, b, message, null);
+        this(func, b, message, null, null);
     }
 
     /**
      * Constructs a chained condition without its own message, so a failure reports the parent
-     * assertion's.
+     * assertion's, and with no arguments.
      *
      * @param func the condition function, resolved against the parent assertion's {@code a}
      * @param b the second operand, or {@code null} for a func that needs none
      */
     public ChainedCondition(String func, Object b) {
-        this(func, b, null, null);
-    }
-
-    /**
-     * Treats {@code null} as "no arguments", keeping the never-null invariant.
-     *
-     * @param args the func's arguments, or {@code null} for none
-     */
-    public void setArgs(Map<String, String> args) {
-        this.args = args == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(args));
+        this(func, b, null, null, null);
     }
 }
