@@ -3,6 +3,7 @@ package dev.pbroman.brat.core.interpolation;
 import java.util.Map;
 
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
 
 import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
@@ -31,14 +32,13 @@ class InterpolationChecksTest {
     void requireNamespaces_throwsWhenTheRuntimeDataIsNull() {
         // when / then
         assertThatThrownBy(() -> InterpolationChecks.requireNamespaces(null, CONSTANTS))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BratException.class);
     }
 
     @Test
     void requireNamespaces_throwsWhenTheRuntimeDataIsNullAndNoNamespaceIsNamed() {
         // when / then
-        assertThatThrownBy(() -> InterpolationChecks.requireNamespaces(null))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> InterpolationChecks.requireNamespaces(null)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -48,7 +48,7 @@ class InterpolationChecksTest {
 
         // when / then
         assertThatThrownBy(() -> InterpolationChecks.requireNamespaces(withoutConstants, CONSTANTS))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(BratException.class)
                 .hasMessageContaining(CONSTANTS);
     }
 
@@ -59,7 +59,7 @@ class InterpolationChecksTest {
 
         // when / then
         assertThatThrownBy(() -> InterpolationChecks.requireNamespaces(withoutConstantsOrEnv, CONSTANTS, ENV))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(BratException.class)
                 .hasMessageContaining(CONSTANTS)
                 .hasMessageContaining(ENV);
     }
@@ -71,7 +71,7 @@ class InterpolationChecksTest {
 
         // when / then
         assertThatThrownBy(() -> InterpolationChecks.requireNamespaces(withoutEnv, CONSTANTS, ENV))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(BratException.class)
                 .hasMessageContaining(ENV)
                 .hasMessageNotContaining("'" + CONSTANTS + "'");
     }

@@ -2,10 +2,10 @@ package dev.pbroman.brat.core.interpolation.rules;
 
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.exception.BratException;
 
 import static dev.pbroman.brat.core.util.Constants.BODY;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_BODY_SHORTHAND;
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * An {@link InterpolationRule} for a response body.
@@ -26,9 +26,7 @@ public final class ResponseBodyInterpolationRule extends AbstractResponseInterpo
             return input;
         }
         var body = runtimeData.getResponseVars().get(BODY);
-        if (body == null) {
-            throw new BratException("The response body is not present.");
-        }
+        nonNull(body, "The response body is not present.");
         return body.toString();
     }
 }

@@ -54,9 +54,9 @@ public final class ResponseJsonInterpolationRule implements InterpolationRule {
             case List list -> list.size();
             case Map map -> map.size();
             case String s -> s.length();
-            case Integer ignored -> throw new IllegalArgumentException("Cannot get length of an integer");
-            case Double ignored -> throw new IllegalArgumentException("Cannot get length of a double value");
-            case null, default -> throw new IllegalArgumentException("Cannot get length of an unknown object");
+            case Integer ignored -> throw new BratException("Cannot get length of an integer");
+            case Double ignored -> throw new BratException("Cannot get length of a double value");
+            case null, default -> throw new BratException("Cannot get length of an unknown object");
         });
     }
 
@@ -68,9 +68,8 @@ public final class ResponseJsonInterpolationRule implements InterpolationRule {
      * @return the outcome holding the resolved value, typed as JsonPath produced it; or
      *         {@code input} unchanged if it is not a {@code ${rj.…}} token, leaving it for another
      *         rule
-     * @throws BratException if {@code input} is {@code null}
-     * @throws IllegalArgumentException if {@code runtimeData} is {@code null}, if it has no
-     *         {@code responseVars}, or if the response holds no JSON
+     * @throws BratException if {@code input} is {@code null}, if {@code runtimeData} is
+     *         {@code null}, if it has no {@code responseVars}, or if the response holds no JSON
      */
     @Override
     public InterpolationOutcome outcome(String input, RuntimeData runtimeData) {
@@ -86,9 +85,7 @@ public final class ResponseJsonInterpolationRule implements InterpolationRule {
             return new InterpolationOutcome(input, input);
         }
         var jsonValue = runtimeData.getResponseVars().get(JSON);
-        if (jsonValue == null) {
-            throw new IllegalArgumentException("The json response must not be null");
-        }
+        nonNull(jsonValue, "The json response must not be null");
         var json = jsonValue.toString();
 
         var pathExpr = matcher.group(VARIABLE_GROUP_NAME);

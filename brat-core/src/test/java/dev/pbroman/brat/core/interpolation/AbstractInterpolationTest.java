@@ -47,11 +47,11 @@ public abstract class AbstractInterpolationTest {
     }
 
     @Test
-    void runtimeDataNull_throwsIllegalArgumentException() {
+    void runtimeDataNull_throwsBratException() {
         assertThatThrownBy(() -> {
                     underTest.interpolate("moo", null);
                 })
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BratException.class);
     }
 
     @Test

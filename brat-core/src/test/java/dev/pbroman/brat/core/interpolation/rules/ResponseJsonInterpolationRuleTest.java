@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.AbstractInterpolationTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -99,7 +100,7 @@ public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest
 
         // when / then
         assertThatThrownBy(() -> underTest.outcome("${rj.id}", withoutJson))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(BratException.class)
                 .hasMessageContaining("json response");
     }
 }

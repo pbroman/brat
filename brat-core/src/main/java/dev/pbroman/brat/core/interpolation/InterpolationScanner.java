@@ -72,8 +72,8 @@ public class InterpolationScanner implements Interpolation {
      * @return the outcome of resolving every token in {@code input}; equal to {@code input}
      *         itself (value and reporting string) if it contained no tokens or none resolved to
      *         a different value
-     * @throws BratException if {@code input} is {@code null}, or any token's resolution throws
-     * @throws IllegalArgumentException if {@code runtimeData} is {@code null}
+     * @throws BratException if {@code input} or {@code runtimeData} is {@code null}, or any
+     *         token's resolution throws
      */
     @Override
     public InterpolationOutcome outcome(String input, RuntimeData runtimeData) {

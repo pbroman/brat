@@ -2,12 +2,13 @@ package dev.pbroman.brat.core.secrets;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 
 import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.exception.BratException;
 import org.apache.commons.lang3.StringUtils;
+
+import static dev.pbroman.brat.core.util.Require.noNullElements;
 
 /**
  * A {@link SecretsProvider} that resolves a key against an ordered chain of other providers,
@@ -33,9 +34,7 @@ public final class CompositeSecretsProvider implements SecretsProvider {
      * @throws BratException if {@code providers} is {@code null} or contains {@code null}
      */
     public CompositeSecretsProvider(List<SecretsProvider> providers) {
-        if (providers == null || providers.stream().anyMatch(Objects::isNull)) {
-            throw new BratException("The secrets provider list or any of its members must not be null");
-        }
+        noNullElements(providers, "The secrets provider list or any of its members must not be null");
         this.providers = List.copyOf(providers);
     }
 

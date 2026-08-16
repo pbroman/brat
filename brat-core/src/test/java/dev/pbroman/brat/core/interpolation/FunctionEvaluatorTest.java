@@ -346,7 +346,7 @@ class FunctionEvaluatorTest {
     void evaluate_throwsForNullRuntimeData() {
         // when / then
         assertThatThrownBy(() -> underTest.evaluate("${__upper(abc)}", scanner, null))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BratException.class);
     }
 
     @Test

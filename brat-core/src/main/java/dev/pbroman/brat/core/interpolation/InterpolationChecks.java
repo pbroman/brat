@@ -3,7 +3,10 @@ package dev.pbroman.brat.core.interpolation;
 import java.util.ArrayList;
 
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 import org.apache.commons.lang3.StringUtils;
+
+import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * Argument guards for interpolation: the runtime data a rule resolves against must exist, and so
@@ -22,14 +25,11 @@ public final class InterpolationChecks {
      *
      * @param runtimeData the runtime data to check
      * @param namespaces the namespace keys that must be present, e.g. {@code constants}
-     * @throws IllegalArgumentException if {@code runtimeData} is {@code null}, or if any named
-     *         namespace is absent from it; the message names every problem found, not only the
-     *         first
+     * @throws BratException if {@code runtimeData} is {@code null}, or if any named namespace is
+     *         absent from it; the message names every problem found, not only the first
      */
     public static void requireNamespaces(RuntimeData runtimeData, String... namespaces) {
-        if (runtimeData == null) {
-            throw new IllegalArgumentException(" The runtime data for the interpolation is null");
-        }
+        nonNull(runtimeData, " The runtime data for the interpolation is null");
         var missing = new ArrayList<String>();
         for (var namespace : namespaces) {
             if (runtimeData.getData(namespace) == null) {
@@ -37,7 +37,7 @@ public final class InterpolationChecks {
             }
         }
         if (!missing.isEmpty()) {
-            throw new IllegalArgumentException(StringUtils.join(missing, ','));
+            throw new BratException(StringUtils.join(missing, ','));
         }
     }
 }

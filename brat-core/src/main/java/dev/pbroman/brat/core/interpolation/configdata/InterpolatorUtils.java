@@ -193,9 +193,7 @@ public final class InterpolatorUtils {
             Map<String, InterpolationOutcome> outcomes) {
         var argsValues = new LinkedHashMap<String, String>();
         for (var arg : args.entrySet()) {
-            if (arg.getValue() == null) {
-                throw new BratException("The argument '" + arg.getKey() + "' has no value");
-            }
+            Require.nonNull(arg.getValue(), "The argument '" + arg.getKey() + "' has no value");
             var outcome = interpolateIfPresent(
                     interpolation, runtimeData, outcomes, ARGS_PREFIX + arg.getKey(), arg.getValue());
             argsValues.put(arg.getKey(), outcome.asString());

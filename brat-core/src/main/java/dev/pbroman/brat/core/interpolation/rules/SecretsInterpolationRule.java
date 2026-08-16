@@ -58,10 +58,9 @@ public final class SecretsInterpolationRule implements InterpolationRule {
      *         {@code reportingString} of {@code input + " → ***"} that never contains the value
      *         itself; or {@code input} unchanged with {@code containsSecret} unset if {@code input}
      *         is not a {@code ${secrets.…}} token, leaving it for another rule to process
-     * @throws BratException if {@code input} is {@code null}, if {@code input} is a
-     *         {@code ${secrets.…}} token with no key, if it is one whose key no provider in the
-     *         chain has, or if the provider itself fails
-     * @throws IllegalArgumentException if {@code runtimeData} is {@code null}
+     * @throws BratException if {@code input} or {@code runtimeData} is {@code null}, if
+     *         {@code input} is a {@code ${secrets.…}} token with no key, if it is one whose key no
+     *         provider in the chain has, or if the provider itself fails
      */
     @Override
     public InterpolationOutcome outcome(String input, RuntimeData runtimeData) {
@@ -72,9 +71,7 @@ public final class SecretsInterpolationRule implements InterpolationRule {
             return new InterpolationOutcome(input, input);
         }
         var key = matcher.group(VARIABLE_GROUP_NAME);
-        if (key == null) {
-            throw new BratException("The secrets reference '" + input + "' has no key.");
-        }
+        nonNull(key, "The secrets reference '" + input + "' has no key.");
         var optionalValue = provider.getSecret(key);
         if (optionalValue.isEmpty()) {
             throw new BratException(String.format("No value for ${secrets.%s} found.", key));
