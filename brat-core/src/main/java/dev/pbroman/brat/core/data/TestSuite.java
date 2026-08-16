@@ -29,7 +29,10 @@ import java.util.Map;
  * @param auth credentials for requests beneath this suite, or {@code null}. Replaced wholesale by a
  *        subSuite that declares its own, which is what lets {@code type: none} cancel an inherited
  *        login
- * @param defaultTimeout the request timeout in milliseconds, in text form, or {@code null}
+ * @param timeout the default request timeout in milliseconds, in text form, or {@code null} for
+ *        {@link dev.pbroman.brat.core.util.Constants#DEFAULT_TIMEOUT_MS}. Named for what it is rather
+ *        than prefixed: a request's own {@code timeout} is the same word one level down, exactly as
+ *        {@code auth} is
  * @param skipCondition skip this suite and everything under it when it holds, or {@code null}
  * @param phase when this suite runs relative to its siblings; never {@code null}, defaulting to
  *        {@link Phase#MAIN}
@@ -44,7 +47,7 @@ public record TestSuite(
         Map<String, Object> constants,
         Map<String, String> setVars,
         Auth auth,
-        String defaultTimeout,
+        String timeout,
         Condition skipCondition,
         Phase phase,
         Map<String, String> requestHandlers,

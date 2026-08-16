@@ -41,7 +41,7 @@ class SuiteBindingTest {
                 auth:
                   type: bearer
                   token: "${secrets.serviceToken}"
-                defaultTimeout: "10000"
+                timeout: "10000"
                 requests:
                   - name: create an order
                     id: order-create
@@ -74,7 +74,7 @@ class SuiteBindingTest {
         assertThat(suite.constants()).containsEntry("contentType", "application/json");
         assertThat(suite.setVars()).containsEntry("runId", "${__uuid}");
         assertThat(suite.auth().getType()).isEqualTo("bearer");
-        assertThat(suite.defaultTimeout()).isEqualTo("10000");
+        assertThat(suite.timeout()).isEqualTo("10000");
         assertThat(suite.requests()).singleElement().satisfies(request -> {
             assertThat(request.id()).isEqualTo("order-create");
             assertThat(request.requestDefinition()).isInstanceOf(HttpRequestDefinition.class);

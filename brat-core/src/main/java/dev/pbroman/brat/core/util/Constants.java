@@ -67,6 +67,9 @@ public final class Constants {
 
     public static final String DEFAULT_TIMEOUT_MS = "30000";
 
+    /** The method a request is performed with when it declares none. */
+    public static final String DEFAULT_METHOD = "GET";
+
     public static final Integer DEFAULT_MAX_ATTEMPTS = 3;
 
     /**

@@ -69,6 +69,10 @@ public final class Auth extends ConfigData {
     /**
      * {@code type} defaults to {@code AUTH_TYPE_NONE}; {@code username}, {@code password},
      * {@code token}, and {@code outcomes} default to {@code null}.
+     * <p>
+     * Note this constructs an <em>explicit</em> "no auth", which is not the same as no auth block at
+     * all: down a suite tree an absent block inherits from its parent, while a declared {@code none}
+     * cancels that inheritance.
      */
     public Auth() {
         this(AUTH_TYPE_NONE, null, null);

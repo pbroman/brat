@@ -13,6 +13,7 @@ import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 
 import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
+import static dev.pbroman.brat.core.util.Constants.DEFAULT_METHOD;
 import static dev.pbroman.brat.core.util.Constants.FILE_BODY;
 import static dev.pbroman.brat.core.util.Constants.RAW_BODY;
 import static org.apache.hc.core5.http.ContentType.APPLICATION_FORM_URLENCODED;
@@ -45,7 +46,8 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
      * {@code ${...}} tokens.
      *
      * @param url the request URL, possibly holding {@code ${...}} tokens
-     * @param method the HTTP method
+     * @param method the HTTP method, or {@code null} for {@code GET} — the convention every
+     *        comparable tool follows, and better than binding a null that fails at request time
      * @param timeout the request timeout in milliseconds, or {@code null} for the default
      * @param body the body, keyed by one of the well-known body keys, or {@code null}
      * @param headers the request headers, or {@code null}
@@ -68,7 +70,7 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
         super(outcomes);
         HttpHeaderUtils.requireNoCaseDuplicates(headers);
         this.url = url;
-        this.method = method;
+        this.method = method == null ? DEFAULT_METHOD : method;
         this.timeout = timeout;
         this.headers = headers == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(headers));
         this.auth = auth;

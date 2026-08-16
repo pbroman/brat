@@ -43,6 +43,10 @@
             <artifactId>jackson-dataformat-yaml</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.snakeyaml</groupId>
+            <artifactId>snakeyaml-engine</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.awaitility</groupId>
             <artifactId>awaitility</artifactId>
         </dependency>
