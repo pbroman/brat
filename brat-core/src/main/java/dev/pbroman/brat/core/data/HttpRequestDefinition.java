@@ -10,7 +10,7 @@ import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.util.HttpHeaderUtils;
 import lombok.Getter;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 
 import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
 import static dev.pbroman.brat.core.util.Constants.DEFAULT_METHOD;
@@ -139,7 +139,11 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
      *         headers, an absent header, or a {@code null} value
      */
     private static boolean isFormUrlEncoded(Map<String, String> headers) {
-        return StringUtils.startsWith(
+        // Strings.CS rather than the deprecated StringUtils.startsWith, and CS rather than CI to keep
+        // the behaviour this method already had. Whether the *value* should match case-insensitively
+        // is a separate question - media types are case-insensitive per RFC 9110 - and changing it
+        // here would smuggle a behaviour change into a deprecation fix.
+        return Strings.CS.startsWith(
                 HttpHeaderUtils.get(headers, CONTENT_TYPE), APPLICATION_FORM_URLENCODED.getMimeType());
     }
 

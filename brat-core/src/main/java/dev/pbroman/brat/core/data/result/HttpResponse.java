@@ -27,6 +27,8 @@ public record HttpResponse(int statusCode, Map<String, List<String>> headers, St
         if (headers != null) {
             for (var entry : headers.entrySet()) {
                 var values = entry.getValue();
+                // Not List.copyOf: it rejects a null element, and a header value list is parsed
+                // network data where a null is ordinary. See headers_preserveANullValueWithinAList.
                 caseInsensitiveHeaders.put(
                         entry.getKey(),
                         values == null ? List.of() : Collections.unmodifiableList(new ArrayList<>(values)));

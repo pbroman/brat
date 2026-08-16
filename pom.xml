@@ -168,6 +168,12 @@
                              resolves at all - verified against Jackson 3.2.1, 2026-08-11. The
                              alternative is @JsonProperty on every parameter of every data type. -->
                         <arg>-parameters</arg>
+                        <!-- Name the deprecated call, not just the file holding one. Without this
+                             javac reports "uses or overrides a deprecated API" per file and tells
+                             you to recompile to find out which line - so a deprecation is visible
+                             enough to be ignored and never actionable enough to be fixed. Two sat
+                             unnoticed until 2026-08-16, one of them written the same day. -->
+                        <arg>-Xlint:deprecation</arg>
                     </compilerArgs>
                     <annotationProcessorPathsUseDepMgmt>true</annotationProcessorPathsUseDepMgmt>
                     <annotationProcessorPaths>
