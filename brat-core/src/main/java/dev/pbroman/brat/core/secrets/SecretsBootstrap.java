@@ -196,10 +196,9 @@ public final class SecretsBootstrap {
     private Map<String, String> interpolateParams(
             Map<String, String> params, InterpolationRule secretsInterpolationRule, RuntimeData runtimeData) {
         var interpolated = new HashMap<>(params);
-        for (Map.Entry<String, String> param : interpolated.entrySet()) {
-            var outcome = createInterpolationScanner(secretsInterpolationRule).outcome(param.getValue(), runtimeData);
-            param.setValue(outcome.asString());
-        }
+        var scanner = createInterpolationScanner(secretsInterpolationRule);
+        interpolated.replaceAll(
+                (key, value) -> scanner.outcome(value, runtimeData).asString());
         return interpolated;
     }
 

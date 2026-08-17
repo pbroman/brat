@@ -1,6 +1,8 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
+import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -103,12 +105,20 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
      * </ol>
      * A chain with only one segment (no {@code :-} present) behaves exactly as a plain,
      * fallback-free lookup.
+     * <p>
+     * Three cases short-circuit before any lookup is attempted, each returning {@code input}
+     * untouched: {@code input} is {@code null}, empty or blank; {@code values} is {@code null}; or
+     * {@code input} does not match this rule's namespace pattern. This is the same pass-through
+     * {@link #resolve(String, RuntimeData)} describes, leaving the token for another rule in the
+     * dispatch chain, and in none of them is {@link #onMissingReplacement(String, String)} reached.
      *
-     * @param input the input to be interpolated
+     * @param input the input to be interpolated, or {@code null}
      * @param runtimeData the object containing values, used to resolve fallback segments that
      *        reference another namespace
-     * @param values a map of replacements for this rule's own namespace
-     * @return the replacement string
+     * @param values a map of replacements for this rule's own namespace, or {@code null} to pass
+     *        {@code input} through unresolved
+     * @return the replacement string, or {@code input} unchanged in each of the three
+     *         short-circuiting cases above
      * @throws BratException under the same condition as {@link #onMissingReplacement(String, String)},
      *         if the fallback chain is exhausted without resolving to a value
      */
@@ -126,13 +136,13 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
         if (values.containsKey(key)) {
             return values.get(key).toString();
         }
-        for (var i = 1; i < chain.length; i++) {
-            var resolved = resolveFallbackSegment(chain[i], runtimeData);
-            if (resolved != null) {
-                return resolved;
-            }
-        }
-        return onMissingReplacement(key, input);
+        // orElseGet, not orElse: an override of onMissingReplacement may throw or log, so it must
+        // run only when no segment resolved.
+        return Arrays.stream(chain, 1, chain.length)
+                .map(segment -> resolveFallbackSegment(segment, runtimeData))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElseGet(() -> onMissingReplacement(key, input));
     }
 
     /**

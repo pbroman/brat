@@ -129,6 +129,55 @@ class AbstractInterpolationRuleTest {
     }
 
     @Test
+    void simpleInterpolation_skipsAFallbackSegmentWhoseNamespaceIsAbsent() {
+        // given a runtime with no constants namespace at all, not merely one lacking the key
+        var rule = new FallbackStubInterpolationRule(Map.of());
+        var data = new RuntimeData(null, Map.of());
+
+        // when
+        var result = rule.outcome("${stub.threadCount:-constants.threadCount:-10}", data);
+
+        // then
+        assertThat(result.value()).isEqualTo("10");
+    }
+
+    @Test
+    void simpleInterpolation_returnsInputWhenBlank() {
+        // given
+        var rule = new FallbackStubInterpolationRule(Map.of("threadCount", "5"));
+
+        // when
+        var result = rule.outcome("   ", runtimeData);
+
+        // then
+        assertThat(result.value()).isEqualTo("   ");
+    }
+
+    @Test
+    void simpleInterpolation_returnsInputWhenValuesIsNull() {
+        // given
+        var rule = new FallbackStubInterpolationRule(null);
+
+        // when
+        var result = rule.outcome("${stub.threadCount}", runtimeData);
+
+        // then
+        assertThat(result.value()).isEqualTo("${stub.threadCount}");
+    }
+
+    @Test
+    void simpleInterpolation_returnsInputWhenTheNamespaceDoesNotMatch() {
+        // given
+        var rule = new FallbackStubInterpolationRule(Map.of("threadCount", "5"));
+
+        // when
+        var result = rule.outcome("${other.threadCount}", runtimeData);
+
+        // then
+        assertThat(result.value()).isEqualTo("${other.threadCount}");
+    }
+
+    @Test
     void simpleInterpolation_throwsWhenChainExhaustedWithNoLiteral() {
         // given
         var rule = new FallbackStubInterpolationRule(Map.of());
