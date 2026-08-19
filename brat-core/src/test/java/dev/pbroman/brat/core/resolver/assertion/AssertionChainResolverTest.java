@@ -136,6 +136,74 @@ class AssertionChainResolverTest {
     }
 
     @Test
+    void resolve_convertsAResolutionFailureToAFailedResult() {
+        // given — the shape an unrecognized func takes: ConditionResolverRuleDispatcher throws this
+        var assertion = new Assertion("nosuchfunc", "a", "b");
+        when(conditionResolver.resolve(any()))
+                .thenThrow(new BratException("No ConditionResolverRule recognizes the function 'nosuchfunc'"));
+
+        // when
+        var result = assertionResolver.resolve(assertion, runtimeData);
+
+        // then
+        assertThat(result)
+                .singleElement()
+                .satisfies(r -> assertThat(r.passed()).isFalse())
+                // as written, since a BratException's message was phrased for an author: the type is
+                // named only for an exception we did not plan, which this is not
+                .satisfies(r -> assertThat(r.message())
+                        .contains("No ConditionResolverRule recognizes the function 'nosuchfunc'")
+                        .doesNotContain("BratException"));
+    }
+
+    @Test
+    void resolve_keepsResolvingTheChainAfterOneConditionFailsToResolve() {
+        // given
+        var chain = List.of(new ChainedCondition("!equals", "c"), new ChainedCondition("contains", "d"));
+        var assertion = new Assertion("equals", "a", "b", chain);
+        when(conditionResolver.resolve(any()))
+                .thenReturn(true)
+                .thenThrow(new BratException("boom"))
+                .thenReturn(true);
+
+        // when
+        var result = assertionResolver.resolve(assertion, runtimeData);
+
+        // then - one result per condition still, with only the throwing one failed
+        assertThat(result).hasSize(3);
+        assertThat(result.get(0).passed()).isTrue();
+        assertThat(result.get(1).passed()).isFalse();
+        assertThat(result.get(2).passed()).isTrue();
+    }
+
+    @Test
+    void resolve_namesTheExceptionTypeWhenAResolverThrowsSomethingElse() {
+        // given - a defect in core or a plugin, not an authoring mistake
+        var assertion = new Assertion("equals", "a", "b");
+        when(conditionResolver.resolve(any())).thenThrow(new IllegalStateException("no rule state"));
+
+        // when
+        var result = assertionResolver.resolve(assertion, runtimeData);
+
+        // then
+        assertThat(result)
+                .singleElement()
+                .satisfies(r -> assertThat(r.passed()).isFalse())
+                .satisfies(r -> assertThat(r.message()).contains("IllegalStateException"));
+    }
+
+    @Test
+    void resolve_doesNotCatchAnError() {
+        // given
+        var assertion = new Assertion("equals", "a", "b");
+        when(conditionResolver.resolve(any())).thenThrow(new StackOverflowError());
+
+        // when / then
+        assertThatThrownBy(() -> assertionResolver.resolve(assertion, runtimeData))
+                .isInstanceOf(StackOverflowError.class);
+    }
+
+    @Test
     void resolve_interpolatesTheSubjectOnceForTheWholeChain() {
         // given
         var chain = List.of(new ChainedCondition("startsWith", "Jo"), new ChainedCondition("contains", "hn"));

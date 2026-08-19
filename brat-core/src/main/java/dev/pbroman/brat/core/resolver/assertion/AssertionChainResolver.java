@@ -16,6 +16,7 @@ import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
+import lombok.extern.slf4j.Slf4j;
 
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
 
@@ -28,6 +29,7 @@ import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.c
  * so a chain over a non-deterministic {@code a} such as {@code ${__uuid()}} tests one value several
  * ways, which is what a chain is for.
  */
+@Slf4j
 public final class AssertionChainResolver implements AssertionResolver {
 
     private final Interpolation interpolation;
@@ -58,9 +60,17 @@ public final class AssertionChainResolver implements AssertionResolver {
      * by one result per chain link in declaration order. Every result carries the assertion's
      * severity. A link reports its own message where it declares one, and the assertion's otherwise.
      * <p>
-     * A failure to interpolate becomes data rather than an escaping exception: the returned list then
-     * holds a <em>single</em> failed result naming the interpolation error, because the assertion is
-     * interpolated as a unit and a chain is interpolated wholly or not at all.
+     * Failures become data rather than escaping exceptions, and <strong>the two failure sites differ
+     * in how much of the chain survives</strong>:
+     * <ul>
+     *   <li><strong>Interpolation</strong> fails the whole chain at once — the returned list holds a
+     *       <em>single</em> failed result, because the assertion is interpolated as a unit and a
+     *       chain is interpolated wholly or not at all.</li>
+     *   <li><strong>Resolution</strong> fails one condition — that link's result is failed and every
+     *       other link still resolves, so the list keeps one result per condition. An unrecognized
+     *       {@code func} and a func handed the wrong shape of operand both land here.</li>
+     * </ul>
+     * Both catch {@link Exception}, per {@link dev.pbroman.brat.core.api.resolver.AssertionResolver}.
      *
      * @param assertion the assertion to resolve, as authored — never an interpolated copy
      * @param runtimeData the object containing values
@@ -77,9 +87,9 @@ public final class AssertionChainResolver implements AssertionResolver {
         Assertion interpolated;
         try {
             interpolated = assertionInterpolator.interpolated(assertion, interpolation, runtimeData);
-        } catch (BratException e) {
-            var failMessage = String.format(
-                    "Error interpolating assertion: %s, message: %s", assertion.getMessage(), e.getMessage());
+        } catch (Exception e) {
+            var failMessage =
+                    String.format("Error interpolating assertion: %s, message: %s", assertion.getMessage(), causeOf(e));
             return List.of(new AssertionResult(assertion, failMessage, false, assertion.getSeverity()));
         }
 
@@ -98,10 +108,39 @@ public final class AssertionChainResolver implements AssertionResolver {
      * @param condition the interpolated condition to resolve
      * @param message the message to report if it fails
      * @param severity the severity to record on the result
-     * @return the result of resolving {@code condition}
+     * @return the result of resolving {@code condition} — carrying the resolver's verdict under
+     *         {@code message}, or failed and naming the cause where resolving threw
      */
     private AssertionResult result(Condition condition, String message, AssertionSeverity severity) {
-        return new AssertionResult(condition, message, conditionResolver.resolve(condition), severity);
+        boolean passed;
+        try {
+            passed = conditionResolver.resolve(condition);
+        } catch (Exception e) {
+            var failMessage = String.format("Error resolving assertion: %s, message: %s", message, causeOf(e));
+            return new AssertionResult(condition, failMessage, false, severity);
+        }
+        return new AssertionResult(condition, message, passed, severity);
+    }
+
+    /**
+     * The cause as a suite author should read it.
+     * <p>
+     * A {@link BratException} was phrased for an author, so its message is returned as written.
+     * Anything else is unplanned — a defect in core or in a plugin rule — so its type is named in the
+     * returned text and, <strong>as a side effect, the exception is logged with its stack trace</strong>,
+     * which is the only place that trace survives once the failure has become a result.
+     *
+     * @param e the exception a failure site caught
+     * @return the message for a {@link BratException}, otherwise the simple type name followed by the
+     *         message; never {@code null}, though the message part may read {@code null} where the
+     *         exception carried none
+     */
+    private static String causeOf(Exception e) {
+        if (e instanceof BratException) {
+            return e.getMessage();
+        }
+        log.error("An assertion failed with an unplanned {}", e.getClass().getSimpleName(), e);
+        return e.getClass().getSimpleName() + ": " + e.getMessage();
     }
 
     /**
