@@ -12,6 +12,11 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 class ResponseHeaderInterpolationRuleTest extends AbstractInterpolationTest {
 
+    @Override
+    protected String ownToken() {
+        return "${response.headers.moo}";
+    }
+
     @BeforeEach
     void setUp() {
         underTest = new ResponseHeaderInterpolationRule();
@@ -24,11 +29,11 @@ class ResponseHeaderInterpolationRuleTest extends AbstractInterpolationTest {
     @Test
     void happyPath() throws Exception {
         // given
-        var input = "${rh.Content-Type}";
+        var input = "${response.headers.Content-Type}";
         var expected = "baa";
 
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(expected);
@@ -37,10 +42,10 @@ class ResponseHeaderInterpolationRuleTest extends AbstractInterpolationTest {
     @Test
     void headerNotPresent_returnsInput() throws Exception {
         // given
-        var input = "${rh.Bollocks}";
+        var input = "${response.headers.Bollocks}";
 
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(input);
@@ -49,11 +54,11 @@ class ResponseHeaderInterpolationRuleTest extends AbstractInterpolationTest {
     @Test
     void noHeadersPresent_returnsInput() throws Exception {
         // given
-        var input = "${rh.Content-Type}";
+        var input = "${response.headers.Content-Type}";
         runtimeData = new RuntimeData(Map.of(), Map.of(), Map.of(), Map.of());
 
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(input);

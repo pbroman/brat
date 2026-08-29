@@ -3,6 +3,7 @@ package dev.pbroman.brat.core.interpolation.rules;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -48,38 +49,87 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
 
     /**
      * Resolves a single interpolation token against this rule's namespace.
+     * <p>
+     * <strong>Only ever called for a token this rule owns</strong> — {@link #claims(String)} has
+     * already matched it — so an implementation never has to recognize a token, only resolve one. It
+     * must return a value; declining is not available here and is not needed.
      *
-     * @param input the token to resolve, e.g. {@code "${vars.userId}"}
+     * @param input the token to resolve, e.g. {@code "${vars.userId}"}, already known to be in this
+     *        rule's namespace
      * @param runtimeData the object containing values
-     * @return the resolved value, or {@code input} unchanged if this rule's pattern does not
-     *         match it (letting another rule in the dispatch chain process it instead)
-     * @throws BratException if the pattern matches but no value can be found and the
-     *         implementation chooses to fail rather than pass through or substitute a default
+     * @return the resolved value; never {@code null}. Returning {@code input} means "resolved to its
+     *         own text", <strong>not</strong> "not mine" — the token is claimed either way
+     * @throws BratException if no value can be found and this namespace's policy is to fail rather
+     *         than substitute a default
      */
     protected abstract String resolve(String input, RuntimeData runtimeData);
 
     /**
-     * Wraps {@link #resolve(String, RuntimeData)}'s result into an {@link InterpolationOutcome}:
-     * a reporting string of just {@code resolved} if nothing changed (this rule passed the input
-     * through), or {@code input + " → " + resolved} if it substituted a value.
+     * Whether {@code input} is a token of this rule's namespace.
      * <p>
-     * Substitution is detected by comparing {@code resolved} to {@code input} — if a resolved
-     * value happens to equal the input, this reports it as an unchanged passthrough even if
-     * {@link #resolve(String, RuntimeData)} actually substituted a value.
+     * This is the decline decision, and it lives here rather than in {@link #resolve} so that no
+     * subclass has to spell "not mine" as a return value.
+     * <p>
+     * The default answers {@code true} for a string that is <em>one whole token</em>
+     * ({@link InterpolationPatterns#isToken(String)}) in this rule's {@code interpolationKey}
+     * namespace. Both halves matter: a rule is handed one token at a time, so text merely
+     * <em>containing</em> one is not this rule's to resolve. A subclass whose namespace is not a
+     * single {@code ${key.rest}} shape — one whose token carries no key at all, say — overrides this.
+     *
+     * @param input the token to test; never {@code null}
+     * @return whether this rule owns {@code input}
+     */
+    protected boolean claims(String input) {
+        return InterpolationPatterns.isToken(input)
+                && InterpolationPatterns.groupingPatternForVariable(interpolationKey)
+                        .matcher(input)
+                        .find();
+    }
+
+    /**
+     * Whether {@code input} is this rule's namespace and nothing else — the {@link #claims(String)}
+     * a namespace carrying no key needs, e.g. {@code ${response.body}}.
+     * <p>
+     * The whole string must be the token, so {@code ${response.bodyish}} and
+     * {@code "x ${response.body}"} are both rejected, and the namespace is matched literally rather
+     * than as a regex.
+     *
+     * @param input the token to test; never {@code null}
+     * @return whether {@code input} is exactly this rule's namespace in token form
+     */
+    protected final boolean claimsExactToken(String input) {
+        return input.matches(InterpolationPatterns.regexForVariable(interpolationKey));
+    }
+
+    /**
+     * Declines a token of another namespace, and otherwise wraps {@link #resolve}'s result.
+     * <p>
+     * Ownership is decided by {@link #claims(String)} <em>before</em> {@link #resolve} is called, so
+     * a resolved value equal to the token is an ordinary answer rather than a decline — the
+     * ambiguity that a pass-through convention would create cannot arise.
+     * <p>
+     * The reporting string is just the resolved value where it equals {@code input}, and
+     * {@code input + " → " + resolved} otherwise; a value that happens to equal its own token is
+     * reported as unchanged.
      *
      * @param input the token to resolve
      * @param runtimeData the object containing values
-     * @return the outcome of resolving {@code input} via {@link #resolve(String, RuntimeData)}
+     * @return the outcome of resolving {@code input}, or {@link java.util.Optional#empty()} if
+     *         {@link #claims(String)} rejects it
      * @throws BratException if {@code input} is {@code null}, or under the same condition as
      *         {@link #resolve(String, RuntimeData)}
      */
     @Override
-    public final InterpolationOutcome outcome(String input, RuntimeData runtimeData) {
+    public final Optional<InterpolationOutcome> outcome(String input, RuntimeData runtimeData) {
         nonNull(input, "Cannot interpolate a null input");
+        if (!claims(input)) {
+            return Optional.empty();
+        }
         var resolved = resolve(input, runtimeData);
-        return resolved.equals(input)
-                ? new InterpolationOutcome(resolved, resolved)
-                : new InterpolationOutcome(resolved, input + " → " + resolved);
+        return Optional.of(
+                resolved.equals(input)
+                        ? new InterpolationOutcome(resolved, resolved)
+                        : new InterpolationOutcome(resolved, input + " → " + resolved));
     }
 
     /**
@@ -108,15 +158,23 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
      * <p>
      * Three cases short-circuit before any lookup is attempted, each returning {@code input}
      * untouched: {@code input} is {@code null}, empty or blank; {@code values} is {@code null}; or
-     * {@code input} does not match this rule's namespace pattern. This is the same pass-through
-     * {@link #resolve(String, RuntimeData)} describes, leaving the token for another rule in the
-     * dispatch chain, and in none of them is {@link #onMissingReplacement(String, String)} reached.
+     * {@code input} does not match this rule's namespace pattern. Per
+     * {@link #resolve(String, RuntimeData)}, returning {@code input} resolves the token to its own
+     * text — the token stays claimed and no other rule is consulted. In none of the three is
+     * {@link #onMissingReplacement(String, String)} reached.
+     * <p>
+     * <strong>Only the {@code values} case is reachable by way of {@link #outcome}.</strong> The
+     * other two guard a subclass that calls this method itself: {@link #claims(String)} runs first
+     * and rejects a blank string for not being a token, and the default {@code claims} matches on
+     * the very pattern the third case tests, so neither can survive to here on the dispatched path.
+     * They are kept because this method is part of the extension surface, not because core reaches
+     * them.
      *
      * @param input the input to be interpolated, or {@code null}
      * @param runtimeData the object containing values, used to resolve fallback segments that
      *        reference another namespace
-     * @param values a map of replacements for this rule's own namespace, or {@code null} to pass
-     *        {@code input} through unresolved
+     * @param values a map of replacements for this rule's own namespace, or {@code null} to return
+     *        {@code input} unchanged
      * @return the replacement string, or {@code input} unchanged in each of the three
      *         short-circuiting cases above
      * @throws BratException under the same condition as {@link #onMissingReplacement(String, String)},

@@ -3,7 +3,9 @@ package dev.pbroman.brat.core.interpolation;
 import java.util.List;
 
 import dev.pbroman.brat.core.api.interpolation.BratFunction;
+import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +19,19 @@ import static org.mockito.Mockito.when;
 
 class InterpolationScannerTest extends AbstractInterpolationTest {
 
+    @Override
+    protected String ownToken() {
+        return "${vars.moo}";
+    }
+
+    private Interpolation scanner;
+
+    /** The scanner is an {@link Interpolation}, not a rule, so it answers rather than declining. */
+    @Override
+    protected Object interpolate(String input, RuntimeData data) {
+        return scanner.interpolate(input, data);
+    }
+
     @BeforeEach
     void setUp() {
         // one real function, so routing can be observed rather than mocked: the mock rule stands in
@@ -24,7 +39,7 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
         // the other way round) shows up as the wrong value
         var registry = new FunctionRegistry(
                 List.of(BratFunction.of("upper", args -> args.getFirst().toUpperCase())));
-        underTest = new InterpolationScanner(mockRule, new FunctionEvaluator(registry));
+        scanner = new InterpolationScanner(mockRule, new FunctionEvaluator(registry));
     }
 
     @Test
@@ -33,7 +48,7 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
         var input = "this is a test";
 
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(input);
@@ -46,7 +61,7 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
         var expected = "this is a " + mockResult;
 
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(expected);
@@ -59,7 +74,7 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
         var expected = String.format("this %s is a %s", mockResult, mockResult);
 
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(expected);
@@ -72,7 +87,7 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
         var input = "this is a ${mock}";
 
         // when / then
-        assertThatThrownBy(() -> underTest.interpolate(input, runtimeData)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> interpolate(input, runtimeData)).isInstanceOf(BratException.class);
     }
 
     // --- a field that is nothing but one token keeps the resolved value's type ---
@@ -84,7 +99,7 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
         when(mockRule.outcome("${mock}", runtimeData)).thenReturn(new InterpolationOutcome(items, "${mock} → [a, b]"));
 
         // when
-        var result = underTest.interpolate("${mock}", runtimeData);
+        var result = interpolate("${mock}", runtimeData);
 
         // then
         assertThat(result).isInstanceOf(List.class).isEqualTo(items);
@@ -97,7 +112,7 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
         when(mockRule.outcome("${mock}", runtimeData)).thenReturn(new InterpolationOutcome(items, "${mock} → [a, b]"));
 
         // when
-        var result = underTest.interpolate("items: ${mock}", runtimeData);
+        var result = interpolate("items: ${mock}", runtimeData);
 
         // then
         assertThat(result).isEqualTo("items: [a, b]");
@@ -110,7 +125,7 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
         var input = "${mock}${mock}";
 
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(mockResult + mockResult);
@@ -125,7 +140,7 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
         var input = "${__upper(${mock})}";
 
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(mockResult.toUpperCase());
@@ -134,7 +149,7 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
     @Test
     void interpolate_routesALookupToTheDispatcher() {
         // when
-        var result = underTest.interpolate("${mock}", runtimeData);
+        var result = interpolate("${mock}", runtimeData);
 
         // then — never offered to the evaluator, which knows no such function
         assertThat(result).isEqualTo(mockResult);
@@ -143,7 +158,7 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
     @Test
     void interpolate_splicesACallAndALookupInOneField() {
         // when
-        var result = underTest.interpolate("${mock} then ${__upper(abc)}", runtimeData);
+        var result = interpolate("${mock} then ${__upper(abc)}", runtimeData);
 
         // then
         assertThat(result).isEqualTo(mockResult + " then ABC");
@@ -152,8 +167,7 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
     @Test
     void interpolate_failsForAnUnknownFunctionRatherThanPassingItThrough() {
         // when / then — unlike an unrecognised namespace, a call is BRAT-specific and a typo is fatal
-        assertThatThrownBy(() -> underTest.interpolate("${__nosuch(a)}", runtimeData))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> interpolate("${__nosuch(a)}", runtimeData)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -162,7 +176,7 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
         var input = "cost: ${100 or so";
 
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(input);
@@ -178,7 +192,7 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
         });
 
         // when
-        var result = underTest.interpolate("${mock} and ${mock}", runtimeData);
+        var result = interpolate("${mock} and ${mock}", runtimeData);
 
         // then — not "value1 and value1", which replacing by text would have produced
         assertThat(result).isEqualTo("value1 and value2");
@@ -192,7 +206,7 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
         when(mockRule.outcome(eq("${b}"), any())).thenReturn(new InterpolationOutcome("B", "B"));
 
         // when
-        var result = underTest.interpolate("<${a}|${b}>", runtimeData);
+        var result = interpolate("<${a}|${b}>", runtimeData);
 
         // then
         assertThat(result).isEqualTo("<A|B>");

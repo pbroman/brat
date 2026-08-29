@@ -8,23 +8,29 @@ import lombok.extern.slf4j.Slf4j;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
 import static dev.pbroman.brat.core.util.Constants.HEADERS;
-import static dev.pbroman.brat.core.util.Constants.RESPONSE_HEADER_SHORTHAND;
+import static dev.pbroman.brat.core.util.Constants.RESPONSE_HEADERS;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
 
 /**
- * An {@link InterpolationRule} for response headers.
+ * An {@link InterpolationRule} resolving {@code ${response.headers.<name>}} against the previous
+ * response's headers.
  */
 @Slf4j
-public final class ResponseHeaderInterpolationRule extends AbstractResponseInterpolationRule {
+public final class ResponseHeaderInterpolationRule extends AbstractInterpolationRule {
 
     /**
      * Constructs an {@link InterpolationRule} for response headers.
-     *
      */
     public ResponseHeaderInterpolationRule() {
-        super(RESPONSE_HEADER_SHORTHAND);
+        super(RESPONSE_HEADERS);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @throws dev.pbroman.brat.core.exception.BratException if {@code runtimeData} is {@code null}
+     *         or holds no {@code responseVars}
+     */
     @SuppressWarnings({"unchecked", "rawtypes"})
     @Override
     public String resolve(String input, RuntimeData runtimeData) {

@@ -13,6 +13,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ParamsInterpolationRuleTest extends AbstractInterpolationTest {
 
+    @Override
+    protected String ownToken() {
+        return "${params.moo}";
+    }
+
     @BeforeEach
     void setUp() {
         underTest = new ParamsInterpolationRule();
@@ -29,7 +34,7 @@ class ParamsInterpolationRuleTest extends AbstractInterpolationTest {
         var expected = "baa";
 
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(expected);
@@ -41,7 +46,7 @@ class ParamsInterpolationRuleTest extends AbstractInterpolationTest {
         var input = "${params.missing}";
 
         // then
-        assertThatThrownBy(() -> underTest.interpolate(input, runtimeData)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> interpolate(input, runtimeData)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -51,7 +56,7 @@ class ParamsInterpolationRuleTest extends AbstractInterpolationTest {
         var expected = "10";
 
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(expected);
@@ -64,7 +69,7 @@ class ParamsInterpolationRuleTest extends AbstractInterpolationTest {
         var expected = "3";
 
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(expected);

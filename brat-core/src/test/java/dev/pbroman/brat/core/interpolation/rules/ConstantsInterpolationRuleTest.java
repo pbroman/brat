@@ -10,6 +10,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ConstantsInterpolationRuleTest extends AbstractInterpolationTest {
 
+    @Override
+    protected String ownToken() {
+        return "${constants.moo}";
+    }
+
     @BeforeEach
     void setUp() {
         underTest = new ConstantsInterpolationRule();
@@ -22,7 +27,7 @@ class ConstantsInterpolationRuleTest extends AbstractInterpolationTest {
         var expected = "baa";
 
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(expected);
@@ -34,6 +39,6 @@ class ConstantsInterpolationRuleTest extends AbstractInterpolationTest {
         var input = "${constants.missing}";
 
         // then
-        assertThatThrownBy(() -> underTest.interpolate(input, runtimeData)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> interpolate(input, runtimeData)).isInstanceOf(BratException.class);
     }
 }

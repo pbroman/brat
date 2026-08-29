@@ -1,5 +1,7 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
+import java.util.Optional;
+
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.api.secrets.SecretsProvider;
@@ -63,12 +65,12 @@ public final class SecretsInterpolationRule implements InterpolationRule {
      *         provider in the chain has, or if the provider itself fails
      */
     @Override
-    public InterpolationOutcome outcome(String input, RuntimeData runtimeData) {
+    public Optional<InterpolationOutcome> outcome(String input, RuntimeData runtimeData) {
         nonNull(input, "Cannot interpolate a null input");
         requireNamespaces(runtimeData);
         var matcher = InterpolationPatterns.groupingPatternForVariable(SECRETS).matcher(input);
         if (!matcher.find()) {
-            return new InterpolationOutcome(input, input);
+            return Optional.empty();
         }
         var key = matcher.group(VARIABLE_GROUP_NAME);
         nonNull(key, "The secrets reference '" + input + "' has no key.");
@@ -76,6 +78,6 @@ public final class SecretsInterpolationRule implements InterpolationRule {
         if (optionalValue.isEmpty()) {
             throw new BratException(String.format("No value for ${secrets.%s} found.", key));
         }
-        return new InterpolationOutcome(optionalValue.get(), input + " → ***", true);
+        return Optional.of(new InterpolationOutcome(optionalValue.get(), input + " → ***", true));
     }
 }

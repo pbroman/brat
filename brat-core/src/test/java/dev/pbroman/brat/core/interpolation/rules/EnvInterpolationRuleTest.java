@@ -13,6 +13,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class EnvInterpolationRuleTest extends AbstractInterpolationTest {
 
+    @Override
+    protected String ownToken() {
+        return "${env.moo}";
+    }
+
     @BeforeEach
     void setUp() {
         underTest = new EnvInterpolationRule();
@@ -29,7 +34,7 @@ class EnvInterpolationRuleTest extends AbstractInterpolationTest {
         var expected = "baa";
 
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(expected);
@@ -41,6 +46,6 @@ class EnvInterpolationRuleTest extends AbstractInterpolationTest {
         var input = "${env.missing}";
 
         // then
-        assertThatThrownBy(() -> underTest.interpolate(input, runtimeData)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> interpolate(input, runtimeData)).isInstanceOf(BratException.class);
     }
 }

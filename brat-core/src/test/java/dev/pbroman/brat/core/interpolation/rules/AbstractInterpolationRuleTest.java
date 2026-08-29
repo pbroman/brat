@@ -1,8 +1,10 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
+import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
@@ -12,6 +14,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AbstractInterpolationRuleTest {
 
+    /**
+     * The outcome of a rule that claimed the token, or one equal to the input where it declined —
+     * the same two cases the dispatcher distinguishes.
+     */
+    private static InterpolationOutcome claimed(AbstractInterpolationRule rule, String input, RuntimeData data) {
+        return rule.outcome(input, data).orElseGet(() -> new InterpolationOutcome(input, input));
+    }
+
     private final RuntimeData runtimeData = new RuntimeData(Map.of(), Map.of());
 
     @Test
@@ -20,7 +30,7 @@ class AbstractInterpolationRuleTest {
         var rule = new StubInterpolationRule(input -> "resolved");
 
         // when
-        var outcome = rule.outcome("${stub.key}", runtimeData);
+        var outcome = claimed(rule, "${stub.key}", runtimeData);
 
         // then
         assertThat(outcome.value()).isEqualTo("resolved");
@@ -33,7 +43,7 @@ class AbstractInterpolationRuleTest {
         var rule = new StubInterpolationRule(Function.identity());
 
         // when
-        var outcome = rule.outcome("${stub.key}", runtimeData);
+        var outcome = claimed(rule, "${stub.key}", runtimeData);
 
         // then
         assertThat(outcome.value()).isEqualTo("${stub.key}");
@@ -48,7 +58,7 @@ class AbstractInterpolationRuleTest {
         });
 
         // then
-        assertThatThrownBy(() -> rule.outcome("${stub.key}", runtimeData)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> claimed(rule, "${stub.key}", runtimeData)).isInstanceOf(BratException.class);
     }
 
     private static final class StubInterpolationRule extends AbstractInterpolationRule {
@@ -72,7 +82,7 @@ class AbstractInterpolationRuleTest {
         var rule = new FallbackStubInterpolationRule(Map.of("threadCount", "5"));
 
         // when
-        var result = rule.outcome("${stub.threadCount}", runtimeData);
+        var result = claimed(rule, "${stub.threadCount}", runtimeData);
 
         // then
         assertThat(result.value()).isEqualTo("5");
@@ -84,7 +94,7 @@ class AbstractInterpolationRuleTest {
         var rule = new FallbackStubInterpolationRule(Map.of());
 
         // when
-        var result = rule.outcome("${stub.threadCount:-10}", runtimeData);
+        var result = claimed(rule, "${stub.threadCount:-10}", runtimeData);
 
         // then
         assertThat(result.value()).isEqualTo("10");
@@ -97,7 +107,7 @@ class AbstractInterpolationRuleTest {
         var data = new RuntimeData(Map.of(), Map.of("threadCount", "7"));
 
         // when
-        var result = rule.outcome("${stub.threadCount:-env.threadCount}", data);
+        var result = claimed(rule, "${stub.threadCount:-env.threadCount}", data);
 
         // then
         assertThat(result.value()).isEqualTo("7");
@@ -110,7 +120,7 @@ class AbstractInterpolationRuleTest {
         var data = new RuntimeData(Map.of(), Map.of());
 
         // when
-        var result = rule.outcome("${stub.threadCount:-env.threadCount:-10}", data);
+        var result = claimed(rule, "${stub.threadCount:-env.threadCount:-10}", data);
 
         // then
         assertThat(result.value()).isEqualTo("10");
@@ -122,7 +132,7 @@ class AbstractInterpolationRuleTest {
         var rule = new FallbackStubInterpolationRule(Map.of());
 
         // when
-        var result = rule.outcome("${stub.threadCount:-notANamespace.thing}", runtimeData);
+        var result = claimed(rule, "${stub.threadCount:-notANamespace.thing}", runtimeData);
 
         // then
         assertThat(result.value()).isEqualTo("notANamespace.thing");
@@ -135,7 +145,7 @@ class AbstractInterpolationRuleTest {
         var data = new RuntimeData(null, Map.of());
 
         // when
-        var result = rule.outcome("${stub.threadCount:-constants.threadCount:-10}", data);
+        var result = claimed(rule, "${stub.threadCount:-constants.threadCount:-10}", data);
 
         // then
         assertThat(result.value()).isEqualTo("10");
@@ -146,11 +156,13 @@ class AbstractInterpolationRuleTest {
         // given
         var rule = new FallbackStubInterpolationRule(Map.of("threadCount", "5"));
 
-        // when
-        var result = rule.outcome("   ", runtimeData);
+        // when - resolve directly, not through outcome: a blank string is not a token, so claims
+        // would decline it and this short-circuit would never be reached. It exists for an extender
+        // calling simpleInterpolation from their own resolve, which is the path tested here
+        var result = rule.resolve("   ", runtimeData);
 
         // then
-        assertThat(result.value()).isEqualTo("   ");
+        assertThat(result).isEqualTo("   ");
     }
 
     @Test
@@ -158,8 +170,9 @@ class AbstractInterpolationRuleTest {
         // given
         var rule = new FallbackStubInterpolationRule(null);
 
-        // when
-        var result = rule.outcome("${stub.threadCount}", runtimeData);
+        // when - through outcome, unlike the two below: this is the one short-circuit a claimed
+        // token still reaches, since the rule owns the namespace and only its values are missing
+        var result = claimed(rule, "${stub.threadCount}", runtimeData);
 
         // then
         assertThat(result.value()).isEqualTo("${stub.threadCount}");
@@ -170,11 +183,12 @@ class AbstractInterpolationRuleTest {
         // given
         var rule = new FallbackStubInterpolationRule(Map.of("threadCount", "5"));
 
-        // when
-        var result = rule.outcome("${other.threadCount}", runtimeData);
+        // when - resolve directly, for the same reason as the blank case above: the default claims
+        // matches on this very pattern, so outcome would decline before resolve ran
+        var result = rule.resolve("${other.threadCount}", runtimeData);
 
         // then
-        assertThat(result.value()).isEqualTo("${other.threadCount}");
+        assertThat(result).isEqualTo("${other.threadCount}");
     }
 
     @Test
@@ -186,6 +200,93 @@ class AbstractInterpolationRuleTest {
         // then
         assertThatThrownBy(() -> rule.outcome("${stub.threadCount:-env.threadCount}", data))
                 .isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void claims_recognizesATokenOfItsOwnNamespace() {
+        // given
+        var rule = new StubInterpolationRule(Function.identity());
+
+        // when / then
+        assertThat(rule.claims("${stub.key}")).isTrue();
+    }
+
+    @Test
+    void claims_rejectsATokenOfAnotherNamespace() {
+        // given
+        var rule = new StubInterpolationRule(Function.identity());
+
+        // when / then
+        assertThat(rule.claims("${other.key}")).isFalse();
+    }
+
+    @Test
+    void claims_rejectsTextThatIsNotAToken() {
+        // given
+        var rule = new StubInterpolationRule(Function.identity());
+
+        // when / then
+        assertThat(rule.claims("stub.key")).isFalse();
+        assertThat(rule.claims("")).isFalse();
+    }
+
+    @Test
+    void outcome_declinesWithoutResolvingWhenClaimsRejects() {
+        // given - resolve must not see a token of another namespace
+        var resolveCalls = new AtomicInteger();
+        var rule = new StubInterpolationRule(input -> {
+            resolveCalls.incrementAndGet();
+            return "resolved";
+        });
+
+        // when
+        var outcome = rule.outcome("${other.key}", runtimeData);
+
+        // then
+        assertThat(outcome).isEmpty();
+        assertThat(resolveCalls).hasValue(0);
+    }
+
+    @Test
+    void outcome_resolvesWhenClaimsAccepts() {
+        // given
+        var rule = new StubInterpolationRule(input -> "resolved");
+
+        // when
+        var outcome = rule.outcome("${stub.key}", runtimeData);
+
+        // then
+        assertThat(outcome).isPresent();
+        assertThat(outcome.orElseThrow().value()).isEqualTo("resolved");
+    }
+
+    @Test
+    void claims_isOverridableForANamespaceThatIsNotKeyDotRest() {
+        // given - a bare token carrying no key, which the default shape cannot match
+        var rule = new BareTokenStubInterpolationRule();
+
+        // when / then
+        assertThat(rule.claims("${bare}")).isTrue();
+        assertThat(rule.outcome("${bare}", runtimeData)).isPresent();
+        assertThat(rule.outcome("${other}", runtimeData)).isEmpty();
+    }
+
+    /** A rule whose token has no {@code .key} part, so it must decide ownership for itself. */
+    private static final class BareTokenStubInterpolationRule extends AbstractInterpolationRule {
+
+        BareTokenStubInterpolationRule() {
+            super("bare");
+        }
+
+        @Override
+        protected boolean claims(String input) {
+            return ("${" + interpolationKey + "}").equals(input);
+        }
+
+        @Override
+        protected String resolve(String input, RuntimeData runtimeData) {
+            return "bareValue";
+        }
     }
 
     private static final class FallbackStubInterpolationRule extends AbstractInterpolationRule {

@@ -11,6 +11,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class VarsInterpolationRuleTest extends AbstractInterpolationTest {
 
+    @Override
+    protected String ownToken() {
+        return "${vars.moo}";
+    }
+
     @BeforeEach
     void setUp() {
         underTest = new VarsInterpolationRule();
@@ -27,7 +32,7 @@ class VarsInterpolationRuleTest extends AbstractInterpolationTest {
         var expected = "baa";
 
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(expected);
@@ -40,7 +45,7 @@ class VarsInterpolationRuleTest extends AbstractInterpolationTest {
         var expected = "";
 
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(expected);

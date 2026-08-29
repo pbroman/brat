@@ -18,6 +18,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest {
 
+    @Override
+    protected String ownToken() {
+        return "${response.json.$.moo}";
+    }
+
     protected RuntimeData setUpRuntimeData() {
         Map<String, Object> responseVars = Map.of(JSON, jsonBody);
         return new RuntimeData(Map.of(), Map.of(), Map.of(), responseVars);
@@ -35,28 +40,28 @@ public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest
 
     private static Stream<Arguments> jsonPaths() {
         return Stream.of(
-                Arguments.of("${rj.id}", "123"),
-                Arguments.of("${rj.array[0].test}", "testVal"),
+                Arguments.of("${response.json.id}", "123"),
+                Arguments.of("${response.json.array[0].test}", "testVal"),
                 // Functions keep the type JsonPath produced - a boolean is a Boolean, a length an
                 // Integer - so a condition can compare values rather than their text forms.
-                Arguments.of("${rj.array[0].test._isString}", true),
-                Arguments.of("${rj.array[0]._isObject}", true),
-                Arguments.of("${rj.array._isArray}", true),
-                Arguments.of("${rj.id._length}", 3),
-                Arguments.of("${rj.array._length}", 2),
-                Arguments.of("${rj.array[0]._length}", 1),
-                Arguments.of("${rj.object._length}", 0),
-                Arguments.of("${rj.integer._isInteger}", true),
-                Arguments.of("${rj.double._isDouble}", true));
+                Arguments.of("${response.json.array[0].test._isString}", true),
+                Arguments.of("${response.json.array[0]._isObject}", true),
+                Arguments.of("${response.json.array._isArray}", true),
+                Arguments.of("${response.json.id._length}", 3),
+                Arguments.of("${response.json.array._length}", 2),
+                Arguments.of("${response.json.array[0]._length}", 1),
+                Arguments.of("${response.json.object._length}", 0),
+                Arguments.of("${response.json.integer._isInteger}", true),
+                Arguments.of("${response.json.double._isDouble}", true));
     }
 
     private static Stream<Arguments> structuredPaths() {
         return Stream.of(
-                Arguments.of("${rj.array}", java.util.List.class),
-                Arguments.of("${rj.object}", Map.class),
-                Arguments.of("${rj.array[0]}", Map.class),
-                Arguments.of("${rj.integer}", Integer.class),
-                Arguments.of("${rj.double}", Double.class));
+                Arguments.of("${response.json.array}", java.util.List.class),
+                Arguments.of("${response.json.object}", Map.class),
+                Arguments.of("${response.json.array[0]}", Map.class),
+                Arguments.of("${response.json.integer}", Integer.class),
+                Arguments.of("${response.json.double}", Double.class));
     }
 
     @BeforeEach
@@ -68,7 +73,7 @@ public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest
     @MethodSource("jsonPaths")
     void simpleJsonPathsTests(String input, Object expected) throws Exception {
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(expected);
@@ -78,7 +83,7 @@ public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest
     @MethodSource("structuredPaths")
     void interpolate_keepsTheTypeJsonPathProduced(String input, Class<?> expectedType) {
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then - a structure arrives as a structure, not as its toString
         assertThat(result).isInstanceOf(expectedType);
@@ -87,10 +92,60 @@ public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest
     @Test
     void outcome_leavesANonJsonTokenUnchanged() {
         // when
-        var result = underTest.outcome("${vars.somethingElse}", runtimeData);
+        var result = claimed("${vars.somethingElse}", runtimeData);
 
         // then
         assertThat(result.value()).isEqualTo("${vars.somethingElse}");
+    }
+
+    @Test
+    void outcome_declinesTextThatMerelyHoldsAToken() {
+        // when - a rule is handed one whole token, never the field around it
+        var result = underTest.outcome("count: ${response.json.id}", runtimeData);
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void outcome_declinesAJsonTokenWithoutLookingAtRuntimeData() {
+        // when - ownership is decided on the token alone, so a foreign token never touches the data
+        var result = underTest.outcome("${vars.somethingElse}", null);
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void outcome_throwsABratExceptionForAPathThatMatchesNothing() {
+        // when / then - JsonPath's own PathNotFoundException must not escape core
+        assertThatThrownBy(() -> claimed("${response.json.$.missing}", runtimeData))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("${response.json.$.missing}");
+    }
+
+    @Test
+    void outcome_throwsABratExceptionForAMalformedPath() {
+        // when / then
+        assertThatThrownBy(() -> claimed("${response.json.$.[}", runtimeData))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("Cannot resolve");
+    }
+
+    @Test
+    void outcome_throwsForAnUnknownJsonFunction() {
+        // when / then
+        assertThatThrownBy(() -> claimed("${response.json.id._bogus}", runtimeData))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("is not defined");
+    }
+
+    @Test
+    void outcome_throwsWhenTheTokenNamesNoPath() {
+        // when / then
+        assertThatThrownBy(() -> claimed("${response.json.}", runtimeData))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("names no JSONPath");
     }
 
     @Test
@@ -99,7 +154,7 @@ public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest
         var withoutJson = new RuntimeData(Map.of(), Map.of(), Map.of(), Map.of());
 
         // when / then
-        assertThatThrownBy(() -> underTest.outcome("${rj.id}", withoutJson))
+        assertThatThrownBy(() -> claimed("${response.json.id}", withoutJson))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("json response");
     }

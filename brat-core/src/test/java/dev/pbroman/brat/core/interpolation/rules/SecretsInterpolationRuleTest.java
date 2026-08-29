@@ -16,6 +16,11 @@ import static org.mockito.Mockito.when;
 
 class SecretsInterpolationRuleTest extends AbstractInterpolationTest {
 
+    @Override
+    protected String ownToken() {
+        return "${secrets.moo}";
+    }
+
     private final SecretsProvider provider = mock(SecretsProvider.class);
 
     @BeforeEach
@@ -29,7 +34,7 @@ class SecretsInterpolationRuleTest extends AbstractInterpolationTest {
         when(provider.getSecret("apiKey")).thenReturn(Optional.of("s3cr3t"));
 
         // when
-        var result = underTest.outcome("${secrets.apiKey}", runtimeData);
+        var result = claimed("${secrets.apiKey}", runtimeData);
 
         // then
         assertThat(result.value()).isEqualTo("s3cr3t");
@@ -41,7 +46,7 @@ class SecretsInterpolationRuleTest extends AbstractInterpolationTest {
         when(provider.getSecret("apiKey")).thenReturn(Optional.of("s3cr3t"));
 
         // when
-        var result = underTest.outcome("${secrets.apiKey}", runtimeData);
+        var result = claimed("${secrets.apiKey}", runtimeData);
 
         // then
         assertThat(result.containsSecret()).isTrue();
@@ -53,7 +58,7 @@ class SecretsInterpolationRuleTest extends AbstractInterpolationTest {
         when(provider.getSecret("apiKey")).thenReturn(Optional.of("s3cr3t"));
 
         // when
-        var result = underTest.outcome("${secrets.apiKey}", runtimeData);
+        var result = claimed("${secrets.apiKey}", runtimeData);
 
         // then
         assertThat(result.reportingString()).doesNotContain("s3cr3t").isEqualTo("${secrets.apiKey} → ***");
@@ -65,7 +70,7 @@ class SecretsInterpolationRuleTest extends AbstractInterpolationTest {
         var input = "${constants.moo}";
 
         // when
-        var result = underTest.outcome(input, runtimeData);
+        var result = claimed(input, runtimeData);
 
         // then
         assertThat(result.value()).isEqualTo(input);
@@ -78,8 +83,7 @@ class SecretsInterpolationRuleTest extends AbstractInterpolationTest {
         when(provider.getSecret("apiKey")).thenReturn(Optional.empty());
 
         // then
-        assertThatThrownBy(() -> underTest.outcome("${secrets.apiKey}", runtimeData))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> claimed("${secrets.apiKey}", runtimeData)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -88,14 +92,13 @@ class SecretsInterpolationRuleTest extends AbstractInterpolationTest {
         when(provider.getSecret("apiKey")).thenThrow(new BratException("vault unreachable"));
 
         // then
-        assertThatThrownBy(() -> underTest.outcome("${secrets.apiKey}", runtimeData))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> claimed("${secrets.apiKey}", runtimeData)).isInstanceOf(BratException.class);
     }
 
     @Test
     void outcome_throwsIfTheTokenHasNoKey() {
         // then
-        assertThatThrownBy(() -> underTest.outcome("${secrets.}", runtimeData)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> claimed("${secrets.}", runtimeData)).isInstanceOf(BratException.class);
         verifyNoInteractions(provider);
     }
 
@@ -111,7 +114,7 @@ class SecretsInterpolationRuleTest extends AbstractInterpolationTest {
         when(provider.getSecret("apiKey:-env.fallback")).thenReturn(Optional.of("literalKey"));
 
         // when
-        var result = underTest.outcome("${secrets.apiKey:-env.fallback}", runtimeData);
+        var result = claimed("${secrets.apiKey:-env.fallback}", runtimeData);
 
         // then
         assertThat(result.value()).isEqualTo("literalKey");

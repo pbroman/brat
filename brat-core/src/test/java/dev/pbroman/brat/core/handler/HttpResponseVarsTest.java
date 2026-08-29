@@ -48,7 +48,7 @@ class HttpResponseVarsTest {
         // when
         var vars = HttpResponseVars.of(response);
 
-        // then - ${rh.Set-Cookie} substitutes one string; the full list stays on HttpResponse
+        // then - ${response.headers.Set-Cookie} substitutes one string; the full list stays on HttpResponse
         assertThat(headersOf(vars)).containsEntry("Set-Cookie", "a=1");
     }
 
@@ -60,7 +60,7 @@ class HttpResponseVarsTest {
         // when
         var vars = HttpResponseVars.of(response);
 
-        // then - an author writing ${rh.content-type} must not depend on the server's choice
+        // then - an author writing ${response.headers.content-type} must not depend on the server's choice
         assertThat(headersOf(vars)).containsEntry("content-type", "application/json");
     }
 
