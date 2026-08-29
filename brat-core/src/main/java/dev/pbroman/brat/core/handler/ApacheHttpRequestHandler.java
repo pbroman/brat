@@ -143,8 +143,8 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
      *       {@link dev.pbroman.brat.core.util.Constants#DEFAULT_TIMEOUT_MS}, and zero or negative is
      *       rejected rather than taken as HttpClient5 takes it, which is infinite. A request with no
      *       ceiling at all is not offered: an unbounded wait is indistinguishable from a hang. The
-     *       cascade may fill a request's {@code timeout} from an ancestor before it reaches here
-     *       (8b); this applies when nothing did.
+     *       cascade may fill a request's {@code timeout} from an ancestor before it reaches here;
+     *       this applies when nothing did.
      *       <p>
      *       ⚠ <strong>It does not bound connecting.</strong> HttpClient5 moved the connect timeout
      *       from {@code RequestConfig} to {@code ConnectionConfig}, which is held by the connection
@@ -155,8 +155,8 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
      *       library's own default is three minutes, which is worse, and because connecting is
      *       arguably a property of the pooled route rather than of one request</li>
      *   <li><strong>auth</strong> — <em>ignored</em>. A declared {@code auth:} binds and interpolates
-     *       and does nothing until {@code AuthHandler} is built in 8d. Stated because a silently
-     *       inert credential is the kind of thing a suite passes green without</li>
+     *       and is then inert: nothing applies it to the request. Stated because a silently inert
+     *       credential is the kind of thing a suite passes green without</li>
      * </ul>
      *
      * @param requestDefinition the interpolated request to perform
@@ -314,9 +314,9 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
     /**
      * Closes the pooled client and every connection it holds.
      * <p>
-     * Who calls this is 8c's question — nothing in 8a owns a handler long enough to need it. It
-     * exists now because a pool with no way to release its connections is a leak by construction, and
-     * because the method a lifecycle phase will call is cheaper to write than to retrofit.
+     * Nothing in {@code brat-core} currently owns a handler long enough to call this; it exists
+     * because a pool with no way to release its connections is a leak by construction, and whoever
+     * manages handler lifecycle is expected to call it.
      *
      * @throws BratException if the client could not be closed
      */

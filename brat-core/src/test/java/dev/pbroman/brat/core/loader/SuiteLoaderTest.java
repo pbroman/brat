@@ -404,7 +404,7 @@ class SuiteLoaderTest {
                 .hasMessageContaining("order-api.yaml");
     }
 
-    // ---------- the file convenience, which 8c removes ----------
+    // ---------- the file convenience, which is temporary ----------
 
     @Test
     void load_readsAFileAndUsesItsPathAsTheOrigin(@TempDir Path dir) throws Exception {

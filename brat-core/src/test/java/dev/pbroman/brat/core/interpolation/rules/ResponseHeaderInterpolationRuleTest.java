@@ -23,7 +23,9 @@ class ResponseHeaderInterpolationRuleTest extends AbstractInterpolationTest {
     }
 
     protected RuntimeData setUpRuntimeData() {
-        return new RuntimeData(Map.of(), Map.of(), Map.of(), Map.of(HEADERS, Map.of("Content-Type", "baa")));
+        var runtimeData = new RuntimeData(Map.of(), Map.of());
+        runtimeData.setResponseVars(Map.of(HEADERS, Map.of("Content-Type", "baa")));
+        return runtimeData;
     }
 
     @Test
@@ -55,7 +57,7 @@ class ResponseHeaderInterpolationRuleTest extends AbstractInterpolationTest {
     void noHeadersPresent_returnsInput() throws Exception {
         // given
         var input = "${response.headers.Content-Type}";
-        runtimeData = new RuntimeData(Map.of(), Map.of(), Map.of(), Map.of());
+        runtimeData = new RuntimeData(Map.of(), Map.of());
 
         // when
         var result = interpolate(input, runtimeData);

@@ -401,11 +401,11 @@ class ApacheHttpRequestHandlerTest {
         assertThatThrownBy(() -> underTest.performRequest(null)).isInstanceOf(BratException.class);
     }
 
-    // ---------- what 8a does not do yet ----------
+    // ---------- what this handler does not do yet ----------
 
     @Test
     void performRequest_ignoresDeclaredAuth() {
-        // given - auth binds and interpolates and is inert until 8d; pinned so the day it stops being
+        // given - auth binds and interpolates and is inert; pinned so the day it stops being
         // inert is a failing test rather than a surprise
         var auth = new Auth("basic", "u", "p");
         var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "GET", null, null, null, auth);
@@ -440,7 +440,7 @@ class ApacheHttpRequestHandlerTest {
 
     @Test
     void close_isSafeToCallTwice() {
-        // given - 8c decides who closes a handler; until then nothing should break if two owners do
+        // given - who closes a handler is undecided; until then nothing should break if two owners do
         var handler = new ApacheHttpRequestHandler();
         handler.close();
 

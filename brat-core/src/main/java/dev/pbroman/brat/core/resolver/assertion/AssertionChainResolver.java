@@ -15,8 +15,7 @@ import dev.pbroman.brat.core.data.ChainedCondition;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
-import dev.pbroman.brat.core.exception.BratException;
-import lombok.extern.slf4j.Slf4j;
+import dev.pbroman.brat.core.util.FailureMessages;
 
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
 
@@ -29,7 +28,6 @@ import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.c
  * so a chain over a non-deterministic {@code a} such as {@code ${__uuid()}} tests one value several
  * ways, which is what a chain is for.
  */
-@Slf4j
 public final class AssertionChainResolver implements AssertionResolver {
 
     private final Interpolation interpolation;
@@ -70,7 +68,8 @@ public final class AssertionChainResolver implements AssertionResolver {
      *       other link still resolves, so the list keeps one result per condition. An unrecognized
      *       {@code func} and a func handed the wrong shape of operand both land here.</li>
      * </ul>
-     * Both catch {@link Exception}, per {@link dev.pbroman.brat.core.api.resolver.AssertionResolver}.
+     * Both catch {@link Exception}, per {@link dev.pbroman.brat.core.api.resolver.AssertionResolver}, and
+     * both phrase the cause through {@link FailureMessages#causeOf(Exception, String)}.
      *
      * @param assertion the assertion to resolve, as authored — never an interpolated copy
      * @param runtimeData the object containing values
@@ -88,8 +87,8 @@ public final class AssertionChainResolver implements AssertionResolver {
         try {
             interpolated = assertionInterpolator.interpolated(assertion, interpolation, runtimeData);
         } catch (Exception e) {
-            var failMessage =
-                    String.format("Error interpolating assertion: %s, message: %s", assertion.getMessage(), causeOf(e));
+            var failMessage = FailureMessages.causeOf(
+                    e, String.format("Interpolating the assertion '%s'", assertion.getMessage()));
             return List.of(new AssertionResult(assertion, failMessage, false, assertion.getSeverity()));
         }
 
@@ -116,31 +115,10 @@ public final class AssertionChainResolver implements AssertionResolver {
         try {
             passed = conditionResolver.resolve(condition);
         } catch (Exception e) {
-            var failMessage = String.format("Error resolving assertion: %s, message: %s", message, causeOf(e));
+            var failMessage = FailureMessages.causeOf(e, String.format("Resolving the assertion '%s'", message));
             return new AssertionResult(condition, failMessage, false, severity);
         }
         return new AssertionResult(condition, message, passed, severity);
-    }
-
-    /**
-     * The cause as a suite author should read it.
-     * <p>
-     * A {@link BratException} was phrased for an author, so its message is returned as written.
-     * Anything else is unplanned — a defect in core or in a plugin rule — so its type is named in the
-     * returned text and, <strong>as a side effect, the exception is logged with its stack trace</strong>,
-     * which is the only place that trace survives once the failure has become a result.
-     *
-     * @param e the exception a failure site caught
-     * @return the message for a {@link BratException}, otherwise the simple type name followed by the
-     *         message; never {@code null}, though the message part may read {@code null} where the
-     *         exception carried none
-     */
-    private static String causeOf(Exception e) {
-        if (e instanceof BratException) {
-            return e.getMessage();
-        }
-        log.error("An assertion failed with an unplanned {}", e.getClass().getSimpleName(), e);
-        return e.getClass().getSimpleName() + ": " + e.getMessage();
     }
 
     /**

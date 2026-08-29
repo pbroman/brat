@@ -35,7 +35,7 @@ public final class ParamsInterpolationRule extends AbstractInterpolationRule {
      * @throws BratException on missing replacement for a parameter with no fallback declared.
      */
     @Override
-    protected String onMissingReplacement(String placeholder, String input) {
+    protected String onMissingReplacement(String placeholder, String input, RuntimeData runtimeData) {
         throw new BratException("The parameter '" + placeholder + "' is not set.");
     }
 }

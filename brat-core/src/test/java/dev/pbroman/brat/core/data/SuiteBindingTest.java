@@ -30,7 +30,7 @@ class SuiteBindingTest {
 
     @Test
     void bind_theWholeFileFromTheSuiteAuthorDocs() {
-        // given — the shape _docs/suites-for-suite-authors.md shows as "the whole vocabulary"
+        // given — the whole authored vocabulary in one document
         var yaml = """
                 name: order api
                 description: everything the order service promises
@@ -146,7 +146,7 @@ class SuiteBindingTest {
 
     @Test
     void bind_bindsFieldsNothingReadsYet() {
-        // given — auth is 8d, requestHandlers 8a-2, skipCondition 8b; all must still bind
+        // given — auth, requestHandlers and skipCondition are read by nothing yet; all must still bind
         var yaml = """
                 name: order api
                 skipCondition:

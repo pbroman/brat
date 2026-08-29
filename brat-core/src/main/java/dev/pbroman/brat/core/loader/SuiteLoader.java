@@ -50,8 +50,9 @@ public final class SuiteLoader {
      * Binds the converted tree. Unknown keys fail rather than binding nothing, and enum values match
      * whatever case an author wrote — the published documents use both.
      * <p>
-     * The abstract-type mapping is 8a's stand-in for protocol selection: every {@code
-     * requestDefinition:} is HTTP until 8a-2 looks the type up by its declared protocol.
+     * ⚠ The abstract-type mapping is a temporary stand-in for protocol selection: every
+     * {@code requestDefinition:} binds as HTTP. It is replaced by a lookup on the protocol the
+     * definition declares, at which point a suite can hold more than one kind of request.
      */
     private static final ObjectMapper MAPPER = JsonMapper.builder()
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
@@ -170,10 +171,10 @@ public final class SuiteLoader {
     /**
      * Reads a file and loads it, using the path as the origin.
      * <p>
-     * ⚠ <strong>Temporary, and due for removal in 8c.</strong> It is I/O on a type whose job is
-     * parsing in-memory content, which the naming convention separates deliberately. It exists so 8a's
-     * integration tests can point at a file before the launch layer can; once 8c owns reading an
-     * environment directory, reading a suite file belongs there and this goes.
+     * ⚠ <strong>Temporary.</strong> It is I/O on a type whose job is parsing in-memory content, which
+     * the naming convention separates deliberately. It exists so a caller can point at a file before
+     * anything else can read one; it belongs to whatever ends up owning file access, and goes from
+     * here when that exists.
      *
      * @param path the file to read
      * @return the bound suite

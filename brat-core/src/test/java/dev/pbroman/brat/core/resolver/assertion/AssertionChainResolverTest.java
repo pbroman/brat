@@ -131,7 +131,7 @@ class AssertionChainResolverTest {
         // then - the assertion is interpolated as a unit, so a failure yields a single result
         assertThat(result)
                 .singleElement()
-                .satisfies(r -> assertThat(r.message()).startsWith("Error interpolating"))
+                .satisfies(r -> assertThat(r.message()).startsWith("Interpolating the assertion"))
                 .satisfies(r -> assertThat(r.passed()).isFalse());
     }
 

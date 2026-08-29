@@ -32,7 +32,7 @@ public final class EnvInterpolationRule extends AbstractInterpolationRule {
      * @throws BratException on missing replacement for an environment value.
      */
     @Override
-    protected String onMissingReplacement(String placeholder, String input) {
+    protected String onMissingReplacement(String placeholder, String input, RuntimeData runtimeData) {
         throw new BratException("The environment variable '" + placeholder + "' is not set.");
     }
 }

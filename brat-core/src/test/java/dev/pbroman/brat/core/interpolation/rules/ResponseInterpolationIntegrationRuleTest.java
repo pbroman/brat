@@ -59,7 +59,9 @@ public class ResponseInterpolationIntegrationRuleTest extends AbstractInterpolat
                 Map.of(contentTypeHeader, contentType),
                 JSON,
                 "{\"name\":\"John\"}");
-        return new RuntimeData(Map.of(), Map.of(), Map.of(), responseVars);
+        var runtimeData = new RuntimeData(Map.of(), Map.of());
+        runtimeData.setResponseVars(responseVars);
+        return runtimeData;
     }
 
     private static Stream<Arguments> responseTests() {

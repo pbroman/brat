@@ -47,8 +47,8 @@ public final class ResponseHeaderInterpolationRule extends AbstractInterpolation
      * Additionally logs expected headers not present in the response.
      */
     @Override
-    protected String onMissingReplacement(String placeholder, String input) {
+    protected String onMissingReplacement(String placeholder, String input, RuntimeData runtimeData) {
         log.warn("The header {} is not in the response", placeholder);
-        return super.onMissingReplacement(placeholder, input);
+        return super.onMissingReplacement(placeholder, input, runtimeData);
     }
 }

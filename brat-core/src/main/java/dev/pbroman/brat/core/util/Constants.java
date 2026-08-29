@@ -11,7 +11,7 @@ import static org.apache.commons.lang3.BooleanUtils.TRUE;
  * names, auth types, request defaults and console colours.
  * <p>
  * Carried over wholesale from the reference implementation, so it still holds constants nothing uses
- * yet; pruning it, and splitting what remains per subsystem, is tracked in the flight plan's Backlog.
+ * yet.
  */
 public final class Constants {
 

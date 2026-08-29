@@ -27,7 +27,9 @@ class ResponseBodyInterpolationRuleTest extends AbstractInterpolationTest {
     }
 
     protected RuntimeData setUpRuntimeData() {
-        return new RuntimeData(Map.of(), Map.of(), Map.of(), Map.of(BODY, "baa"));
+        var runtimeData = new RuntimeData(Map.of(), Map.of());
+        runtimeData.setResponseVars(Map.of(BODY, "baa"));
+        return runtimeData;
     }
 
     @Test
@@ -45,7 +47,7 @@ class ResponseBodyInterpolationRuleTest extends AbstractInterpolationTest {
     @Test
     void bodyIsNotPresent_throwsException() throws Exception {
         // given
-        runtimeData = new RuntimeData(Map.of(), Map.of(), Map.of(), Map.of());
+        runtimeData = new RuntimeData(Map.of(), Map.of());
 
         // then
         assertThatThrownBy(() -> interpolate(input, runtimeData)).isInstanceOf(BratException.class);

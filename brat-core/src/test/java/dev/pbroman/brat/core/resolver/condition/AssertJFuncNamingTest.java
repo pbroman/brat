@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Phase 6, step 1: AssertJ-aligned func names, the {@code is}-before-negation normalisation order,
+ * AssertJ-aligned func names, the {@code is}-before-negation normalisation order,
  * and type-inferred dispatch across categories. Red until step 1 is implemented.
  */
 class AssertJFuncNamingTest {

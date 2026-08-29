@@ -150,7 +150,7 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
      *         the next segment is tried.</li>
      *     <li>Any other segment shape (including one naming an unrecognized namespace) is a
      *         literal default — it is returned as-is, terminating the chain. Since a literal
-     *         always resolves, a chain only reaches {@link #onMissingReplacement(String, String)}
+     *         always resolves, a chain only reaches {@link #onMissingReplacement(String, String, RuntimeData)}
      *         if every segment was a namespace reference and none of them had the key.</li>
      * </ol>
      * A chain with only one segment (no {@code :-} present) behaves exactly as a plain,
@@ -161,7 +161,7 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
      * {@code input} does not match this rule's namespace pattern. Per
      * {@link #resolve(String, RuntimeData)}, returning {@code input} resolves the token to its own
      * text — the token stays claimed and no other rule is consulted. In none of the three is
-     * {@link #onMissingReplacement(String, String)} reached.
+     * {@link #onMissingReplacement(String, String, RuntimeData)} reached.
      * <p>
      * <strong>Only the {@code values} case is reachable by way of {@link #outcome}.</strong> The
      * other two guard a subclass that calls this method itself: {@link #claims(String)} runs first
@@ -177,7 +177,7 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
      *        {@code input} unchanged
      * @return the replacement string, or {@code input} unchanged in each of the three
      *         short-circuiting cases above
-     * @throws BratException under the same condition as {@link #onMissingReplacement(String, String)},
+     * @throws BratException under the same condition as {@link #onMissingReplacement(String, String, RuntimeData)},
      *         if the fallback chain is exhausted without resolving to a value
      */
     protected String simpleInterpolation(String input, RuntimeData runtimeData, Map<String, ?> values) {
@@ -200,7 +200,7 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
                 .map(segment -> resolveFallbackSegment(segment, runtimeData))
                 .filter(Objects::nonNull)
                 .findFirst()
-                .orElseGet(() -> onMissingReplacement(key, input));
+                .orElseGet(() -> onMissingReplacement(key, input, runtimeData));
     }
 
     /**
@@ -233,13 +233,21 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
      * {@link #simpleInterpolation(String, RuntimeData, Map)} values map and the fallback chain
      * (if any) is exhausted.
      * <p>
-     * Returns the input per default. Override to change the behavior.
+     * Returns the input per default. Override to change the behavior — this is where a namespace's
+     * missing-value policy lives, and the policies differ deliberately: {@code constants},
+     * {@code env} and {@code params} throw, {@code vars} substitutes an empty string.
+     * <p>
+     * <strong>It runs only after the {@code :-} chain is spent</strong>, which is what lets an
+     * authored fallback win over the namespace's policy — {@code ${vars.orderId:-none}} yields
+     * {@code none} rather than reaching a rule that would have thrown.
      *
      * @param placeholder the placeholder missing a replacement
      * @param input the original input string
+     * @param runtimeData the namespaces being resolved against, for a policy that depends on more
+     *        than the key — {@code vars} reads its capture tombstones from here; never {@code null}
      * @return the input string
      */
-    protected String onMissingReplacement(String placeholder, String input) {
+    protected String onMissingReplacement(String placeholder, String input, RuntimeData runtimeData) {
         return input;
     }
 }

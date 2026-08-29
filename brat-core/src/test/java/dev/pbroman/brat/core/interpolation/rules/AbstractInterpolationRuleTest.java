@@ -304,7 +304,7 @@ class AbstractInterpolationRuleTest {
         }
 
         @Override
-        protected String onMissingReplacement(String placeholder, String input) {
+        protected String onMissingReplacement(String placeholder, String input, RuntimeData runtimeData) {
             throw new BratException("The stub value '" + placeholder + "' is not set.");
         }
     }

@@ -25,7 +25,9 @@ public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest
 
     protected RuntimeData setUpRuntimeData() {
         Map<String, Object> responseVars = Map.of(JSON, jsonBody);
-        return new RuntimeData(Map.of(), Map.of(), Map.of(), responseVars);
+        var runtimeData = new RuntimeData(Map.of(), Map.of());
+        runtimeData.setResponseVars(responseVars);
+        return runtimeData;
     }
 
     private final String jsonBody = """
@@ -151,7 +153,7 @@ public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest
     @Test
     void outcome_throwsWhenTheResponseHasNoJson() {
         // given
-        var withoutJson = new RuntimeData(Map.of(), Map.of(), Map.of(), Map.of());
+        var withoutJson = new RuntimeData(Map.of(), Map.of());
 
         // when / then
         assertThatThrownBy(() -> claimed("${response.json.id}", withoutJson))

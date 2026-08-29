@@ -14,10 +14,10 @@ import java.util.Map;
  * {@link Request}: what it holds that interpolates is other types, interpolated per request rather
  * than per suite.
  * <p>
- * Several fields are bound here and read by nothing until later phases — {@code auth} until 8d,
- * {@code requestHandlers} until 8a-2, {@code skipCondition} and {@code phase} until 8b. They are
- * defined now because the loader rejects unknown keys, so an author writing a legal key must find a
- * field waiting for it; later phases add <em>readers</em>, not fields.
+ * Several fields bind here and are read by nothing yet — {@code auth}, {@code requestHandlers},
+ * {@code skipCondition} and {@code phase}. They are defined because the loader rejects unknown keys,
+ * so an author writing a legal key must find a field waiting for it; what is still missing is a
+ * <em>reader</em>, not a field.
  *
  * @param name names the node in reports and forms a segment of every path beneath it. The loader
  *        requires it, requires it to be unique among its siblings, and rejects a {@code /} in it —

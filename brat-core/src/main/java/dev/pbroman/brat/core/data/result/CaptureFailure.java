@@ -1,15 +1,16 @@
 package dev.pbroman.brat.core.data.result;
 
+import dev.pbroman.brat.core.data.Condition;
+
 /**
  * A {@code setVars} capture that could not be resolved.
  * <p>
- * Deliberately not an {@link AssertionResult}: that type requires a {@link
- * dev.pbroman.brat.core.data.Condition}, and a capture has none — synthesizing one would print a
- * condition the author never wrote.
+ * Deliberately not an {@link AssertionResult}: that type requires a {@link Condition}, and a capture
+ * has none — synthesizing one would print a condition the author never wrote.
  * <p>
- * It carries no severity, because the {@code :-} fallback already expresses "capture if present": an
- * author who writes {@code ${response.json.$.id:-}} has said the capture is optional, and one who
- * does not has said it is required.
+ * <strong>It carries no severity: every capture is required.</strong> There is no spelling for an
+ * optional capture — {@code ${response.json.…}} takes no {@code :-} fallback, because a JSONPath may
+ * legitimately contain one — so a capture that cannot be resolved is always reported.
  *
  * @param name the variable the capture would have set
  * @param expression the authored expression that failed to resolve

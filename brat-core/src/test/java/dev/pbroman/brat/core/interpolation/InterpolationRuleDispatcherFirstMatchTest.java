@@ -15,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * The first-match dispatch contract of {@link InterpolationRuleDispatcher} (Phase 7e).
+ * The first-match dispatch contract of {@link InterpolationRuleDispatcher}.
  */
 class InterpolationRuleDispatcherFirstMatchTest {
 

@@ -24,7 +24,7 @@ class ParamsInterpolationRuleTest extends AbstractInterpolationTest {
     }
 
     protected RuntimeData setUpRuntimeData() {
-        return new RuntimeData(Map.of(), Map.of("threadCount", "3"), Map.of(), Map.of(), Map.of("moo", "baa"));
+        return new RuntimeData(Map.of(), Map.of("threadCount", "3"), Map.of(), Map.of("moo", "baa"));
     }
 
     @Test

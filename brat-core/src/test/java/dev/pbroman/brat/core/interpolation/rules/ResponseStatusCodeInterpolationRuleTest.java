@@ -27,7 +27,9 @@ class ResponseStatusCodeInterpolationRuleTest extends AbstractInterpolationTest 
     }
 
     protected RuntimeData setUpRuntimeData() {
-        return new RuntimeData(Map.of(), Map.of(), Map.of(), Map.of(STATUS_CODE, 200));
+        var runtimeData = new RuntimeData(Map.of(), Map.of());
+        runtimeData.setResponseVars(Map.of(STATUS_CODE, 200));
+        return runtimeData;
     }
 
     @Test
@@ -42,7 +44,7 @@ class ResponseStatusCodeInterpolationRuleTest extends AbstractInterpolationTest 
     @Test
     void statusCodeIsNotPresent_throwsException() {
         // given
-        runtimeData = new RuntimeData(Map.of(), Map.of(), Map.of(), Map.of());
+        runtimeData = new RuntimeData(Map.of(), Map.of());
 
         // then
         assertThatThrownBy(() -> interpolate(input, runtimeData)).isInstanceOf(BratException.class);
