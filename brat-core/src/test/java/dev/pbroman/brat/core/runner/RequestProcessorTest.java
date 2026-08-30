@@ -11,6 +11,7 @@ import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.data.Condition;
+import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.Request;
 import dev.pbroman.brat.core.data.ResponseActions;
@@ -40,6 +41,7 @@ class RequestProcessorTest {
     private ConditionResolver conditionResolver;
     private HttpRequestHandler requestHandler;
     private ResponseHandler responseHandler;
+    private ConfigDataInterpolator<FlowControl> flowControlInterpolator;
     private RequestProcessor underTest;
     private RuntimeData runtimeData;
 
@@ -58,13 +60,16 @@ class RequestProcessorTest {
         conditionResolver = mock(ConditionResolver.class);
         requestHandler = mock(HttpRequestHandler.class);
         responseHandler = mock(ResponseHandler.class);
+        flowControlInterpolator = mock(ConfigDataInterpolator.class);
         underTest = new RequestProcessor(
                 interpolation,
                 requestDefinitionInterpolator,
                 conditionInterpolator,
                 conditionResolver,
                 requestHandler,
-                responseHandler);
+                responseHandler,
+                flowControlInterpolator,
+                attempt -> {});
 
         runtimeData = new RuntimeData(Map.of(), Map.of());
 
@@ -378,6 +383,24 @@ class RequestProcessorTest {
     }
 
     @Test
+    void process_erroresWhenTheResponseActionsThrow() {
+        // given - ResponseHandler is an extension point, so core cannot assume an implementation keeps
+        // its own failures in; a plugin that throws must become data on this request, not abort the run
+        when(responseHandler.handleResponse(any(), any())).thenThrow(new IllegalStateException("a plugin broke"));
+
+        // when
+        var result = underTest.process(
+                requestWith(null, new ResponseActions(List.of(), Map.of())), coordinates, runtimeData);
+
+        // then
+        assertThat(result.status())
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.type(RequestStatus.Errored.class))
+                .extracting(RequestStatus.Errored::message)
+                .asString()
+                .contains("IllegalStateException");
+    }
+
+    @Test
     void process_runsNoResponseActionsWhenTheRequestErrores() {
         // given
         var responseActions = new ResponseActions(List.of(), Map.of());
@@ -412,7 +435,9 @@ class RequestProcessorTest {
                 new ConditionInterpolator(),
                 conditionResolver,
                 requestHandler,
-                responseHandler);
+                responseHandler,
+                flowControlInterpolator,
+                attempt -> {});
 
         // when
         var result = underTestWithRealInterpolator.process(requestWith(null, null), coordinates, runtimeData);

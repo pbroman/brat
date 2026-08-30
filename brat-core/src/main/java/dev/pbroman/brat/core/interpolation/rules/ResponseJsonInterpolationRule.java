@@ -58,8 +58,8 @@ public final class ResponseJsonInterpolationRule implements InterpolationRule {
             case List list -> list.size();
             case Map map -> map.size();
             case String s -> s.length();
-            case Integer ignored -> throw new BratException("Cannot get length of an integer");
-            case Double ignored -> throw new BratException("Cannot get length of a double value");
+            case Integer _ -> throw new BratException("Cannot get length of an integer");
+            case Double _ -> throw new BratException("Cannot get length of a double value");
             case null, default -> throw new BratException("Cannot get length of an unknown object");
         });
     }

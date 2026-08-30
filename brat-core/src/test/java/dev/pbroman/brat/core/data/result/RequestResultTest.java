@@ -76,6 +76,21 @@ class RequestResultTest {
     }
 
     @Test
+    void failed_isTrueForARequestThatGaveUpPolling() {
+        // given — responses arrived and none ever matched, which is a failure, not a pass
+        var lastAttempt = new RequestStatus.Completed(Map.of("statusCode", 202), 3, 11);
+        var result = new RequestResult(
+                COORDINATES,
+                null,
+                new RequestStatus.GaveUp(lastAttempt, "still processing after 3 attempts"),
+                4000,
+                ResponseActionsResult.NONE);
+
+        // then
+        assertThat(result.failed()).isTrue();
+    }
+
+    @Test
     void failed_isFalseForASkippedRequest() {
         // given — a skipped request did not run, so it did not fail
         var result = new RequestResult(

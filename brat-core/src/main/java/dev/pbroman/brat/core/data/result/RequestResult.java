@@ -42,6 +42,7 @@ public record RequestResult(
      * one of them. It is {@code true} when any of these holds:
      * <ul>
      *   <li>the status is {@link RequestStatus.Errored} — it could not be performed at all;</li>
+     *   <li>the status is {@link RequestStatus.GaveUp} — it polled and its condition never held;</li>
      *   <li>any assertion result did not pass <em>and</em> carries
      *       {@link AssertionSeverity#FAIL} — a failed {@code WARN} assertion is recorded and does not
      *       fail the request;</li>
@@ -55,6 +56,7 @@ public record RequestResult(
         boolean assertionFailed = responseActionsResult().assertionResults().stream()
                 .anyMatch(result -> !result.passed() && AssertionSeverity.FAIL.equals(result.severity()));
         return status instanceof RequestStatus.Errored
+                || status instanceof RequestStatus.GaveUp
                 || !responseActionsResult().captureFailures().isEmpty()
                 || assertionFailed;
     }

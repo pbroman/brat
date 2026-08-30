@@ -151,6 +151,34 @@ public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest
     }
 
     @Test
+    void outcome_throwsForTheLengthOfAnInteger() {
+        // when / then - a number has no length, and saying so beats returning a digit count
+        assertThatThrownBy(() -> claimed("${response.json.integer._length}", runtimeData))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("integer");
+    }
+
+    @Test
+    void outcome_throwsForTheLengthOfADouble() {
+        // when / then
+        assertThatThrownBy(() -> claimed("${response.json.double._length}", runtimeData))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("double");
+    }
+
+    @Test
+    void outcome_throwsForTheLengthOfSomethingWithNone() {
+        // given - a boolean is none of the types _length knows
+        var withBoolean = new RuntimeData(Map.of(), Map.of());
+        withBoolean.setResponseVars(Map.of(JSON, "{\"flag\": true}"));
+
+        // when / then
+        assertThatThrownBy(() -> claimed("${response.json.flag._length}", withBoolean))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("length");
+    }
+
+    @Test
     void outcome_throwsWhenTheResponseHasNoJson() {
         // given
         var withoutJson = new RuntimeData(Map.of(), Map.of());

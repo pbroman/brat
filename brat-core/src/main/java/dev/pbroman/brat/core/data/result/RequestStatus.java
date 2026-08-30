@@ -32,12 +32,41 @@ public sealed interface RequestStatus {
      */
     record Completed(Map<String, Object> responseVars, int numAttempts, long roundTripTimeMs) implements RequestStatus {
 
-        /** Defaults {@code responseVars} to empty and copies it. */
+        /**
+         * Defaults {@code responseVars} to empty and copies it, so the status keeps a snapshot the
+         * next request cannot change.
+         *
+         * @param responseVars the response in namespace form, or {@code null} for none
+         * @param numAttempts how many attempts it took
+         * @param roundTripTimeMs the final attempt's protocol call in milliseconds
+         */
         public Completed {
             responseVars =
                     responseVars == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(responseVars));
         }
     }
+
+    /**
+     * A polling request used up its attempts without its {@code repeatUntil} condition ever holding.
+     * <p>
+     * <strong>Distinct from {@link Completed} on purpose:</strong> "the API returned COMPLETE" is a
+     * pass and "we gave up after three tries" is a failure, and a report that cannot tell them apart
+     * is the failure this type exists to prevent.
+     * <p>
+     * <strong>It always follows a completed attempt.</strong> Giving up means responses arrived and
+     * none matched; a loop whose <em>final</em> attempt got no response at all is {@link Errored}
+     * instead, because {@code messageOnFail} is the author's sentence about a condition that never
+     * came true and would describe the wrong event over a connection failure. That pairing is why
+     * this carries the attempt rather than sitting beside the status as a separate field: the
+     * combination is the only one that can occur, so the type says so.
+     *
+     * @param lastAttempt the attempt the loop ended on, which did receive a response — its
+     *        {@code responseVars} are what the response actions ran against, and its
+     *        {@code numAttempts} is the budget that was spent
+     * @param message the author's {@code messageOnFail}, or a generated sentence naming the condition
+     *        and the attempt count where none was declared; never {@code null}
+     */
+    record GaveUp(Completed lastAttempt, String message) implements RequestStatus {}
 
     /**
      * The request was not attempted, because its skip condition held.
