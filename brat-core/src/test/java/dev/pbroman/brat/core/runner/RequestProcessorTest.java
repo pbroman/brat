@@ -143,27 +143,29 @@ class RequestProcessorTest {
     }
 
     @Test
-    void process_flattensTheResponseIntoResponseVars() {
-        // when
-        underTest.process(requestWith(null, null), coordinates, runtimeData);
+    void process_makesTheResponseVisibleToTheResponseActions() {
+        // given - assertions and captures read the response through the namespace, so it must be
+        // populated while they run and only while they run
+        var seen = new HashMap<String, Object>();
+        when(responseHandler.handleResponse(any(), any())).thenAnswer(invocation -> {
+            seen.putAll(runtimeData.getResponseVars());
+            return ResponseActionsResult.NONE;
+        });
 
-        // then - what makes ${response.*} mean "the request immediately before this one"
-        assertThat(runtimeData.getResponseVars()).containsKey("statusCode");
-        assertThat(runtimeData.getResponseVars().get("statusCode")).isEqualTo(200);
+        // when
+        underTest.process(requestWith(null, new ResponseActions(List.of(), Map.of())), coordinates, runtimeData);
+
+        // then
+        assertThat(seen).containsEntry("statusCode", 200);
     }
 
     @Test
-    void process_replacesTheResponseVarsLeftByAnEarlierRequest() {
-        // given
-        runtimeData.getResponseVars().put("statusCode", 404);
-        runtimeData.getResponseVars().put("stale", "from an earlier request");
-
+    void process_leavesNoResponseVarsBehindAfterACompletedRequest() {
         // when
         underTest.process(requestWith(null, null), coordinates, runtimeData);
 
-        // then
-        assertThat(runtimeData.getResponseVars()).doesNotContainKey("stale");
-        assertThat(runtimeData.getResponseVars().get("statusCode")).isEqualTo(200);
+        // then - the response dies with the request; a later one cannot read it at all
+        assertThat(runtimeData.getResponseVars()).isEmpty();
     }
 
     @Test
@@ -364,7 +366,6 @@ class RequestProcessorTest {
     @Test
     void process_clearsResponseVarsWhenTheRequestIsSkipped() {
         // given
-        runtimeData.getResponseVars().put("statusCode", 200);
         var skipCondition = new Condition("isTrue", "${vars.skip}");
         when(conditionInterpolator.interpolated(any(), any(), any())).thenReturn(skipCondition);
         when(conditionResolver.resolve(any())).thenReturn(true);
@@ -374,23 +375,6 @@ class RequestProcessorTest {
 
         // then
         assertThat(runtimeData.getResponseVars()).isEmpty();
-    }
-
-    @Test
-    void process_interpolatesTheDefinitionBeforeTouchingResponseVars() {
-        // given - a URL like /orders/${response.json.$.id} reads the previous request's response, so
-        // the namespace must still hold it while the definition is interpolated
-        runtimeData.getResponseVars().put("statusCode", 200);
-        when(requestDefinitionInterpolator.interpolated(any(), any(), any())).thenAnswer(invocation -> {
-            assertThat(runtimeData.getResponseVars()).containsEntry("statusCode", 200);
-            return interpolated;
-        });
-
-        // when
-        underTest.process(requestWith(null, null), coordinates, runtimeData);
-
-        // then
-        assertThat(runtimeData.getResponseVars()).doesNotContainKey("stale");
     }
 
     @Test
@@ -438,49 +422,8 @@ class RequestProcessorTest {
     }
 
     @Test
-    void process_lendsTheSkipConditionThePreviousResponse() {
-        // given - "skip this if the request before me already succeeded" is an ordinary guard
-        runtimeData.setResponseVars(Map.of("statusCode", 200));
-        var seen = new HashMap<String, Object>();
-        var skipCondition = new Condition("equals", "${response.statusCode}", "200");
-        when(conditionInterpolator.interpolated(any(), any(), any())).thenAnswer(invocation -> {
-            seen.putAll(runtimeData.getResponseVars());
-            return skipCondition;
-        });
-        when(conditionResolver.resolve(any())).thenReturn(false);
-
-        // when
-        underTest.process(requestWith(skipCondition, null), coordinates, runtimeData);
-
-        // then
-        assertThat(seen).containsEntry("statusCode", 200);
-    }
-
-    @Test
-    void process_keepsResponseVarsForTheDefinitionWhenTheSkipConditionDoesNotHold() {
-        // given - a request that declares a guard and runs anyway must still resolve
-        // url: /orders/${response.json.$.id} against the request before it
-        runtimeData.setResponseVars(Map.of("statusCode", 200));
-        var seen = new HashMap<String, Object>();
-        var skipCondition = new Condition("isTrue", "${vars.skip}");
-        when(conditionInterpolator.interpolated(any(), any(), any())).thenReturn(skipCondition);
-        when(conditionResolver.resolve(any())).thenReturn(false);
-        when(requestDefinitionInterpolator.interpolated(any(), any(), any())).thenAnswer(invocation -> {
-            seen.putAll(runtimeData.getResponseVars());
-            return interpolated;
-        });
-
-        // when
-        underTest.process(requestWith(skipCondition, null), coordinates, runtimeData);
-
-        // then - declaring a skip condition must not change what the definition can read
-        assertThat(seen).containsEntry("statusCode", 200);
-    }
-
-    @Test
     void process_clearsResponseVarsWhenTheSkipConditionCannotBeInterpolated() {
         // given
-        runtimeData.setResponseVars(Map.of("statusCode", 200));
         var skipCondition = new Condition("isTrue", "${vars.nope}");
         when(conditionInterpolator.interpolated(any(), any(), any())).thenThrow(new BratException("nope"));
 
@@ -494,7 +437,6 @@ class RequestProcessorTest {
     @Test
     void process_clearsResponseVarsWhenTheDefinitionCannotBeInterpolated() {
         // given
-        runtimeData.setResponseVars(Map.of("statusCode", 200));
         when(requestDefinitionInterpolator.interpolated(any(), any(), any()))
                 .thenThrow(new BratException("The constant 'baseUrl' is not set."));
 

@@ -9,7 +9,6 @@ import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.Request;
-import dev.pbroman.brat.core.data.result.HttpResponse;
 import dev.pbroman.brat.core.data.result.RequestCoordinates;
 import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.data.result.RequestStatus;
@@ -105,13 +104,11 @@ public class RequestProcessor {
      *       too, and the result carries the interpolated definition. Note what is <em>not</em> a
      *       failure: every status code the server answered with, including 4xx and 5xx, is a
      *       response.</li>
-     *   <li><strong>The response is flattened</strong> into the {@code responseVars} namespace,
-     *       replacing whatever the previous request left there. A request that <em>errored or was
-     *       skipped</em> <strong>clears</strong> it instead, so there is no previous response rather
-     *       than an old one — which is what makes {@code ${response.*}} mean "the request immediately
-     *       before this one" and makes it fail rather than quietly answering from further back. An
-     *       assertion that passes against some earlier request's response is worse than one that
-     *       stops and says why.</li>
+     *   <li><strong>The response is flattened</strong> into the {@code responseVars} namespace, and
+     *       <strong>removed again when this method returns</strong>, on every path. {@code ${response.*}}
+     *       therefore means "the response this request just received" and nothing else: no later
+     *       request can read it, because by then it is gone. A value needed afterwards is captured
+     *       with {@code setVars}, which is what that exists for.</li>
      *   <li><strong>The response actions run</strong>, when the request declares any, and whatever
      *       they produce is carried on the result.</li>
      * </ol>
@@ -128,13 +125,10 @@ public class RequestProcessor {
      * {@code runtimeData} only. Its {@code currentPath} and {@code currentRequestNo} are set from
      * {@code coordinates} first, which is what lets code called further down record where it was
      * without the identity being threaded through every signature — a capture tombstone is the one
-     * that needs it. Then {@code responseVars} is replaced on a completed request and <strong>cleared
-     * on a skipped or errored one</strong>, and {@code vars} gains every successful capture and a
-     * tombstone for every failed one.
-     * <p>
-     * {@code responseVars} is only touched <em>after</em> the skip condition and the definition have
-     * been interpolated, because both may legitimately read {@code ${response.*}} from the request
-     * before this one — a URL like {@code /orders/${response.json.$.id}} is the ordinary case.
+     * that needs it. {@code responseVars} is filled when a response arrives and emptied in a
+     * {@code finally}, so the namespace cannot outlive the request whatever ends it. {@code vars}
+     * gains every successful capture and a tombstone for every failed one, and those <em>do</em>
+     * survive: they are the mechanism for keeping something.
      *
      * @param request the request to run; never {@code null}, and its {@code requestDefinition} must
      *        be an {@link HttpRequestDefinition}
@@ -169,7 +163,6 @@ public class RequestProcessor {
             try {
                 var condition = conditionInterpolator.interpolated(request.skipCondition(), interpolation, runtimeData);
                 if (conditionResolver.resolve(condition)) {
-                    runtimeData.clearResponseVars();
                     return new RequestResult(
                             coordinates,
                             requestDef,
@@ -178,7 +171,6 @@ public class RequestProcessor {
                             null);
                 }
             } catch (Exception e) {
-                runtimeData.clearResponseVars();
                 var message = FailureMessages.causeOf(e, "A condition");
                 return new RequestResult(
                         coordinates,
@@ -193,18 +185,14 @@ public class RequestProcessor {
         try {
             interpolated = requestDefinitionInterpolator.interpolated(requestDef, interpolation, runtimeData);
         } catch (Exception e) {
-            runtimeData.clearResponseVars();
             var message = FailureMessages.causeOf(e, "Request definition interpolation");
             return new RequestResult(
                     coordinates, requestDef, new RequestStatus.Errored(message), elapsedMs(methodStart), null);
         }
 
-        runtimeData.clearResponseVars();
-
-        HttpResponse response;
         try {
             long requestStart = System.currentTimeMillis();
-            response = requestHandler.performRequest(interpolated);
+            var response = requestHandler.performRequest(interpolated);
             long rtt = elapsedMs(requestStart);
             var responseVars = HttpResponseVars.of(response);
             runtimeData.setResponseVars(responseVars);
@@ -222,6 +210,11 @@ public class RequestProcessor {
             var message = FailureMessages.causeOf(e, "A request");
             return new RequestResult(
                     coordinates, interpolated, new RequestStatus.Errored(message), elapsedMs(methodStart), null);
+        } finally {
+            // The response belongs to this request and dies with it, on every path including a
+            // structural throw. This is the whole lifecycle: nothing else clears, nothing else must
+            // remember to.
+            runtimeData.clearResponseVars();
         }
     }
 
