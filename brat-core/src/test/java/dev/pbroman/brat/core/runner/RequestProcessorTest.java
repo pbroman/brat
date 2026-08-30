@@ -61,15 +61,14 @@ class RequestProcessorTest {
         requestHandler = mock(HttpRequestHandler.class);
         responseHandler = mock(ResponseHandler.class);
         flowControlInterpolator = mock(ConfigDataInterpolator.class);
+        var conditionEvaluator = new ConditionEvaluator(interpolation, conditionInterpolator, conditionResolver);
         underTest = new RequestProcessor(
                 interpolation,
                 requestDefinitionInterpolator,
-                conditionInterpolator,
-                conditionResolver,
-                requestHandler,
+                conditionEvaluator,
                 responseHandler,
                 flowControlInterpolator,
-                attempt -> {});
+                new RequestExecutor(requestHandler, conditionEvaluator, attempt -> {}));
 
         runtimeData = new RuntimeData(Map.of(), Map.of());
 
@@ -429,15 +428,14 @@ class RequestProcessorTest {
     void process_completesARequestDeclaringNoSkipCondition() {
         // given - the real interpolator, because a mock returns null for a null condition and hides
         // that the real one rejects it; every other test here mocks it, which is how this got through
+        var realEvaluator = new ConditionEvaluator(interpolation, new ConditionInterpolator(), conditionResolver);
         var underTestWithRealInterpolator = new RequestProcessor(
                 interpolation,
                 requestDefinitionInterpolator,
-                new ConditionInterpolator(),
-                conditionResolver,
-                requestHandler,
+                realEvaluator,
                 responseHandler,
                 flowControlInterpolator,
-                attempt -> {});
+                new RequestExecutor(requestHandler, realEvaluator, attempt -> {}));
 
         // when
         var result = underTestWithRealInterpolator.process(requestWith(null, null), coordinates, runtimeData);

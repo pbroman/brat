@@ -1,32 +1,24 @@
 package dev.pbroman.brat.core.runner;
 
-import java.util.function.Consumer;
+import java.util.Optional;
 
 import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
 import dev.pbroman.brat.core.api.handler.ResponseHandler;
 import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
-import dev.pbroman.brat.core.api.listener.AttemptFinished;
-import dev.pbroman.brat.core.api.resolver.ConditionResolver;
-import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
-import dev.pbroman.brat.core.data.RepeatUntil;
 import dev.pbroman.brat.core.data.Request;
-import dev.pbroman.brat.core.data.ResponseActions;
 import dev.pbroman.brat.core.data.result.RequestCoordinates;
 import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.data.result.ResponseActionsResult;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.handler.HttpResponseVars;
 import dev.pbroman.brat.core.util.FailureMessages;
 import dev.pbroman.brat.core.util.Require;
 import lombok.extern.slf4j.Slf4j;
-
-import static dev.pbroman.brat.core.util.Constants.DEFAULT_MAX_ATTEMPTS;
 
 /**
  * Runs one {@link Request} and returns what happened: interpolate it, decide whether to skip it,
@@ -55,46 +47,35 @@ public class RequestProcessor {
 
     private final Interpolation interpolation;
     private final ConfigDataInterpolator<HttpRequestDefinition> requestDefinitionInterpolator;
-    private final ConfigDataInterpolator<Condition> conditionInterpolator;
-    private final ConditionResolver conditionResolver;
-    private final HttpRequestHandler requestHandler;
+    private final ConditionEvaluator conditionEvaluator;
     private final ResponseHandler responseHandler;
     private final ConfigDataInterpolator<FlowControl> flowControlInterpolator;
-    private final Consumer<AttemptFinished> attemptListener;
+    private final RequestExecutor requestExecutor;
 
     /**
      * Constructs a processor over the collaborators it delegates to.
      *
      * @param interpolation resolves the tokens in a definition, a skip condition and a capture
      * @param requestDefinitionInterpolator produces the interpolated copy of the request definition
-     * @param conditionInterpolator produces the interpolated copy of a skip condition
-     * @param conditionResolver answers a skip condition once it is interpolated
-     * @param requestHandler performs the request
+     * @param conditionEvaluator interpolates and answers the skip condition
      * @param responseHandler runs the response actions against the response
      * @param flowControlInterpolator produces the interpolated copy of the flow control, whose
      *        {@code maxAttempts} and {@code waitBetweenAttempts} may themselves be tokens
-     * @param attemptListener receives one {@link AttemptFinished} per attempt of a polling
-     *        request. Deliberately a {@link Consumer} of that one event rather than the run's
-     *        event emitter, so that no processor can emit a run-level event it has no standing to
-     *        report
+     * @param requestExecutor performs the request's attempts and says how they ended
      */
     public RequestProcessor(
             Interpolation interpolation,
             ConfigDataInterpolator<HttpRequestDefinition> requestDefinitionInterpolator,
-            ConfigDataInterpolator<Condition> conditionInterpolator,
-            ConditionResolver conditionResolver,
-            HttpRequestHandler requestHandler,
+            ConditionEvaluator conditionEvaluator,
             ResponseHandler responseHandler,
             ConfigDataInterpolator<FlowControl> flowControlInterpolator,
-            Consumer<AttemptFinished> attemptListener) {
+            RequestExecutor requestExecutor) {
         this.interpolation = interpolation;
         this.requestDefinitionInterpolator = requestDefinitionInterpolator;
-        this.conditionInterpolator = conditionInterpolator;
-        this.conditionResolver = conditionResolver;
-        this.requestHandler = requestHandler;
+        this.conditionEvaluator = conditionEvaluator;
         this.responseHandler = responseHandler;
         this.flowControlInterpolator = flowControlInterpolator;
-        this.attemptListener = attemptListener;
+        this.requestExecutor = requestExecutor;
     }
 
     /**
@@ -142,32 +123,11 @@ public class RequestProcessor {
      * </ol>
      *
      * <p>
-     * <strong>How the loop ends, and what it reports.</strong> Each attempt performs the request; an
-     * attempt that got a response evaluates {@code repeatUntil.condition} against it. An attempt that
-     * failed to reach the server <strong>counts against {@code maxAttempts} and is retried</strong> —
-     * the archetypal poll waits for something to come up, so its early attempts are expected to fail
-     * — and it does not evaluate the condition, because there is no response to evaluate against.
-     * <strong>What stopped the loop is what gets reported:</strong>
-     * <ul>
-     *   <li><strong>the condition held</strong> on any attempt → {@link RequestStatus.Completed},
-     *       however many earlier attempts errored;</li>
-     *   <li><strong>attempts exhausted, last one got a response</strong> → {@link RequestStatus.GaveUp},
-     *       carrying that attempt and the author's {@code messageOnFail};</li>
-     *   <li><strong>attempts exhausted, last one errored</strong> → {@link RequestStatus.Errored}
-     *       naming the attempt count and the underlying failure. Not {@code GaveUp}:
-     *       {@code messageOnFail} describes a condition that never came true and would describe the
-     *       wrong event over a connection failure.</li>
-     * </ul>
-     * <strong>A condition that cannot be evaluated is not retried.</strong> A {@code repeatUntil}
-     * condition that fails to interpolate or names a func nothing resolves is
-     * {@link RequestStatus.Errored} at once — it is an authoring error, not a transient one, and
-     * spending the whole attempt budget with waits in between cannot make it start working. This is
-     * the same treatment the skip condition gets, for the same reason.
-     * <p>
-     * {@code maxAttempts} defaults to {@link dev.pbroman.brat.core.util.Constants#DEFAULT_MAX_ATTEMPTS}
-     * so that a loop bails whether or not the author thought about bailing;
-     * {@code waitBetweenAttempts} defaults to no wait, since a wait the author did not ask for is not
-     * this class's to invent. Either being unparseable is {@link RequestStatus.Errored}.
+     * <strong>What a poll can end as</strong> is {@link RequestExecutor}'s to decide and is documented
+     * there: the condition holding, the attempts running out with a response in hand, or the attempts
+     * running out with the final one errored. The bounds it runs within — including what is rejected
+     * and what is defaulted — belong to {@link PollBounds}. Neither is restated here, so that neither
+     * can drift from it.
      * <p>
      * <strong>Response actions run on {@code Completed} and on {@code GaveUp}</strong>, because in
      * both cases a response exists and the author asked for those checks — "it gave up <em>and</em>
@@ -222,12 +182,12 @@ public class RequestProcessor {
 
         if (request.skipCondition() != null) {
             try {
-                var condition = conditionInterpolator.interpolated(request.skipCondition(), interpolation, runtimeData);
-                if (conditionResolver.resolve(condition)) {
+                var evaluation = conditionEvaluator.evaluate(request.skipCondition(), runtimeData);
+                if (evaluation.holds()) {
                     return new RequestResult(
                             coordinates,
                             requestDef,
-                            new RequestStatus.Skipped("Skipped due to condition " + condition),
+                            new RequestStatus.Skipped("Skipped due to condition " + evaluation.condition()),
                             elapsedMs(methodStart),
                             null);
                 }
@@ -245,112 +205,30 @@ public class RequestProcessor {
             return errored(coordinates, requestDef, message, methodStart);
         }
 
-        RepeatUntil repeatUntil = null;
-        if (request.flowControl() != null) {
-            try {
-                repeatUntil = flowControlInterpolator
-                        .interpolated(request.flowControl(), interpolation, runtimeData)
-                        .getRepeatUntil();
-            } catch (Exception e) {
-                var message = FailureMessages.causeOf(e, "Flow control interpolation");
-                return errored(coordinates, interpolatedRequestDef, message, methodStart);
-            }
+        Optional<PollBounds> pollBounds;
+        try {
+            pollBounds = request.flowControl() == null
+                    ? Optional.empty()
+                    : PollBounds.of(
+                            flowControlInterpolator.interpolated(request.flowControl(), interpolation, runtimeData));
+        } catch (Exception e) {
+            var message = FailureMessages.causeOf(e, "Flow control");
+            return errored(coordinates, interpolatedRequestDef, message, methodStart);
         }
 
         try {
-            if (repeatUntil == null) {
-                return performRequestAndResponseActions(
-                        interpolatedRequestDef, runtimeData, request.responseActions(), coordinates, methodStart);
-            }
-
-            int attempt = 1;
-            int maxAttempts = DEFAULT_MAX_ATTEMPTS;
-            if (repeatUntil.getMaxAttempts() != null) {
-                try {
-                    maxAttempts = Integer.parseInt(repeatUntil.getMaxAttempts());
-                    if (maxAttempts <= 0) {
-                        return errored(
-                                coordinates,
-                                interpolatedRequestDef,
-                                "maxAttempts has a non-positive value: " + maxAttempts,
-                                methodStart);
-                    }
-                } catch (Exception e) {
-                    var message = FailureMessages.causeOf(e, "Parsing maxAttempts");
-                    return errored(coordinates, interpolatedRequestDef, message, methodStart);
-                }
-            }
-
-            long waitBetweenAttempts = 0;
-            if (repeatUntil.getWaitBetweenAttempts() != null) {
-                try {
-                    waitBetweenAttempts = Long.parseLong(repeatUntil.getWaitBetweenAttempts());
-                } catch (Exception e) {
-                    var message = FailureMessages.causeOf(e, "Parsing waitBetweenAttempts");
-                    return errored(coordinates, interpolatedRequestDef, message, methodStart);
-                }
-                if (waitBetweenAttempts < 0) {
-                    return errored(
-                            coordinates,
-                            interpolatedRequestDef,
-                            "waitBetweenAttempts has a negative value: " + waitBetweenAttempts,
-                            methodStart);
-                }
-            }
-
-            RequestStatus requestStatus = null;
-
-            while (attempt <= maxAttempts) {
-                requestStatus = performRequest(interpolatedRequestDef, runtimeData, attempt);
-                // Only if the request is completed, the repeatUntil condition is evaluated. If errored, it's retried.
-                if (requestStatus instanceof RequestStatus.Completed) {
-                    try {
-                        var interpolatedCondition = conditionInterpolator.interpolated(
-                                repeatUntil.getCondition(), interpolation, runtimeData);
-                        if (conditionResolver.resolve(interpolatedCondition)) {
-                            attemptFinished(coordinates, attempt, maxAttempts, requestStatus, true);
-                            ResponseActionsResult responseActionsResult = null;
-                            if (request.responseActions() != null) {
-                                responseActionsResult =
-                                        responseHandler.handleResponse(request.responseActions(), runtimeData);
-                            }
-                            return new RequestResult(
-                                    coordinates,
-                                    interpolatedRequestDef,
-                                    requestStatus,
-                                    elapsedMs(methodStart),
-                                    responseActionsResult);
-
-                        } else {
-                            attemptFinished(coordinates, attempt, maxAttempts, requestStatus, false);
-                        }
-                    } catch (Exception e) {
-                        var message = FailureMessages.causeOf(e, "A condition");
-                        var erroredStatus = new RequestStatus.Errored(message);
-                        attemptFinished(coordinates, attempt, maxAttempts, erroredStatus, false);
-                        return new RequestResult(
-                                coordinates, interpolatedRequestDef, erroredStatus, elapsedMs(methodStart), null);
-                    }
-                } else {
-                    attemptFinished(coordinates, attempt, maxAttempts, requestStatus, false);
-                }
-                sleep(waitBetweenAttempts);
-                attempt++;
-            }
-
-            // Max attempts exhausted, create request result
-            var exhausted = createExhaustedRequestStatus(requestStatus, repeatUntil.getMessageOnFail());
+            var status = requestExecutor.execute(interpolatedRequestDef, pollBounds, coordinates, runtimeData);
             ResponseActionsResult responseActionsResult = null;
-            try {
-                if (request.responseActions() != null) {
+            if (carriesAResponse(status) && request.responseActions() != null) {
+                try {
                     responseActionsResult = responseHandler.handleResponse(request.responseActions(), runtimeData);
+                } catch (Exception e) {
+                    var message = FailureMessages.causeOf(e, "The response actions");
+                    return errored(coordinates, interpolatedRequestDef, message, methodStart);
                 }
-            } catch (Exception e) {
-                var message = FailureMessages.causeOf(e, "A request");
-                return errored(coordinates, interpolatedRequestDef, message, methodStart);
             }
             return new RequestResult(
-                    coordinates, interpolatedRequestDef, exhausted, elapsedMs(methodStart), responseActionsResult);
+                    coordinates, interpolatedRequestDef, status, elapsedMs(methodStart), responseActionsResult);
         } finally {
             // The response belongs to this request and dies with it, on every path including a
             // structural throw. This is the whole lifecycle: nothing else clears, nothing else must
@@ -360,91 +238,15 @@ public class RequestProcessor {
     }
 
     /**
-     * Pauses between two attempts.
+     * Whether {@code status} ended holding a response, and so whether the response actions have
+     * anything to run against.
      * <p>
-     * An interrupt is <strong>cancellation of the run, not a failure of this request</strong>, so the
-     * flag is restored and the exception propagates rather than becoming a result: it is the
-     * structural case this class's {@code @throws} carves out. This is the seam that matters when
-     * cancellation becomes interrupt-based inside a request; swallowing it here is what would make
-     * such a cancellation do nothing.
-     *
-     * @param millis how long to pause; zero or less returns at once
-     * @throws BratException if the thread is interrupted while waiting
+     * The predicate is deliberately one place rather than a decision repeated per execution path: it
+     * is also exactly the condition under which {@code responseVars} holds <em>this</em> status's
+     * response, since a completed attempt is the only thing that writes it.
      */
-    private static void sleep(long millis) {
-        if (millis <= 0) {
-            return;
-        }
-        try {
-            Thread.sleep(millis);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new BratException("Interrupted while waiting between attempts", e);
-        }
-    }
-
-    private void attemptFinished(
-            RequestCoordinates coordinates,
-            int attempt,
-            int maxAttempts,
-            RequestStatus requestStatus,
-            boolean conditionMet) {
-        long rtt = requestStatus instanceof RequestStatus.Completed completed ? completed.roundTripTimeMs() : 0;
-        var error = requestStatus instanceof RequestStatus.Errored(String message) ? message : null;
-        attemptListener.accept(new AttemptFinished(coordinates, attempt, maxAttempts, rtt, conditionMet, error));
-    }
-
-    private RequestStatus createExhaustedRequestStatus(RequestStatus lastRequestStatus, String messageOnFail) {
-        if (messageOnFail == null) {
-            messageOnFail = "Max attempts exhausted";
-        }
-        // Every permit is listed rather than defaulted: a fifth RequestStatus would then fail to
-        // compile here instead of falling silently into a default arm. A null cannot reach this - a
-        // positive maxAttempts means the loop always assigned one - so it is not handled either.
-        return switch (lastRequestStatus) {
-            case RequestStatus.Errored _ -> lastRequestStatus;
-            case RequestStatus.Completed completed -> new RequestStatus.GaveUp(completed, messageOnFail);
-            case RequestStatus.Skipped _, RequestStatus.GaveUp _ ->
-                new RequestStatus.Errored("The last performed request has a disallowed status: "
-                        + lastRequestStatus.getClass().getSimpleName());
-        };
-    }
-
-    private RequestResult performRequestAndResponseActions(
-            HttpRequestDefinition requestDefinition,
-            RuntimeData runtimeData,
-            ResponseActions responseActions,
-            RequestCoordinates coordinates,
-            long methodStart) {
-        var status = performRequest(requestDefinition, runtimeData, 1);
-        if (status instanceof RequestStatus.Errored) {
-            return new RequestResult(coordinates, requestDefinition, status, elapsedMs(methodStart), null);
-        }
-        try {
-            ResponseActionsResult responseActionsResult = null;
-            if (responseActions != null) {
-                responseActionsResult = responseHandler.handleResponse(responseActions, runtimeData);
-            }
-            return new RequestResult(
-                    coordinates, requestDefinition, status, elapsedMs(methodStart), responseActionsResult);
-        } catch (Exception e) {
-            var message = FailureMessages.causeOf(e, "A request");
-            return errored(coordinates, requestDefinition, message, methodStart);
-        }
-    }
-
-    private RequestStatus performRequest(
-            HttpRequestDefinition requestDefinition, RuntimeData runtimeData, int numAttempts) {
-        try {
-            long requestStart = System.currentTimeMillis();
-            var response = requestHandler.performRequest(requestDefinition);
-            long rtt = elapsedMs(requestStart);
-            var responseVars = HttpResponseVars.of(response);
-            runtimeData.setResponseVars(responseVars);
-            return new RequestStatus.Completed(responseVars, numAttempts, rtt);
-        } catch (Exception e) {
-            return new RequestStatus.Errored(FailureMessages.causeOf(e, "A request"));
-        }
+    private static boolean carriesAResponse(RequestStatus status) {
+        return status instanceof RequestStatus.Completed || status instanceof RequestStatus.GaveUp;
     }
 
     /**
