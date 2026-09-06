@@ -19,8 +19,9 @@ import static dev.pbroman.brat.core.util.Constants.JSON;
 import static dev.pbroman.brat.core.util.Constants.STATUS_CODE;
 
 /**
- * Builds the {@code responseVars} namespace from an HTTP response, so that {@code ${sc}},
- * {@code ${rb}}, {@code ${rh.…}} and {@code ${rj.…}} have something to resolve against.
+ * Builds the {@code responseVars} namespace from an HTTP response, so that
+ * {@code ${response.statusCode}}, {@code ${response.body}}, {@code ${response.headers.…}} and
+ * {@code ${response.json.…}} have something to resolve against.
  * <p>
  * This lives beside the HTTP handler rather than on {@code RuntimeData} deliberately. The namespace
  * is protocol-shaped — {@code statusCode} and {@code headers} mean nothing to an FTP request — so a
@@ -28,9 +29,9 @@ import static dev.pbroman.brat.core.util.Constants.STATUS_CODE;
  * shares.
  * <p>
  * <strong>The namespace is a lossy, interpolation-shaped view, not the response.</strong> Headers
- * collapse to one value each because {@code ${rh.Content-Type}} substitutes a single string. Nothing
- * is lost overall: the full multi-valued {@link HttpResponse} is what lands on the request's result,
- * and is where anything needing every value should look.
+ * collapse to one value each because {@code ${response.headers.Content-Type}} substitutes a single
+ * string. Nothing is lost overall: the full multi-valued {@link HttpResponse} is what lands on the
+ * request's result, and is where anything needing every value should look.
  */
 public final class HttpResponseVars {
 
@@ -109,8 +110,8 @@ public final class HttpResponseVars {
      * <strong>An object or an array, not merely something Jackson parsed.</strong> {@code readTree}
      * accepts a bare scalar — {@code 42} is an {@code IntNode}, {@code true} a {@code BooleanNode} —
      * and answers an empty or blank input with a {@code MissingNode} rather than throwing. Either
-     * would put a plain-text body under {@code json}, where {@code ${rj.…}} then fails inside JSONPath
-     * instead of through the "no JSON here" path an author can act on.
+     * would put a plain-text body under {@code json}, where {@code ${response.json.…}} then fails
+     * inside JSONPath instead of through the "no JSON here" path an author can act on.
      * <p>
      * Nothing is rethrown: an unparseable body is an ordinary response, not a failure of this method.
      *
