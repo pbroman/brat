@@ -14,6 +14,10 @@ import dev.pbroman.brat.core.data.result.RequestCoordinates;
  * once and emits none: there is no loop to report progress within, and a synthetic attempt would have
  * to invent a {@code conditionMet} that nothing evaluated. What a request did in total is on its
  * result.
+ * <p>
+ * A member of {@link RunEvent} declared on its own rather than nested inside it, because it predates
+ * the interface and is referenced by name in the narrowed {@code Consumer<AttemptFinished>} the
+ * request processor receives — narrowed so no processor can forge a run-level event.
  *
  * @param coordinates which request this attempt belongs to; never {@code null}
  * @param attempt which attempt this was, counting from {@code 1}
@@ -33,4 +37,5 @@ public record AttemptFinished(
         int maxAttempts,
         long roundTripTimeMs,
         boolean conditionMet,
-        String error) {}
+        String error)
+        implements RunEvent {}

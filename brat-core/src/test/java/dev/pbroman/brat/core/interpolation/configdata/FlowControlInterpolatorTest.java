@@ -19,8 +19,7 @@ import static org.mockito.Mockito.when;
 
 class FlowControlInterpolatorTest {
 
-    private final RepeatUntilInterpolator repeatUntilInterpolator =
-            new RepeatUntilInterpolator(new ConditionInterpolator());
+    private final RepeatUntilInterpolator repeatUntilInterpolator = new RepeatUntilInterpolator();
     private final FlowControlInterpolator interpolator = new FlowControlInterpolator(repeatUntilInterpolator);
 
     private Interpolation interpolation;

@@ -18,7 +18,9 @@ import static dev.pbroman.brat.core.util.Constants.DEFAULT_MAX_ATTEMPTS;
  * be sane. Separating the two means a bad bound is rejected once, before any attempt is spent, rather
  * than discovered in the middle of the run.
  *
- * @param condition the condition that ends the loop when it holds
+ * @param condition the condition that ends the loop when it holds, <strong>as authored</strong> — it
+ *        is interpolated afresh on each attempt, against that attempt's response, because that is
+ *        the only moment a {@code ${response.…}} in it means anything
  * @param maxAttempts the attempt ceiling; always positive
  * @param waitBetweenAttempts the pause between attempts in milliseconds; never negative, and
  *        {@code 0} where the author declared none

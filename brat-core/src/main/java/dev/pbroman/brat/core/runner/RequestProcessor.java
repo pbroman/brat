@@ -60,7 +60,8 @@ public class RequestProcessor {
      * @param conditionEvaluator interpolates and answers the skip condition
      * @param responseHandler runs the response actions against the response
      * @param flowControlInterpolator produces the interpolated copy of the flow control, whose
-     *        {@code maxAttempts} and {@code waitBetweenAttempts} may themselves be tokens
+     *        {@code maxAttempts} and {@code waitBetweenAttempts} may themselves be tokens; it leaves
+     *        the loop condition authored, for the executor to resolve per attempt
      * @param requestExecutor performs the request's attempts and says how they ended
      */
     public RequestProcessor(
@@ -103,10 +104,11 @@ public class RequestProcessor {
      *       {@link RequestStatus.Errored}, and the result carries the <em>authored</em> definition,
      *       since no interpolated copy exists — {@code ConfigData.isInterpolated()} is how a reader
      *       tells which one arrived.</li>
-     *   <li><strong>The flow control is interpolated</strong>, when the request declares one, since
-     *       {@code maxAttempts} and {@code waitBetweenAttempts} may be tokens. Failing here is
-     *       {@link RequestStatus.Errored}: the loop's bounds are not knowable, and guessing them is
-     *       how a suite spins.</li>
+     *   <li><strong>The flow control's bounds are interpolated</strong>, when the request declares
+     *       one, since {@code maxAttempts} and {@code waitBetweenAttempts} may be tokens. Failing
+     *       here is {@link RequestStatus.Errored}: the loop's bounds are not knowable, and guessing
+     *       them is how a suite spins. <strong>The loop condition is not interpolated here</strong> —
+     *       it reads the response the loop is waiting for, so it is resolved per attempt.</li>
      *   <li><strong>The request is performed, once or repeatedly.</strong> With no
      *       {@code repeatUntil} it runs exactly once. With one, it runs until the condition holds or
      *       the attempts run out — see below. Failing to reach the server is

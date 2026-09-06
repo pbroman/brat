@@ -19,7 +19,7 @@ import static org.mockito.Mockito.when;
 
 class RepeatUntilInterpolatorTest {
 
-    private final RepeatUntilInterpolator interpolator = new RepeatUntilInterpolator(new ConditionInterpolator());
+    private final RepeatUntilInterpolator interpolator = new RepeatUntilInterpolator();
 
     private static final Condition ANY_CONDITION = new Condition("isEqualTo", "a", "b");
 
@@ -62,30 +62,30 @@ class RepeatUntilInterpolatorTest {
     }
 
     @Test
-    void interpolated_interpolatesTheCondition() {
-        // given
-        var repeatUntil =
-                new RepeatUntil(new Condition("isEqualTo", "${response.json.$.status}", "DONE"), null, null, null);
+    void interpolated_carriesTheConditionThroughUninterpolated() {
+        // given - the bounds are resolved once, before the first attempt, when no response exists
+        var condition = new Condition("isEqualTo", "${response.json.$.status}", "DONE");
+        var repeatUntil = new RepeatUntil(condition, null, null, null);
 
         // when
         var result = interpolator.interpolated(repeatUntil, interpolation, runtimeData);
 
-        // then
-        assertThat(result.getCondition().isInterpolated()).isTrue();
-        assertThat(result.getCondition().getA()).isEqualTo("i:${response.json.$.status}");
+        // then - the same authored condition, untouched, for the loop to interpolate per attempt
+        assertThat(result.getCondition()).isSameAs(condition);
+        assertThat(result.getCondition().isInterpolated()).isFalse();
     }
 
     @Test
-    void interpolated_keepsTheConditionsOutcomesOnTheCondition() {
+    void interpolated_recordsNoOutcomeForTheCondition() {
         // given
         var repeatUntil = new RepeatUntil(new Condition("isEqualTo", "a", "b"), "10", null, null);
 
         // when
         var result = interpolator.interpolated(repeatUntil, interpolation, runtimeData);
 
-        // then
+        // then - nothing about the condition was resolved here, so this block reports only its bounds
         assertThat(result.getOutcomes()).containsOnlyKeys("maxAttempts");
-        assertThat(result.getCondition().getOutcomes()).containsOnlyKeys("a", "b");
+        assertThat(result.getCondition().getOutcomes()).isNull();
     }
 
     @Test
@@ -104,13 +104,17 @@ class RepeatUntilInterpolatorTest {
     }
 
     @Test
-    void interpolated_throwsForANullCondition() {
-        // given - "repeat until" with nothing to wait for is not "repeat N times"
+    void interpolated_carriesANullConditionThroughWithoutFailing() {
+        // given - "repeat until" with nothing to wait for is rejected, but not here: the loader says
+        // where, and PollBounds is the backstop. All this owes is not a NullPointerException
         var repeatUntil = new RepeatUntil(null, "10", null, null);
 
-        // when / then - the type, not the wording: the loader is what tells an author where
-        assertThatThrownBy(() -> interpolator.interpolated(repeatUntil, interpolation, runtimeData))
-                .isInstanceOf(BratException.class);
+        // when
+        var result = interpolator.interpolated(repeatUntil, interpolation, runtimeData);
+
+        // then
+        assertThat(result.getCondition()).isNull();
+        assertThat(result.getMaxAttempts()).isEqualTo("i:10");
     }
 
     @Test
@@ -132,13 +136,15 @@ class RepeatUntilInterpolatorTest {
     }
 
     @Test
-    void interpolated_propagatesAFailureFromTheCondition() {
-        // given
+    void interpolated_doesNotResolveTheConditionAtAll() {
+        // given - a condition whose interpolation would throw; the loop resolves it later, or not
         var repeatUntil = new RepeatUntil(new Condition("isEqualTo", "${vars.boom}", "b"), null, null, null);
         when(interpolation.outcome(eq("${vars.boom}"), any())).thenThrow(new BratException("nope"));
 
-        // when / then
-        assertThatThrownBy(() -> interpolator.interpolated(repeatUntil, interpolation, runtimeData))
-                .isInstanceOf(BratException.class);
+        // when / then - the bounds resolve regardless, because the condition was never touched
+        assertThat(interpolator
+                        .interpolated(repeatUntil, interpolation, runtimeData)
+                        .getCondition())
+                .isSameAs(repeatUntil.getCondition());
     }
 }
