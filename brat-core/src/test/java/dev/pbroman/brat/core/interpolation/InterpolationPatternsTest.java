@@ -43,7 +43,7 @@ class InterpolationPatternsTest {
         // then — the delimiters must agree across every member of this class
         assertThat(token).isEqualTo("${response.statusCode}");
         assertThat(token).matches(InterpolationPatterns.regexForVariable("response.statusCode"));
-        assertThat(InterpolationPatterns.isToken(token)).isTrue();
+        assertThat(TokenScanner.isToken(token)).isTrue();
     }
 
     @Test
@@ -81,56 +81,5 @@ class InterpolationPatternsTest {
         assertThat(tokens)
                 .singleElement()
                 .satisfies(token -> assertThat(token.text()).isEqualTo("${vars.userId}"));
-    }
-
-    @Test
-    void isToken_acceptsASingleToken() {
-        // when / then
-        assertThat(InterpolationPatterns.isToken("${vars.userId}")).isTrue();
-    }
-
-    @Test
-    void isToken_acceptsANestedToken() {
-        // when / then — counted rather than matched, which a lazy token regex cannot do
-        assertThat(InterpolationPatterns.isToken("${__upper(${vars.name})}")).isTrue();
-    }
-
-    @Test
-    void isToken_rejectsATokenWithTextAroundIt() {
-        // when / then — holding a token is not being one
-        assertThat(InterpolationPatterns.isToken("id: ${vars.id}")).isFalse();
-        assertThat(InterpolationPatterns.isToken("${vars.id} trailing")).isFalse();
-    }
-
-    @Test
-    void isToken_rejectsTwoAdjacentTokens() {
-        // when / then
-        assertThat(InterpolationPatterns.isToken("${vars.a}${vars.b}")).isFalse();
-    }
-
-    @Test
-    void isToken_rejectsAnUnterminatedToken() {
-        // when / then
-        assertThat(InterpolationPatterns.isToken("${vars.unclosed")).isFalse();
-    }
-
-    @Test
-    void isToken_rejectsTextThatIsNotAToken() {
-        // when / then
-        assertThat(InterpolationPatterns.isToken("vars.userId")).isFalse();
-        assertThat(InterpolationPatterns.isToken("")).isFalse();
-        assertThat(InterpolationPatterns.isToken("   ")).isFalse();
-    }
-
-    @Test
-    void isToken_answersFalseForNullRatherThanThrowing() {
-        // when / then — unlike TokenScanner.tokensIn, which rejects a null
-        assertThat(InterpolationPatterns.isToken(null)).isFalse();
-    }
-
-    @Test
-    void isToken_acceptsAnEmptyTokenAsSyntacticallyOne() {
-        // when / then — well-formed but nameless; resolvability is not this method's question
-        assertThat(InterpolationPatterns.isToken("${}")).isTrue();
     }
 }

@@ -12,6 +12,7 @@ import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
+import dev.pbroman.brat.core.interpolation.TokenScanner;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
 import static dev.pbroman.brat.core.util.Constants.JSON;
@@ -70,12 +71,21 @@ public final class ResponseJsonInterpolationRule implements InterpolationRule {
      * <p>
      * Ownership is decided on the token alone, before {@code runtimeData} is looked at, so a token of
      * another namespace is declined rather than failing on a missing {@code responseVars}.
+     * <p>
+     * <strong>A token whose path holds another token is declined</strong>, not resolved:
+     * {@code ${response.json.${vars.path}}} is a data-derived JSONPath, which nothing in core
+     * computes. This rule implements {@link dev.pbroman.brat.core.api.interpolation.InterpolationRule}
+     * directly and so applies that test itself, exactly as
+     * {@link AbstractInterpolationRule#claims(String)} applies it for the rules extending the base.
+     * Declining leaves the field to pass through as written — which is the answer an author needs,
+     * rather than a {@code BratException} naming a truncated path they never wrote. A JSONPath's own
+     * {@code $} is not a nested token and keeps resolving.
      *
      * @param input the token to resolve
      * @param runtimeData the object containing values; must hold the {@code responseVars} namespace
      * @return the outcome holding the resolved value, typed as JsonPath produced it; or
      *         {@link Optional#empty()} if {@code input} is not a whole {@code ${response.json.…}}
-     *         token, leaving it for another rule
+     *         token, or is one holding a token of its own, leaving it for another rule
      * @throws BratException if {@code input} is {@code null}; or, for a token this rule claims, if
      *         {@code runtimeData} is {@code null}, if it has no {@code responseVars}, if the response
      *         holds no JSON, if the token names no path, if the path is malformed or matches nothing
@@ -84,7 +94,7 @@ public final class ResponseJsonInterpolationRule implements InterpolationRule {
     @Override
     public Optional<InterpolationOutcome> outcome(String input, RuntimeData runtimeData) {
         nonNull(input, "Cannot interpolate a null input");
-        if (!InterpolationPatterns.isToken(input)) {
+        if (!TokenScanner.isToken(input) || TokenScanner.holdsNestedToken(input)) {
             return Optional.empty();
         }
         var matcher =

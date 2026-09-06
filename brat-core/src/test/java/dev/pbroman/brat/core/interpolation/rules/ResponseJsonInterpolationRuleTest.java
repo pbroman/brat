@@ -188,4 +188,23 @@ public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("json response");
     }
+
+    @Test
+    void outcome_declinesATokenWhosePathHoldsAnotherToken() {
+        // when — a data-derived JSONPath, which nothing in core computes
+        var outcome = underTest.outcome("${response.json.${vars.path}}", runtimeData);
+
+        // then — declined rather than resolved, and rather than throwing about a truncated path the
+        // author never wrote: the greedy key group used to match straight across the inner brace
+        assertThat(outcome).isEmpty();
+    }
+
+    @Test
+    void outcome_stillResolvesAPathWhoseOwnDollarIsNotAToken() {
+        // when — the detail the nesting test must not break: "$" is a JSONPath root, not an opener
+        var result = interpolate("${response.json.$.id}", runtimeData);
+
+        // then
+        assertThat(result).isEqualTo("123");
+    }
 }

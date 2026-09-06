@@ -40,50 +40,10 @@ public final class InterpolationPatterns {
      */
     public static final String FUNCTION_CALL_PREFIX = TOKEN_PREFIX + FUNCTION_PREFIX;
 
-    /**
-     * Matches a single token, lazily — so it stops at the first closing brace and does <em>not</em>
-     * handle nesting, which is why it is private: {@link #isToken(String)} is the public question,
-     * and it counts braces through {@link TokenScanner} instead.
-     */
-    private static final Pattern VARIABLE_PATTERN = Pattern.compile("\\$\\{.*?}");
-
     private static final Map<String, Pattern> GROUPING_PATTERNS = new ConcurrentHashMap<>();
 
     private InterpolationPatterns() {
         // no instances
-    }
-
-    /**
-     * Whether {@code input} is exactly one interpolation token — the delimiters at both ends, and
-     * nothing outside them.
-     * <p>
-     * <strong>Counted, not matched.</strong> A regex for a token is lazy and stops at the first
-     * closing brace, so it would answer {@code false} for {@code ${__upper(${vars.name})}}; this
-     * counts braces through {@link TokenScanner} and answers {@code true}. A token holding another
-     * token is one token.
-     * <p>
-     * <strong>"Is a token", not "holds a token."</strong> Text with a token somewhere inside it —
-     * {@code "id: ${vars.id}"} — is {@code false}, and so are two adjacent tokens: the question is
-     * whether the whole string is a single token, which is what decides whether a resolved value may
-     * keep its own type instead of being spliced into surrounding text.
-     * <p>
-     * Syntax only. {@code ${}} is a well-formed token carrying no name, so this answers {@code true}
-     * for it; whether any rule can resolve such a token is not this method's question.
-     *
-     * @param input the string to test, or {@code null}
-     * @return whether {@code input} is exactly one token. {@code false} for {@code null}, for empty
-     *         or blank text, for a token with anything around it, for two adjacent tokens, and for a
-     *         token opener with no closing brace. Never throws — a {@code null} is answered rather
-     *         than rejected, unlike {@link TokenScanner#tokensIn(String)}
-     */
-    public static boolean isToken(String input) {
-        if (input == null || input.isBlank()) {
-            return false;
-        }
-        var tokens = TokenScanner.tokensIn(input);
-        return tokens.size() == 1
-                && tokens.getFirst().start() == 0
-                && tokens.getFirst().end() == input.length();
     }
 
     /**

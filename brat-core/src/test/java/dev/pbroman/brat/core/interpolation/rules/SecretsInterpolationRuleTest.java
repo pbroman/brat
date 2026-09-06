@@ -119,4 +119,24 @@ class SecretsInterpolationRuleTest extends AbstractInterpolationTest {
         // then
         assertThat(result.value()).isEqualTo("literalKey");
     }
+
+    @Test
+    void outcome_declinesANestedTokenWithoutAskingTheProvider() {
+        // when — a secret named by another token; nothing in core computes one
+        var outcome = underTest.outcome("${secrets.${vars.which}}", runtimeData);
+
+        // then — declined, and no lookup attempted for a key BRAT cannot read as authored
+        assertThat(outcome).isEmpty();
+        verifyNoInteractions(provider);
+    }
+
+    @Test
+    void outcome_declinesTextThatMerelyContainsASecretsToken() {
+        // when — a rule is handed one token at a time; surrounding text is the scanner's business
+        var outcome = underTest.outcome("Bearer ${secrets.apiKey}", runtimeData);
+
+        // then
+        assertThat(outcome).isEmpty();
+        verifyNoInteractions(provider);
+    }
 }

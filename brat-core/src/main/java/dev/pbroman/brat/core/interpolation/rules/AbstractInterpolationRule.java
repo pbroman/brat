@@ -12,6 +12,7 @@ import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
+import dev.pbroman.brat.core.interpolation.TokenScanner;
 import org.apache.commons.lang3.StringUtils;
 
 import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
@@ -71,16 +72,30 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
      * subclass has to spell "not mine" as a return value.
      * <p>
      * The default answers {@code true} for a string that is <em>one whole token</em>
-     * ({@link InterpolationPatterns#isToken(String)}) in this rule's {@code interpolationKey}
-     * namespace. Both halves matter: a rule is handed one token at a time, so text merely
-     * <em>containing</em> one is not this rule's to resolve. A subclass whose namespace is not a
-     * single {@code ${key.rest}} shape — one whose token carries no key at all, say — overrides this.
+     * ({@link TokenScanner#isToken(String)}) in this rule's {@code interpolationKey}
+     * namespace, and that <em>holds no token of its own</em>
+     * ({@link TokenScanner#holdsNestedToken(String)}). All three matter: a rule is handed one
+     * token at a time, so text merely <em>containing</em> one is not this rule's to resolve; and a
+     * token whose key holds another token — {@code ${vars.${vars.inner}}} — is not a token of this
+     * namespace at all, because nothing resolves the inner one first. Nesting works inside a function
+     * call, whose arguments the evaluator hands back through interpolation, and nowhere else.
+     * <p>
+     * Declining a nested token is what makes the outcome <strong>independent of the order rules are
+     * registered in</strong>: no rule claims it, so the dispatcher passes the field through as
+     * written, rather than the first rule whose pattern happened to match it answering with an empty
+     * string or a message about a JSONPath the author never wrote.
+     * <p>
+     * A subclass whose namespace is not a single {@code ${key.rest}} shape — one whose token carries
+     * no key at all, say — overrides this. So does one opting <em>in</em> to a nested key, which is
+     * the supported way to have one: whoever overrides owns what a computed key means and gets no
+     * help from core, since nothing hands them a resolved inner value.
      *
      * @param input the token to test; never {@code null}
      * @return whether this rule owns {@code input}
      */
     protected boolean claims(String input) {
-        return InterpolationPatterns.isToken(input)
+        return TokenScanner.isToken(input)
+                && !TokenScanner.holdsNestedToken(input)
                 && InterpolationPatterns.groupingPatternForVariable(interpolationKey)
                         .matcher(input)
                         .find();

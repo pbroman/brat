@@ -8,6 +8,7 @@ import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
+import dev.pbroman.brat.core.interpolation.TokenScanner;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
 import static dev.pbroman.brat.core.util.Constants.SECRETS;
@@ -53,13 +54,22 @@ public final class SecretsInterpolationRule implements InterpolationRule {
      * {@code runtimeData} holds no secrets and is not consulted; it is still rejected when
      * {@code null}, so that a null-argument failure does not depend on which rule the dispatcher
      * happens to reach first.
+     * <p>
+     * <strong>Claimed only as one whole token holding no token of its own.</strong> Text merely
+     * containing a {@code ${secrets.…}} token is declined, and so is
+     * {@code ${secrets.${vars.which}}} — a secret named by another token, which nothing in core
+     * computes. This rule implements {@link InterpolationRule} directly and so applies both tests
+     * itself, exactly as {@link AbstractInterpolationRule#claims(String)} applies them for the rules
+     * extending the base. <strong>A declined token never reaches the provider</strong>: no lookup is
+     * attempted for a key BRAT cannot read from the token as authored.
      *
      * @param input the token to resolve, e.g. {@code "${secrets.apiKey}"}
      * @param runtimeData the object containing values; unused beyond the null check
      * @return an outcome holding the resolved secret, with {@code containsSecret} set and a
      *         {@code reportingString} of {@code input + " → ***"} that never contains the value
-     *         itself; or {@code input} unchanged with {@code containsSecret} unset if {@code input}
-     *         is not a {@code ${secrets.…}} token, leaving it for another rule to process
+     *         itself; or {@link Optional#empty()} if {@code input} is not a whole
+     *         {@code ${secrets.…}} token, or is one holding a token of its own, leaving it for
+     *         another rule to process
      * @throws BratException if {@code input} or {@code runtimeData} is {@code null}, if
      *         {@code input} is a {@code ${secrets.…}} token with no key, if it is one whose key no
      *         provider in the chain has, or if the provider itself fails
@@ -69,7 +79,7 @@ public final class SecretsInterpolationRule implements InterpolationRule {
         nonNull(input, "Cannot interpolate a null input");
         requireNamespaces(runtimeData);
         var matcher = InterpolationPatterns.groupingPatternForVariable(SECRETS).matcher(input);
-        if (!matcher.find()) {
+        if (!TokenScanner.isToken(input) || TokenScanner.holdsNestedToken(input) || !matcher.find()) {
             return Optional.empty();
         }
         var key = matcher.group(VARIABLE_GROUP_NAME);

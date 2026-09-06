@@ -78,9 +78,7 @@ public class InterpolationScanner implements Interpolation {
         nonNull(input, "Cannot interpolate a null input");
         requireNamespaces(runtimeData);
         var tokens = TokenScanner.tokensIn(input);
-        if (tokens.size() == 1
-                && tokens.getFirst().start() == 0
-                && tokens.getFirst().end() == input.length()) {
+        if (tokens.size() == 1 && tokens.getFirst().spans(input)) {
             return resolveToken(input, runtimeData);
         }
         // Built front to back, resolving each token as its position is reached: the literal text

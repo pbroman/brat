@@ -22,6 +22,20 @@ public interface InterpolationRule {
      * never the field around it. Splicing a resolved value back into surrounding text belongs to the
      * scanner.
      * <p>
+     * <strong>One token is not the same as one token you can parse.</strong> A token is delimited by
+     * counting braces, so {@code ${imap.${vars.folder}}} arrives as a single token holding another
+     * one. Nesting is resolved for a <em>function call's arguments</em> — the evaluator hands each
+     * argument back through interpolation — and nowhere else: a namespace key has no sub-expression
+     * position and nothing resolves the inner token first. <strong>The default answer for a token
+     * holding another token is therefore to decline it</strong>, so that the field passes through as
+     * written rather than being claimed by whichever rule's pattern matched it first.
+     * {@code AbstractInterpolationRule} applies that test in {@code claims} for the rules extending
+     * it; <strong>implementing this interface directly means applying it yourself</strong>
+     * ({@code TokenScanner.holdsNestedToken}), which is part of taking on the claiming
+     * decision. A rule wanting a computed key opts in deliberately and owns what one means — core
+     * hands it no resolved inner value. The supported alternative is a {@code BratFunction}, whose
+     * arguments already recurse.
+     * <p>
      * <strong>Declining is explicit.</strong> Return {@link Optional#empty()} for a token that is not
      * this rule's, and the dispatcher tries the next rule. Returning a present outcome claims the
      * token: <strong>the dispatcher stops there and no lower-priority rule is consulted</strong>. A

@@ -271,6 +271,81 @@ class AbstractInterpolationRuleTest {
         assertThat(rule.outcome("${other}", runtimeData)).isEmpty();
     }
 
+    @Test
+    void claims_rejectsATokenWhoseKeyHoldsAnotherToken() {
+        // given
+        var rule = new StubInterpolationRule(Function.identity());
+
+        // when / then — one token by brace counting, but not one this namespace can resolve
+        assertThat(rule.claims("${stub.${stub.inner}}")).isFalse();
+    }
+
+    @Test
+    void claims_acceptsAKeyHoldingABareDollar() {
+        // given
+        var rule = new StubInterpolationRule(Function.identity());
+
+        // when / then — a nested token opens with "${"; a JSONPath's "$" is an ordinary key character
+        assertThat(rule.claims("${stub.$.id}")).isTrue();
+    }
+
+    @Test
+    void claims_rejectsAFunctionCallHoldingATokenOfThisNamespace() {
+        // given
+        var rule = new StubInterpolationRule(Function.identity());
+
+        // when / then — the namespace pattern finds "${stub." inside the call and would otherwise
+        // claim the whole thing, resolving a key of "name})". Routing keeps a call away from the
+        // rules, so this never fires through the scanner; the guard is what makes it not depend on
+        // that
+        assertThat(rule.claims("${__upper(${stub.name})}")).isFalse();
+    }
+
+    @Test
+    void outcome_declinesANestedTokenWithoutResolving() {
+        // given — resolve must not be handed a key it cannot read
+        var resolveCalls = new AtomicInteger();
+        var rule = new StubInterpolationRule(input -> {
+            resolveCalls.incrementAndGet();
+            return "resolved";
+        });
+
+        // when
+        var outcome = rule.outcome("${stub.${stub.inner}}", runtimeData);
+
+        // then — declined, so the dispatcher passes the field through as written
+        assertThat(outcome).isEmpty();
+        assertThat(resolveCalls).hasValue(0);
+    }
+
+    @Test
+    void claims_isOverridableToOptInToANestedKey() {
+        // given — the seam an extender uses to own what a computed key means
+        var rule = new NestingStubInterpolationRule();
+
+        // when / then
+        assertThat(rule.claims("${stub.${stub.inner}}")).isTrue();
+        assertThat(rule.outcome("${stub.${stub.inner}}", runtimeData)).isPresent();
+    }
+
+    /** A rule accepting a nested key, which the default claims declines. */
+    private static final class NestingStubInterpolationRule extends AbstractInterpolationRule {
+
+        NestingStubInterpolationRule() {
+            super("stub");
+        }
+
+        @Override
+        protected boolean claims(String input) {
+            return input.startsWith("${stub.");
+        }
+
+        @Override
+        protected String resolve(String input, RuntimeData runtimeData) {
+            return "nestedValue";
+        }
+    }
+
     /** A rule whose token has no {@code .key} part, so it must decide ownership for itself. */
     private static final class BareTokenStubInterpolationRule extends AbstractInterpolationRule {
 
