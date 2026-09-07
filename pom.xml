@@ -20,7 +20,7 @@
         <httpcore5.version>5.4.3</httpcore5.version>
         <jackson.version>3.2.1</jackson.version>
         <jackson.annotations.version>2.22</jackson.annotations.version>
-        <bytebuddy.version>1.18.11</bytebuddy.version>
+        <bytebuddy.version>1.18.13</bytebuddy.version>
         <mockito.version>5.23.0</mockito.version>
         <slf4j.version>2.0.18</slf4j.version>
     </properties>
