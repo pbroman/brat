@@ -54,8 +54,7 @@ class AssertionInterpolatorTest {
     void interpolated_returnsAnAssertionNotAPlainCondition() {
         // given
         var chain = List.of(new ChainedCondition("contains", "x"));
-        var assertion = new Assertion("isEqualTo", "a", "b", chain, "a message");
-        assertion.setSeverity(AssertionSeverity.WARN);
+        var assertion = new Assertion("isEqualTo", "a", "b", chain, "a message", null, AssertionSeverity.WARN);
 
         // when
         var result = interpolator.interpolated(assertion, interpolation, runtimeData);
@@ -101,8 +100,8 @@ class AssertionInterpolatorTest {
     void interpolated_keysOutcomesByFieldAndArgNameWithoutTheChain() {
         // given
         var chain = List.of(new ChainedCondition("contains", "hn", "link message"));
-        var assertion = new Assertion("isCloseTo", "a-value", "b-value", chain, "a message");
-        assertion.setArgs(Map.of("offset", "0.01"));
+        var assertion =
+                new Assertion("isCloseTo", "a-value", "b-value", chain, "a message", Map.of("offset", "0.01"), null);
 
         // when
         var result = interpolator.interpolated(assertion, interpolation, runtimeData);
@@ -115,8 +114,7 @@ class AssertionInterpolatorTest {
     @Test
     void interpolated_copiesFuncAndSeverityThrough() {
         // given
-        var assertion = new Assertion("startsWith", "a", "b");
-        assertion.setSeverity(AssertionSeverity.WARN);
+        var assertion = new Assertion("startsWith", "a", "b", null, null, null, AssertionSeverity.WARN);
 
         // when
         var result = interpolator.interpolated(assertion, interpolation, runtimeData);

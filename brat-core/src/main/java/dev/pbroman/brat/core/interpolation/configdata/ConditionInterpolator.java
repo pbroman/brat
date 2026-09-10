@@ -43,8 +43,6 @@ public final class ConditionInterpolator implements ConfigDataInterpolator<Condi
         var bValue = interpolateStructure(interpolation, runtimeData, outcomes, "b", target.getB());
         var argsValues = interpolateArgs(target.getArgs(), interpolation, runtimeData, outcomes);
 
-        var interpolated = new Condition(target.getFunc(), aValue, bValue, outcomes);
-        interpolated.setArgs(argsValues);
-        return interpolated;
+        return new Condition(target.getFunc(), aValue, bValue, argsValues, outcomes);
     }
 }

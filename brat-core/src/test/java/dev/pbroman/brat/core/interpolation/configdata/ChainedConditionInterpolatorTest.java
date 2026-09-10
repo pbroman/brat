@@ -36,8 +36,7 @@ class ChainedConditionInterpolatorTest {
     @Test
     void interpolated_interpolatesBArgsAndMessage() {
         // given
-        var link = new ChainedCondition("contains", "${vars.x}", "missing ${vars.x}");
-        link.setArgs(Map.of("offset", "${vars.o}"));
+        var link = new ChainedCondition("contains", "${vars.x}", "missing ${vars.x}", Map.of("offset", "${vars.o}"));
 
         // when
         var result = interpolator.interpolated(link, interpolation, runtimeData);
@@ -63,8 +62,7 @@ class ChainedConditionInterpolatorTest {
     @Test
     void interpolated_keysOutcomesByFieldAndArgName() {
         // given
-        var link = new ChainedCondition("contains", "b-value", "a message");
-        link.setArgs(Map.of("offset", "0.01"));
+        var link = new ChainedCondition("contains", "b-value", "a message", Map.of("offset", "0.01"));
 
         // when
         var result = interpolator.interpolated(link, interpolation, runtimeData);
@@ -116,8 +114,7 @@ class ChainedConditionInterpolatorTest {
         // given
         var args = new HashMap<String, String>();
         args.put("offset", null);
-        var link = new ChainedCondition("isCloseTo", "5");
-        link.setArgs(args);
+        var link = new ChainedCondition("isCloseTo", "5", null, args);
 
         // then
         assertThatThrownBy(() -> interpolator.interpolated(link, interpolation, runtimeData))

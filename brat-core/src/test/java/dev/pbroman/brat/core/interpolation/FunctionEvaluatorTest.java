@@ -2,6 +2,7 @@ package dev.pbroman.brat.core.interpolation;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import dev.pbroman.brat.core.api.interpolation.BratFunction;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
@@ -346,7 +347,7 @@ class FunctionEvaluatorTest {
     void evaluate_throwsForNullRuntimeData() {
         // when / then
         assertThatThrownBy(() -> underTest.evaluate("${__upper(abc)}", scanner, null))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(BratException.class);
     }
 
     @Test
@@ -361,11 +362,11 @@ class FunctionEvaluatorTest {
      */
     private static final class StubSecretRule implements InterpolationRule {
         @Override
-        public InterpolationOutcome outcome(String input, RuntimeData runtimeData) {
+        public Optional<InterpolationOutcome> outcome(String input, RuntimeData runtimeData) {
             if (!input.startsWith("${secrets.")) {
-                return new InterpolationOutcome(input, input);
+                return Optional.empty();
             }
-            return new InterpolationOutcome("s3cret", input + " → ***", true);
+            return Optional.of(new InterpolationOutcome("s3cret", input + " → ***", true));
         }
     }
 }

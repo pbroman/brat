@@ -87,8 +87,8 @@ public final class FunctionEvaluator {
      *         {@link InterpolationPatterns#TOKEN_SUFFIX}; if {@code interpolation} is {@code null};
      *         if the argument list is unclosed or is not followed immediately by the closing brace;
      *         if a quoted argument has no closing quote; if no function is registered under the
-     *         name; if the function throws; or if the function returns {@code null}
-     * @throws IllegalArgumentException if {@code runtimeData} is {@code null}
+     *         name; if the function throws; if the function returns {@code null}; or if
+     *         {@code runtimeData} is {@code null}
      */
     public InterpolationOutcome evaluate(String call, Interpolation interpolation, RuntimeData runtimeData) {
         nonNull(call, "Cannot evaluate a null function call");
@@ -120,9 +120,7 @@ public final class FunctionEvaluator {
         }
 
         var result = registry.get(name).apply(List.copyOf(values));
-        if (result == null) {
-            throw new BratException("The function '" + name + "' returned null; a function with no answer must throw");
-        }
+        nonNull(result, "The function '" + name + "' returned null; a function with no answer must throw");
         return new InterpolationOutcome(result, call + " → " + (containsSecret ? "***" : result), containsSecret);
     }
 

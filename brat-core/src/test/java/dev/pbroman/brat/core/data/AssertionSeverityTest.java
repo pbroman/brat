@@ -16,12 +16,9 @@ class AssertionSeverityTest {
     }
 
     @Test
-    void severity_isSettable() {
-        // given
-        var assertion = new Assertion("isEqualTo", "a", "b");
-
+    void severity_isCarriedFromTheConstructor() {
         // when
-        assertion.setSeverity(AssertionSeverity.WARN);
+        var assertion = new Assertion("isEqualTo", "a", "b", null, null, null, AssertionSeverity.WARN);
 
         // then
         assertThat(assertion.getSeverity()).isEqualTo(AssertionSeverity.WARN);

@@ -40,13 +40,6 @@ public final class InterpolationPatterns {
      */
     public static final String FUNCTION_CALL_PREFIX = TOKEN_PREFIX + FUNCTION_PREFIX;
 
-    /**
-     * Matches a single token, lazily — so it stops at the first closing brace and does <em>not</em>
-     * handle nesting. Use {@link TokenScanner} to find the tokens in a field; this answers the
-     * simpler question of whether a string is, or holds, a token at all.
-     */
-    public static final Pattern VARIABLE_PATTERN = Pattern.compile("\\$\\{.*?}");
-
     private static final Map<String, Pattern> GROUPING_PATTERNS = new ConcurrentHashMap<>();
 
     private InterpolationPatterns() {
@@ -54,7 +47,8 @@ public final class InterpolationPatterns {
     }
 
     /**
-     * Wraps a bare name into token form, e.g. {@code rj.$.name} into {@code ${rj.$.name}}.
+     * Wraps a bare name into token form, e.g. {@code response.json.$.name} into
+     * {@code ${response.json.$.name}}.
      *
      * @param variable the bare name
      * @return the name in token form
@@ -64,24 +58,32 @@ public final class InterpolationPatterns {
     }
 
     /**
-     * The regex matching one named token exactly, e.g. {@code ${sc}}.
+     * The regex matching one named token exactly, e.g. {@code ${response.body}}.
+     * <p>
+     * The name is {@linkplain Pattern#quote(String) quoted}, so every character in it is matched
+     * literally — a namespace containing a {@code .} matches that dot and nothing else.
      *
      * @param variable the token name
      * @return the regex
      */
     public static String regexForVariable(String variable) {
-        return "\\$\\{" + variable + "}";
+        return "\\$\\{" + Pattern.quote(variable) + "}";
     }
 
     /**
-     * The regex matching a {@code ${namespace.key}} token, capturing the key as a named group.
+     * The regex matching a {@code ${namespace.key}} token, capturing the key as a named group. The
+     * namespace is quoted, the separating {@code .} is not — that one is syntax.
      */
     private static String groupingRegexForVariable(String variable) {
-        return "\\$\\{" + variable + "\\.(?<" + VARIABLE_GROUP_NAME + ">.+)?}";
+        return "\\$\\{" + Pattern.quote(variable) + "\\.(?<" + VARIABLE_GROUP_NAME + ">.+)?}";
     }
 
     /**
      * The pattern matching a {@code ${namespace.key}} token, capturing the key as a named group.
+     * <p>
+     * The namespace is matched literally, so {@code response.json} matches
+     * {@code ${response.json.$.id}} and not {@code ${responseXjson.$.id}} — which matters because
+     * core namespaces contain dots and a plugin's may contain anything.
      * <p>
      * Compiled once per namespace and memoised: this is called for every token by every rule the
      * dispatcher tries, so compiling per call cost roughly one compile per rule per token.

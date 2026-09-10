@@ -1,5 +1,7 @@
 package dev.pbroman.brat.core.api.rendering;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
@@ -20,12 +22,14 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
 public record RenderTarget(String label, Map<String, InterpolationOutcome> outcomes) {
 
     /**
-     * Validates that {@code outcomes} is present, so that no rule is ever handed a {@code null} map.
+     * Validates that {@code outcomes} is present, so that no rule is ever handed a {@code null} map,
+     * and copies it so that no rule can mutate what it was handed.
      *
      * @throws BratException if {@code outcomes} is {@code null}
      */
     public RenderTarget {
         nonNull(outcomes, "The outcomes of a RenderTarget must not be null");
+        outcomes = Collections.unmodifiableMap(new LinkedHashMap<>(outcomes));
     }
 
     /**

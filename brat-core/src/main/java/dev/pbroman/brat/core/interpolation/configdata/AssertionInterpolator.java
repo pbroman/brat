@@ -78,9 +78,14 @@ public final class AssertionInterpolator implements ConfigDataInterpolator<Asser
             chainValues.add(chainedConditionInterpolator.interpolated(chainedCondition, interpolation, runtimeData));
         }
 
-        var interpolated = new Assertion(target.getFunc(), aValue, bValue, chainValues, messageValue, outcomes);
-        interpolated.setArgs(argsValues);
-        interpolated.setSeverity(target.getSeverity());
-        return interpolated;
+        return new Assertion(
+                target.getFunc(),
+                aValue,
+                bValue,
+                chainValues,
+                messageValue,
+                argsValues,
+                target.getSeverity(),
+                outcomes);
     }
 }

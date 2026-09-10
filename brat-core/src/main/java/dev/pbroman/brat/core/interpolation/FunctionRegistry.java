@@ -95,9 +95,7 @@ public final class FunctionRegistry {
      */
     public BratFunction get(String name) {
         var function = functions.get(requireName(name));
-        if (function == null) {
-            throw new BratException("There is no function named '" + name + "'");
-        }
+        nonNull(function, "There is no function named '" + name + "'");
         return function;
     }
 

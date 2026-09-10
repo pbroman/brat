@@ -10,6 +10,7 @@ import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.ConfigData;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.util.Require;
 
 /**
  * Helper methods shared by {@code ConfigDataInterpolator} implementations.
@@ -27,12 +28,21 @@ public final class InterpolatorUtils {
     }
 
     /**
-     * Checks that {@code target} is not already an interpolated copy.
+     * Checks that {@code target} is present and not already an interpolated copy.
+     * <p>
+     * The null check is a backstop, not the intended report: it cannot name what was null, since
+     * {@code getClass()} on the argument is the very dereference it exists to prevent. A caller that
+     * knows the field's name should say so itself — {@code RepeatUntilInterpolator} rejects a null
+     * condition by name for exactly that reason. What this guarantees is only that a null never
+     * leaves an interpolator as a {@code NullPointerException}, which the single-exception convention
+     * does not admit.
      *
      * @param target the object to check
-     * @throws BratException if {@code target.isInterpolated()} is {@code true}
+     * @throws BratException if {@code target} is {@code null}, or if
+     *         {@code target.isInterpolated()} is {@code true}
      */
     public static void checkNotInterpolated(ConfigData target) {
+        Require.nonNull(target, "Cannot interpolate a null ConfigData");
         if (target.isInterpolated()) {
             throw new BratException(String.format(
                     "This %s (%s) is already an interpolated copy",
@@ -183,9 +193,7 @@ public final class InterpolatorUtils {
             Map<String, InterpolationOutcome> outcomes) {
         var argsValues = new LinkedHashMap<String, String>();
         for (var arg : args.entrySet()) {
-            if (arg.getValue() == null) {
-                throw new BratException("The argument '" + arg.getKey() + "' has no value");
-            }
+            Require.nonNull(arg.getValue(), "The argument '" + arg.getKey() + "' has no value");
             var outcome = interpolateIfPresent(
                     interpolation, runtimeData, outcomes, ARGS_PREFIX + arg.getKey(), arg.getValue());
             argsValues.put(arg.getKey(), outcome.asString());

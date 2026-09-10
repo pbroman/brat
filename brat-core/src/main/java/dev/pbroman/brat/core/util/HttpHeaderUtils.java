@@ -1,8 +1,8 @@
 package dev.pbroman.brat.core.util;
 
-import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 import dev.pbroman.brat.core.exception.BratException;
 
@@ -59,32 +59,33 @@ public final class HttpHeaderUtils {
      * a suite declaring both is stating two values for one header. Silently taking either is the kind
      * of quiet wrong result these helpers exist to remove, so it is rejected instead.
      * <p>
-     * Names are compared with {@link String#equalsIgnoreCase(String)} — the same comparison
-     * {@link #get(Map, String)} uses, deliberately, so that "the same header name" means one thing in
-     * this class rather than two. Header maps are small, so the pairwise scan costs nothing.
+     * Names are compared under {@link String#CASE_INSENSITIVE_ORDER}, which agrees with the
+     * {@link String#equalsIgnoreCase(String)} that {@link #get(Map, String)} uses, so "the same header
+     * name" means one thing in this class rather than two.
      *
      * @param headers the headers as authored, or {@code null}; {@code null} and empty both pass, and
      *        a {@code null} key is ignored rather than compared
-     * @throws BratException if two keys are equal ignoring case, naming both spellings
+     * @throws BratException if two keys are equal ignoring case, naming both spellings, the one
+     *         encountered first and then the one that collided with it
      */
     public static void requireNoCaseDuplicates(Map<String, String> headers) {
         if (headers == null) {
             return;
         }
-        var seen = new ArrayList<String>(headers.size());
+        // Each key maps to itself, so put returns the spelling already seen: a TreeMap keeps the key
+        // it was first given and replaces only the value.
+        var seen = new TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER);
         for (var key : headers.keySet()) {
             if (key == null) {
                 continue;
             }
-            for (var previous : seen) {
-                if (key.equalsIgnoreCase(previous)) {
-                    throw new BratException(String.format(
-                            "Duplicate header name: '%s' and '%s' differ only in case, and HTTP header "
-                                    + "names are case-insensitive",
-                            previous, key));
-                }
+            var previous = seen.put(key, key);
+            if (previous != null) {
+                throw new BratException(String.format(
+                        "Duplicate header name: '%s' and '%s' differ only in case, and HTTP header "
+                                + "names are case-insensitive",
+                        previous, key));
             }
-            seen.add(key);
         }
     }
 

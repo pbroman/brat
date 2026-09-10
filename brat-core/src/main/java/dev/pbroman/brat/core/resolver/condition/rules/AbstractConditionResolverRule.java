@@ -135,9 +135,7 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
      */
     protected static String requiredArg(Map<String, String> args, String key) {
         var value = args.get(key);
-        if (value == null) {
-            throw new BratException("The argument '" + key + "' is required for this function");
-        }
+        nonNull(value, "The argument '" + key + "' is required for this function");
         return value;
     }
 

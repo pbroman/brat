@@ -17,6 +17,8 @@ import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.rules.ConstantsInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.SecretsInterpolationRule;
 import org.junit.jupiter.api.Test;
+import tools.jackson.core.TokenStreamLocation;
+import tools.jackson.core.exc.StreamConstraintsException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -49,6 +51,23 @@ class SecretsBootstrapTest {
 
         // then
         assertThat(result.getSecret("apiKey")).contains("from-override");
+    }
+
+    @Test
+    void constructor_bindsTheSysenvProviderToTheProcessEnvironment() {
+        // given a real variable of this JVM, restricted to a name upper-snake-casing leaves alone
+        var variable = System.getenv().entrySet().stream()
+                .filter(entry -> entry.getKey().matches("[A-Z][A-Z_]*"))
+                .filter(entry -> !entry.getValue().isBlank())
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("This JVM has no environment variable to test against"));
+        var config = config(Map.of("sysenv", Map.of("prefix", "")));
+
+        // when built through the public constructor, which is the only one binding System::getenv
+        var result = new SecretsBootstrap(List.of(), bootstrapRules).build(config, runtimeData);
+
+        // then
+        assertThat(result.getSecret(variable.getKey())).contains(variable.getValue());
     }
 
     @Test
@@ -210,6 +229,20 @@ class SecretsBootstrapTest {
 
         // when / then
         assertThatThrownBy(() -> bootstrap(factory).build(config, runtimeData)).isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void build_reportsTheLocationWhenAFactoryThrowsAJacksonException() {
+        // given
+        var factory = new StubFactory("file")
+                .failingWith(new StreamConstraintsException("nesting too deep", TokenStreamLocation.NA));
+        var config = config(Map.of(), source("file", "one.yaml"));
+
+        // when / then
+        assertThatThrownBy(() -> bootstrap(factory).build(config, runtimeData))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("The SecretsProviderFactory for type 'file' failed")
+                .hasMessageContaining("at line");
     }
 
     @Test

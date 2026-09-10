@@ -34,7 +34,7 @@ public final class ConstantsInterpolationRule extends AbstractInterpolationRule 
      * @throws BratException on missing replacement for a constant.
      */
     @Override
-    protected String onMissingReplacement(String placeholder, String input) {
+    protected String onMissingReplacement(String placeholder, String input, RuntimeData runtimeData) {
         throw new BratException("The constant '" + placeholder + "' is not set.");
     }
 }

@@ -31,8 +31,7 @@ class ConditionInterpolatorTest {
     @Test
     void interpolated_carriesTheArgsOntoTheCopy() {
         // given
-        var condition = new Condition("isCloseTo", "0.51", "0.5");
-        condition.setArgs(Map.of("offset", "0.01"));
+        var condition = new Condition("isCloseTo", "0.51", "0.5", Map.of("offset", "0.01"));
 
         // when
         var result = underTest.interpolated(condition, interpolation, runtimeData);
@@ -44,8 +43,7 @@ class ConditionInterpolatorTest {
     @Test
     void interpolated_keysArgOutcomesByDottedPath() {
         // given
-        var condition = new Condition("isCloseTo", "0.51", "0.5");
-        condition.setArgs(Map.of("offset", "0.01"));
+        var condition = new Condition("isCloseTo", "0.51", "0.5", Map.of("offset", "0.01"));
 
         // when
         var result = underTest.interpolated(condition, interpolation, runtimeData);
@@ -68,25 +66,12 @@ class ConditionInterpolatorTest {
         // given — `args: { offset: }` in YAML binds a null value
         var args = new HashMap<String, String>();
         args.put("offset", null);
-        var condition = new Condition("isCloseTo", "0.51", "0.5");
-        condition.setArgs(args);
+        var condition = new Condition("isCloseTo", "0.51", "0.5", args);
 
         // when / then
         assertThatThrownBy(() -> underTest.interpolated(condition, interpolation, runtimeData))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("offset");
-    }
-
-    @Test
-    void setArgs_treatsNullAsNoArguments() {
-        // given
-        var condition = new Condition("isNull", "a");
-
-        // when
-        condition.setArgs(null);
-
-        // then
-        assertThat(condition.getArgs()).isEmpty();
     }
 
     // --- structured operands (D3: interpolate scalar leaves only, keys by dotted path) ---

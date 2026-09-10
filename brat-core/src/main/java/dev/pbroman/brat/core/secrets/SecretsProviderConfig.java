@@ -93,4 +93,13 @@ public record SecretsProviderConfig(Map<String, Map<String, String>> providerPar
     public SecretsProviderConfig withSources(List<SecretsSource> newSources) {
         return new SecretsProviderConfig(providerParams, newSources);
     }
+
+    /**
+     * Returns an empty {@code SecretsProviderConfig}.
+     *
+     * @return a {@code SecretsProviderConfig} instance with empty params and sources
+     */
+    public static SecretsProviderConfig empty() {
+        return new SecretsProviderConfig(Map.of(), List.of());
+    }
 }

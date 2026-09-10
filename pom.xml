@@ -19,6 +19,7 @@
              artifact. -->
         <httpcore5.version>5.4.3</httpcore5.version>
         <jackson.version>3.2.1</jackson.version>
+        <snakeyaml.engine.version>3.0.1</snakeyaml.engine.version>
         <jackson.annotations.version>2.22</jackson.annotations.version>
         <bytebuddy.version>1.18.11</bytebuddy.version>
         <mockito.version>5.23.0</mockito.version>
@@ -75,15 +76,14 @@
                 <artifactId>jackson-dataformat-yaml</artifactId>
                 <version>${jackson.version}</version>
             </dependency>
+            <!-- Arrives transitively via jackson-dataformat-yaml; declared because the loader uses
+                 Compose/LoadSettings directly, and a directly-used artifact should not depend on
+                 someone else's transitive graph. YAML 1.2: `no` stays a string, and the legacy
+                 global-tag gadget is absent - do not enable global tags. -->
             <dependency>
-                <groupId>org.awaitility</groupId>
-                <artifactId>awaitility</artifactId>
-                <version>4.3.0</version>
-            </dependency>
-            <dependency>
-                <groupId>org.hamcrest</groupId>
-                <artifactId>hamcrest</artifactId>
-                <version>3.0</version>
+                <groupId>org.snakeyaml</groupId>
+                <artifactId>snakeyaml-engine</artifactId>
+                <version>${snakeyaml.engine.version}</version>
             </dependency>
             <dependency>
                 <groupId>net.bytebuddy</groupId>
@@ -158,6 +158,12 @@
                              resolves at all - verified against Jackson 3.2.1, 2026-08-11. The
                              alternative is @JsonProperty on every parameter of every data type. -->
                         <arg>-parameters</arg>
+                        <!-- Name the deprecated call, not just the file holding one. Without this
+                             javac reports "uses or overrides a deprecated API" per file and tells
+                             you to recompile to find out which line - so a deprecation is visible
+                             enough to be ignored and never actionable enough to be fixed. Two sat
+                             unnoticed until 2026-08-16, one of them written the same day. -->
+                        <arg>-Xlint:deprecation</arg>
                     </compilerArgs>
                     <annotationProcessorPathsUseDepMgmt>true</annotationProcessorPathsUseDepMgmt>
                     <annotationProcessorPaths>
@@ -205,6 +211,13 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
                 <version>3.6.0</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.puppycrawl.tools</groupId>
+                        <artifactId>checkstyle</artifactId>
+                        <version>14.0.0</version>
+                    </dependency>
+                </dependencies>
                 <configuration>
                     <!-- Anchored at the repo root, not the module: one ruleset for every module, and a new
                          module is covered without opting in. `.mvn/` at the root is what pins this

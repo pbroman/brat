@@ -8,7 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Pins that every authored data type binds from YAML with the shape 7c gave it — constructor-bound,
+ * Pins that every authored data type binds from YAML with its intended shape — constructor-bound,
  * no setters beyond the two deliberate ones, and with the interpolated-copy constructor unreachable.
  * <p>
  * These are the tests that would fail if {@code -parameters} were dropped from the build or a

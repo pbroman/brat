@@ -2,6 +2,8 @@ package dev.pbroman.brat.core.api.interpolation;
 
 import dev.pbroman.brat.core.exception.BratException;
 
+import static dev.pbroman.brat.core.util.Require.nonNull;
+
 /**
  * The result of interpolating a single string: the resolved value together with a
  * human-readable, secret-masked description of what was substituted.
@@ -20,12 +22,8 @@ public record InterpolationOutcome(Object value, String reportingString, boolean
      * @throws BratException if {@code value} or {@code reportingString} is {@code null}
      */
     public InterpolationOutcome {
-        if (value == null) {
-            throw new BratException("InterpolationOutcome value must not be null");
-        }
-        if (reportingString == null) {
-            throw new BratException("InterpolationOutcome reportingString must not be null");
-        }
+        nonNull(value, "InterpolationOutcome value must not be null");
+        nonNull(reportingString, "InterpolationOutcome reportingString must not be null");
     }
 
     /**

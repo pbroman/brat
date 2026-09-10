@@ -1,7 +1,5 @@
 package dev.pbroman.brat.core.interpolation;
 
-import java.util.ArrayList;
-
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
@@ -72,39 +70,37 @@ public class InterpolationScanner implements Interpolation {
      * @return the outcome of resolving every token in {@code input}; equal to {@code input}
      *         itself (value and reporting string) if it contained no tokens or none resolved to
      *         a different value
-     * @throws BratException if {@code input} is {@code null}, or any token's resolution throws
-     * @throws IllegalArgumentException if {@code runtimeData} is {@code null}
+     * @throws BratException if {@code input} or {@code runtimeData} is {@code null}, or any
+     *         token's resolution throws
      */
     @Override
     public InterpolationOutcome outcome(String input, RuntimeData runtimeData) {
         nonNull(input, "Cannot interpolate a null input");
         requireNamespaces(runtimeData);
         var tokens = TokenScanner.tokensIn(input);
-        if (tokens.size() == 1
-                && tokens.getFirst().start() == 0
-                && tokens.getFirst().end() == input.length()) {
+        if (tokens.size() == 1 && tokens.getFirst().spans(input)) {
             return resolveToken(input, runtimeData);
         }
-        // Resolved in reading order, then spliced back to front. Both halves matter: replacing by
-        // text would substitute every copy of a repeated token from a single resolution, so
-        // `${__uuid} / ${__uuid}` would yield one UUID twice and never call the second token;
-        // splicing backwards keeps the earlier tokens' indices valid as later ones are replaced.
-        var outcomes = new ArrayList<InterpolationOutcome>(tokens.size());
+        // Built front to back, resolving each token as its position is reached: the literal text
+        // before the token, then that token's own resolved value. Resolving per occurrence is what
+        // matters — replacing by text would substitute every copy of a repeated token from a single
+        // resolution, so `${__uuid} / ${__uuid}` would yield one UUID twice and never call the
+        // second token.
+        var value = new StringBuilder(input.length());
+        var maskedFinal = new StringBuilder(input.length());
         var containsSecret = false;
+        var cursor = 0;
         for (var token : tokens) {
+            value.append(input, cursor, token.start());
+            maskedFinal.append(input, cursor, token.start());
             var tokenOutcome = resolveToken(token.text(), runtimeData);
-            outcomes.add(tokenOutcome);
             containsSecret |= tokenOutcome.containsSecret();
+            value.append(tokenOutcome.asString());
+            maskedFinal.append(tokenOutcome.containsSecret() ? "***" : tokenOutcome.asString());
+            cursor = token.end();
         }
-        var value = new StringBuilder(input);
-        var maskedFinal = new StringBuilder(input);
-        for (var index = tokens.size() - 1; index >= 0; index--) {
-            var token = tokens.get(index);
-            var tokenOutcome = outcomes.get(index);
-            value.replace(token.start(), token.end(), tokenOutcome.asString());
-            maskedFinal.replace(
-                    token.start(), token.end(), tokenOutcome.containsSecret() ? "***" : tokenOutcome.asString());
-        }
+        value.append(input, cursor, input.length());
+        maskedFinal.append(input, cursor, input.length());
         var resolved = value.toString();
         var masked = maskedFinal.toString();
         if (masked.equals(input)) {

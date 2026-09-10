@@ -130,4 +130,166 @@ class TokenScannerTest {
         // when / then
         assertThatThrownBy(() -> TokenScanner.tokensIn(null)).isInstanceOf(BratException.class);
     }
+
+    @Test
+    void spans_isTrueForATokenFillingTheWholeField() {
+        // given
+        var token = TokenScanner.tokensIn("${vars.name}").getFirst();
+
+        // when / then
+        assertThat(token.spans("${vars.name}")).isTrue();
+    }
+
+    @Test
+    void spans_isTrueForANestedTokenFillingTheWholeField() {
+        // given — one token by brace counting, and it spans the field
+        var token = TokenScanner.tokensIn("${__upper(${vars.name})}").getFirst();
+
+        // when / then
+        assertThat(token.spans("${__upper(${vars.name})}")).isTrue();
+    }
+
+    @Test
+    void spans_isFalseForATokenWithTextAroundIt() {
+        // given
+        var leading = "hello ${vars.name}";
+        var trailing = "${vars.name}, welcome";
+
+        // when / then
+        assertThat(TokenScanner.tokensIn(leading).getFirst().spans(leading)).isFalse();
+        assertThat(TokenScanner.tokensIn(trailing).getFirst().spans(trailing)).isFalse();
+    }
+
+    @Test
+    void spans_isFalseForEitherOfTwoAdjacentTokens() {
+        // given
+        var input = "${a}${b}";
+
+        // when
+        var tokens = TokenScanner.tokensIn(input);
+
+        // then — the first starts at 0 but ends early, the second ends at the end but starts late
+        assertThat(tokens.getFirst().spans(input)).isFalse();
+        assertThat(tokens.getLast().spans(input)).isFalse();
+    }
+
+    @Test
+    void spans_throwsForANullInput() {
+        // given
+        var token = TokenScanner.tokensIn("${vars.name}").getFirst();
+
+        // when / then
+        assertThatThrownBy(() -> token.spans(null)).isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void holdsNestedToken_answersTrueForATokenWhoseKeyHoldsAnotherToken() {
+        // when / then — the shape nothing resolves: no rule owns it, so it passes through
+        assertThat(TokenScanner.holdsNestedToken("${vars.${vars.inner}}")).isTrue();
+    }
+
+    @Test
+    void holdsNestedToken_answersFalseForAPlainToken() {
+        // when / then
+        assertThat(TokenScanner.holdsNestedToken("${vars.userId}")).isFalse();
+    }
+
+    @Test
+    void holdsNestedToken_answersFalseForAJsonPathDollar() {
+        // when / then — a token opener is "${", not a bare "$": these paths must keep resolving
+        assertThat(TokenScanner.holdsNestedToken("${response.json.$.id}")).isFalse();
+        assertThat(TokenScanner.holdsNestedToken("${response.json.$..book[?(@.price<10)]}"))
+                .isFalse();
+    }
+
+    @Test
+    void holdsNestedToken_answersTrueForAFunctionCallWithATokenArgument() {
+        // when / then — correct, and harmless: a call is routed to the evaluator and never reaches
+        // a rule, so nothing asks this about one
+        assertThat(TokenScanner.holdsNestedToken("${__upper(${vars.name})}")).isTrue();
+    }
+
+    @Test
+    void holdsNestedToken_answersFalseForAFunctionCallWithNoTokenArgument() {
+        // when / then
+        assertThat(TokenScanner.holdsNestedToken("${__upper(abc)}")).isFalse();
+    }
+
+    @Test
+    void holdsNestedToken_answersFalseForAnEmptyToken() {
+        // when / then — the opener at index 0 is the token's own, not a nested one
+        assertThat(TokenScanner.holdsNestedToken("${}")).isFalse();
+    }
+
+    @Test
+    void holdsNestedToken_answersFalseForTextThatIsNotAToken() {
+        // when / then
+        assertThat(TokenScanner.holdsNestedToken("vars.userId")).isFalse();
+        assertThat(TokenScanner.holdsNestedToken("")).isFalse();
+        assertThat(TokenScanner.holdsNestedToken("   ")).isFalse();
+    }
+
+    @Test
+    void holdsNestedToken_answersFalseForNullRatherThanThrowing() {
+        // when / then — the same policy as isToken, so the pair can be asked in either order
+        assertThat(TokenScanner.holdsNestedToken(null)).isFalse();
+    }
+
+    @Test
+    void holdsNestedToken_answersPositionallyForTextMerelyContainingAToken() {
+        // when / then — documented: the opener is looked for from the second character on. Every
+        // caller asks this only of a string isToken has accepted, where the two coincide
+        assertThat(TokenScanner.holdsNestedToken("id: ${vars.id}")).isTrue();
+    }
+
+    @Test
+    void isToken_acceptsASingleToken() {
+        // when / then
+        assertThat(TokenScanner.isToken("${vars.userId}")).isTrue();
+    }
+
+    @Test
+    void isToken_acceptsANestedToken() {
+        // when / then — counted rather than matched, which a lazy token regex cannot do
+        assertThat(TokenScanner.isToken("${__upper(${vars.name})}")).isTrue();
+    }
+
+    @Test
+    void isToken_rejectsATokenWithTextAroundIt() {
+        // when / then — holding a token is not being one
+        assertThat(TokenScanner.isToken("id: ${vars.id}")).isFalse();
+        assertThat(TokenScanner.isToken("${vars.id} trailing")).isFalse();
+    }
+
+    @Test
+    void isToken_rejectsTwoAdjacentTokens() {
+        // when / then
+        assertThat(TokenScanner.isToken("${vars.a}${vars.b}")).isFalse();
+    }
+
+    @Test
+    void isToken_rejectsAnUnterminatedToken() {
+        // when / then
+        assertThat(TokenScanner.isToken("${vars.unclosed")).isFalse();
+    }
+
+    @Test
+    void isToken_rejectsTextThatIsNotAToken() {
+        // when / then
+        assertThat(TokenScanner.isToken("vars.userId")).isFalse();
+        assertThat(TokenScanner.isToken("")).isFalse();
+        assertThat(TokenScanner.isToken("   ")).isFalse();
+    }
+
+    @Test
+    void isToken_answersFalseForNullRatherThanThrowing() {
+        // when / then — unlike TokenScanner.tokensIn, which rejects a null
+        assertThat(TokenScanner.isToken(null)).isFalse();
+    }
+
+    @Test
+    void isToken_acceptsAnEmptyTokenAsSyntacticallyOne() {
+        // when / then — well-formed but nameless; resolvability is not this method's question
+        assertThat(TokenScanner.isToken("${}")).isTrue();
+    }
 }

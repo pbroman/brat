@@ -14,7 +14,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ResponseBodyInterpolationRuleTest extends AbstractInterpolationTest {
 
-    private final String input = "${rb}";
+    @Override
+    protected String ownToken() {
+        return "${response.body}";
+    }
+
+    private final String input = "${response.body}";
 
     @BeforeEach
     void setUp() {
@@ -22,7 +27,9 @@ class ResponseBodyInterpolationRuleTest extends AbstractInterpolationTest {
     }
 
     protected RuntimeData setUpRuntimeData() {
-        return new RuntimeData(Map.of(), Map.of(), Map.of(), Map.of(BODY, "baa"));
+        var runtimeData = new RuntimeData(Map.of(), Map.of());
+        runtimeData.setResponseVars(Map.of(BODY, "baa"));
+        return runtimeData;
     }
 
     @Test
@@ -31,7 +38,7 @@ class ResponseBodyInterpolationRuleTest extends AbstractInterpolationTest {
         var expected = "baa";
 
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(expected);
@@ -40,9 +47,9 @@ class ResponseBodyInterpolationRuleTest extends AbstractInterpolationTest {
     @Test
     void bodyIsNotPresent_throwsException() throws Exception {
         // given
-        runtimeData = new RuntimeData(Map.of(), Map.of(), Map.of(), Map.of());
+        runtimeData = new RuntimeData(Map.of(), Map.of());
 
         // then
-        assertThatThrownBy(() -> underTest.interpolate(input, runtimeData)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> interpolate(input, runtimeData)).isInstanceOf(BratException.class);
     }
 }

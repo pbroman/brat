@@ -1,18 +1,17 @@
 package dev.pbroman.brat.core.util;
 
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern;
 
 import static org.apache.commons.lang3.BooleanUtils.FALSE;
 import static org.apache.commons.lang3.BooleanUtils.TRUE;
 
 /**
- * The string literals shared across {@code brat-core}: interpolation namespaces and token shorthands,
- * condition func names, auth types, request defaults and console colours.
+ * The string literals shared across {@code brat-core}: interpolation namespaces, condition func
+ * names, auth types, request defaults and console colours.
  * <p>
  * Carried over wholesale from the reference implementation, so it still holds constants nothing uses
- * yet; pruning it, and splitting what remains per subsystem, is tracked in the flight plan's Backlog.
+ * yet.
  */
 public final class Constants {
 
@@ -28,6 +27,7 @@ public final class Constants {
     public static final String SECRETS = "secrets";
     public static final String MISC = "misc";
     public static final String FALLBACK_DELIMITER = ":-";
+
     public static final String REQUEST_RESULTS = "requestResults";
     public static final String RESPONSE = "response";
     public static final String RESPONSE_VARS = "responseVars";
@@ -38,16 +38,18 @@ public final class Constants {
     public static final String BODY_STRING = "_bodyString";
     public static final String JSON = "json";
     public static final String VARIABLE_GROUP_NAME = "variableGroup";
-    public static final String RESPONSE_HEADER_SHORTHAND = "rh";
-    public static final String RESPONSE_STATUS_SHORTHAND = "sc";
-    public static final String RESPONSE_BODY_SHORTHAND = "rb";
-    public static final String RESPONSE_JSON_SHORTHAND = "rj";
 
-    public static final Map<String, String> RESPONSE_SHORTHAND = Map.of(
-            STATUS_CODE, RESPONSE_STATUS_SHORTHAND,
-            BODY, RESPONSE_BODY_SHORTHAND,
-            JSON, RESPONSE_JSON_SHORTHAND,
-            HEADERS, RESPONSE_HEADER_SHORTHAND);
+    /** The namespace of {@code ${response.statusCode}}, which carries no key. */
+    public static final String RESPONSE_STATUS_CODE = RESPONSE + "." + STATUS_CODE;
+
+    /** The namespace of {@code ${response.body}}, which carries no key. */
+    public static final String RESPONSE_BODY = RESPONSE + "." + BODY;
+
+    /** The namespace of {@code ${response.headers.<name>}}, whose key is the header name. */
+    public static final String RESPONSE_HEADERS = RESPONSE + "." + HEADERS;
+
+    /** The namespace of {@code ${response.json.<jsonPath>}}, whose key is the JSONPath. */
+    public static final String RESPONSE_JSON = RESPONSE + "." + JSON;
 
     public static final String FORMAT_UUID = "uuid";
     public static final String FORMAT_EMAIL = "email";
@@ -66,9 +68,17 @@ public final class Constants {
 
     public static final String DEFAULT_TIMEOUT_MS = "30000";
 
+    /** The method a request is performed with when it declares none. */
+    public static final String DEFAULT_METHOD = "GET";
+
     public static final Integer DEFAULT_MAX_ATTEMPTS = 3;
 
-    public static final String PATH_DELIMITER = " |o| ";
+    /**
+     * Separates the segments of a node's path, which is built from the suite and request names from
+     * the root down. {@code /} is illegal inside a name for this reason, so a path stays readable in
+     * a report and typeable as {@code --select "happy path/create an order"}.
+     */
+    public static final String PATH_DELIMITER = "/";
 
     public static final String AUTH_TYPE_BASIC = "basic";
     public static final String AUTH_TYPE_BEARER = "bearer";

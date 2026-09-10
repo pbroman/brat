@@ -117,6 +117,24 @@ class HttpRequestDefinitionTest {
     }
 
     @Test
+    void constructor_defaultsAnAbsentMethodToGet() {
+        // when - a null method would otherwise bind fine and fail at request time
+        var definition = new HttpRequestDefinition("http://x", null, null, null, null, null);
+
+        // then
+        assertThat(definition.getMethod()).isEqualTo("GET");
+    }
+
+    @Test
+    void constructor_keepsADeclaredMethod() {
+        // when
+        var definition = new HttpRequestDefinition("http://x", "POST", null, null, null, null);
+
+        // then
+        assertThat(definition.getMethod()).isEqualTo("POST");
+    }
+
+    @Test
     void constructor_keepsANullBodyNull() {
         // when
         var definition = new HttpRequestDefinition("http://x", "GET", null, null, Map.of(), null);

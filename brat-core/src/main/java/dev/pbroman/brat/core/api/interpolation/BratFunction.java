@@ -5,6 +5,8 @@ import java.util.function.Function;
 
 import dev.pbroman.brat.core.exception.BratException;
 
+import static dev.pbroman.brat.core.util.Require.nonNull;
+
 /**
  * One function callable from a suite as {@code ${__name(arg, …)}}.
  * <p>
@@ -80,9 +82,7 @@ public interface BratFunction {
      * @throws BratException if {@code impl} is {@code null}
      */
     static BratFunction of(String name, Function<List<String>, String> impl) {
-        if (impl == null) {
-            throw new BratException("The implementation of the function '" + name + "' must not be null");
-        }
+        nonNull(impl, "The implementation of the function '" + name + "' must not be null");
         return new BratFunction() {
 
             @Override

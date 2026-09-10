@@ -4,6 +4,7 @@ import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,7 +26,20 @@ public abstract class AbstractInterpolationTest {
 
     protected final Interpolation mockRule = Mockito.mock(Interpolation.class);
 
-    protected Interpolation underTest;
+    protected InterpolationRule underTest;
+
+    /**
+     * Resolves {@code input} the way the dispatcher will: the rule's value if it claims the token,
+     * the input unchanged if it declines.
+     */
+    protected Object interpolate(String input, RuntimeData data) {
+        return claimed(input, data).value();
+    }
+
+    /** The claiming rule's outcome, or one equal to the input where it declined. */
+    protected InterpolationOutcome claimed(String input, RuntimeData data) {
+        return underTest.outcome(input, data).orElseGet(() -> new InterpolationOutcome(input, input));
+    }
 
     @BeforeEach
     void basicSetUp() {
@@ -43,15 +57,20 @@ public abstract class AbstractInterpolationTest {
     @Test
     void inputNull_throwsException() {
         // then
-        assertThatThrownBy(() -> underTest.interpolate(null, runtimeData)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> interpolate(null, runtimeData)).isInstanceOf(BratException.class);
     }
 
+    /**
+     * A token the subject owns, so that it resolves rather than declining.
+     * <p>
+     * A rule declines a token of another namespace without looking at {@code runtimeData} at all, so
+     * a test needing the resolving path must hand it one of its own.
+     */
+    protected abstract String ownToken();
+
     @Test
-    void runtimeDataNull_throwsIllegalArgumentException() {
-        assertThatThrownBy(() -> {
-                    underTest.interpolate("moo", null);
-                })
-                .isInstanceOf(IllegalArgumentException.class);
+    void runtimeDataNull_throwsBratException() {
+        assertThatThrownBy(() -> interpolate(ownToken(), null)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -60,7 +79,7 @@ public abstract class AbstractInterpolationTest {
         var input = "${bollocks}";
 
         // when
-        var result = underTest.interpolate(input, runtimeData);
+        var result = interpolate(input, runtimeData);
 
         // then
         assertThat(result).isEqualTo(input);
