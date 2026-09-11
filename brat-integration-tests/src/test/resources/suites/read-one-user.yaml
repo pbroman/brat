@@ -1,0 +1,51 @@
+# One request, everything declared on it: 8a's whole subject.
+#
+# The user is seeded by the test, not by a request here - a fixture built out of the thing under test
+# reports its own bugs as failures of this suite. Its id arrives as ${env.userId}.
+name: read one user
+description: reads a user the fixture seeded, and checks the body it comes back in
+
+requests:
+  - name: read the seeded user
+    requestDefinition:
+      url: "${env.baseUrl}/user/${env.userId}"
+      method: GET
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: "200"
+          message: the seeded user must be found
+        - a: "${response.json.$.id}"
+          func: isEqualTo
+          b: "${env.userId}"
+          message: the user read must be the user asked for
+        - a: "${response.json.$.username}"
+          func: isEqualTo
+          b: seeded
+          message: the username must come back as it went in
+        - a: "${response.json.$.age}"
+          func: isGreaterThan
+          b: "30"
+          message: a JSON number must compare numerically
+        - a: "${response.json.$.address.city}"
+          func: isEqualTo
+          b: Testville
+          message: a nested object must be reachable
+        - a: "${response.json.$.roles[0]}"
+          func: isEqualTo
+          b: admin
+          message: an array must be indexable
+        - a: "${response.json.$.roles}"
+          func: hasSize
+          b: "2"
+          message: a JSONPath resolving to a list must stay a list
+        - a: "${response.json.$.active}"
+          func: isTrue
+          message: a JSON boolean must be readable as one
+        - a: "${response.json.$.createdAt}"
+          func: isIsoDateTime
+          message: the server's timestamp must be an ISO date-time
+        # An assertion over a JSON null is deliberately absent here: ${response.json.$.email}
+        # currently fails to interpolate rather than resolving to null. Found by this suite, not yet
+        # decided - see the finding reported with step 7.

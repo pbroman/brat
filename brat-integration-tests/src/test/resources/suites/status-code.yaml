@@ -1,0 +1,19 @@
+# Every status code a server sends is a response, not an error: the assertions run either way.
+name: status code
+description: asks the server for one particular status code and asserts it arrived
+
+requests:
+  - name: ask for a status code
+    requestDefinition:
+      url: "${env.baseUrl}/status/${env.code}"
+      method: GET
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: "${env.code}"
+          message: the status code asked for must be the status code reported
+        - a: "${response.json.$.requested}"
+          func: isEqualTo
+          b: "${env.code}"
+          message: the body must survive whatever the status code was

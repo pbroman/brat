@@ -32,15 +32,6 @@ public sealed class Condition extends ConfigData permits Assertion {
      * interpolation namespace behind {@code ${params.x}}, and the two would otherwise be
      * indistinguishable in a suite file and in reported outcome keys.
      */
-    /**
-     * The func's own arguments, e.g. {@code offset} for {@code isCloseTo}. Never {@code null};
-     * empty when the author declared none. A func needing an argument takes it from here rather
-     * than from a field of its own, so adding one never changes this type.
-     * <p>
-     * Named {@code args} rather than {@code params} deliberately: {@code params} is the
-     * interpolation namespace behind {@code ${params.x}}, and the two would otherwise be
-     * indistinguishable in a suite file and in reported outcome keys.
-     */
     private final Map<String, String> args;
 
     /**

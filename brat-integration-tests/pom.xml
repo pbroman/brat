@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>dev.pbroman</groupId>
+        <artifactId>brat-parent</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>brat-integration-tests</artifactId>
+    <name>BRAT - integration tests</name>
+
+    <!--
+        The end-to-end proof: a suite loaded from a real file, run by a hand-wired runner, against a
+        real server.
+
+        Its own module, and test-only. Not brat-core's test scope, because this is a consumer of
+        brat-core rather than part of it; not the starter's, because a test there can only exercise
+        what the starter wires, and "a consumer with no framework at all can run a suite" is precisely
+        what needs covering. Everything lives in src/test/java, so there is no artifact worth
+        publishing and the coverage and bug gates have no main classes to look at.
+    -->
+    <properties>
+        <maven.install.skip>true</maven.install.skip>
+        <maven.deploy.skip>true</maven.deploy.skip>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>dev.pbroman</groupId>
+            <artifactId>brat-core</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- The server under test, and nothing else. Spring hosts it; Spring never wires BRAT - the
+             checkstyle import ban holds everything but dev.pbroman.brat.integration.app to that. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+</project>

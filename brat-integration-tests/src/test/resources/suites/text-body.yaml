@@ -1,0 +1,20 @@
+# A body that is not JSON. ${response.body} is the whole text; there is no json namespace to read,
+# which the companion suite covers.
+name: a plain text body
+description: reads a text/plain response
+
+requests:
+  - name: read plain text
+    requestDefinition:
+      url: "${env.baseUrl}/text"
+      method: GET
+    responseActions:
+      assertions:
+        - a: "${response.body}"
+          func: isEqualTo
+          b: a plain text body
+          message: the text body must arrive as written
+        - a: "${response.headers.Content-Type}"
+          func: isMediaType
+          b: text/plain
+          message: the content type must say what it is, charset aside

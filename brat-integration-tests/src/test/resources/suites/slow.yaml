@@ -1,0 +1,17 @@
+# The server's delay and the request's timeout both come from the environment, so one suite covers
+# both sides of the line: a response that arrives in time, and a timeout that elapses first.
+name: a slow request
+description: asks the server to answer later than it is given
+
+requests:
+  - name: wait for a slow answer
+    requestDefinition:
+      url: "${env.baseUrl}/slow?delayMs=${env.delayMs}"
+      method: GET
+      timeout: "${env.timeout}"
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: "200"
+          message: the slow endpoint answers 200 when it is given the time

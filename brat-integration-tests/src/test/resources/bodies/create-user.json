@@ -1,0 +1,6 @@
+{
+  "username": "from-a-file",
+  "age": 51,
+  "roles": ["reader"],
+  "address": {"street": "Test Street 2", "city": "Testville", "zip": "00000"}
+}

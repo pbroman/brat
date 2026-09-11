@@ -4,11 +4,12 @@
         "https://checkstyle.org/dtds/configuration_1_3.dtd">
 
 <!--
-    brat-core checkstyle ruleset. Written for IntelliJ's CheckStyle-IDEA plugin (point it at
-    this file, no Maven checkstyle-plugin binding assumed).
+    BRAT checkstyle ruleset - the whole repo's, inherited by every module from brat-parent. Also
+    usable from IntelliJ's CheckStyle-IDEA plugin (point it at this file).
 
-    Scope: this ruleset is brat-core-specific (e.g. the Spring/Jakarta import ban). Future
-    modules needs its own ruleset without that ban, not this one.
+    Scope: one ruleset for the whole repo, so modules cannot drift apart. Where a module genuinely
+    needs an exception - brat-integration-tests hosts its server under test on Spring Boot - it is a
+    suppression named below, scoped to the one package allowed to do it, rather than a second ruleset.
 -->
 <module name="Checker">
     <property name="charset" value="UTF-8"/>
@@ -18,6 +19,16 @@
     <module name="SuppressionSingleFilter">
         <property name="checks" value="MissingJavadocType|MissingJavadocMethod|JavadocMethod|SummaryJavadoc"/>
         <property name="files" value="[\\/]src[\\/]test[\\/]"/>
+    </module>
+
+    <!-- brat-integration-tests boots a Spring Boot application as the server a suite runs against.
+         Exactly one package may import Spring: the one that defines and boots that application. The
+         ban staying live everywhere else is what makes "Spring hosts the server, Spring does not wire
+         BRAT" a build failure rather than a habit - an @Autowired runner in a test class cannot
+         compile past it. Scoped by id so the other import bans still apply inside that package. -->
+    <module name="SuppressionSingleFilter">
+        <property name="id" value="frameworkImportBan"/>
+        <property name="files" value="[\\/]brat-integration-tests[\\/].*[\\/]integration[\\/]app[\\/]"/>
     </module>
 
     <module name="LineLength">
@@ -113,6 +124,7 @@
         <!-- "brat-core depends on nothing but the JDK and small, framework-neutral libraries
              ... Spring, Jakarta, or any DI/web framework - not fine" -->
         <module name="IllegalImport">
+            <property name="id" value="frameworkImportBan"/>
             <property name="illegalPkgs" value="org.springframework, jakarta"/>
         </module>
 

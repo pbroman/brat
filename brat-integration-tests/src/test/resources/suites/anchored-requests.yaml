@@ -1,0 +1,32 @@
+# Anchors and merge keys are the inherited authoring pattern, and Jackson cannot read them - the
+# loader composes with snakeyaml for exactly this. Pinned here as a file that is loaded and then run,
+# rather than as a document that merely binds.
+name: anchored requests
+description: two requests sharing one anchored definition
+
+requests:
+  - name: ask for a 200
+    requestDefinition: &status
+      url: "${env.baseUrl}/status/200"
+      method: GET
+    responseActions:
+      assertions:
+        - a: "${response.json.$.requested}"
+          func: isEqualTo
+          b: "200"
+          message: the anchored request must have gone to the 200 path
+
+  - name: ask for a 201
+    requestDefinition:
+      <<: *status
+      url: "${env.baseUrl}/status/201"
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: "201"
+          message: the merge key must not have dragged the 200 url along
+        - a: "${response.json.$.requested}"
+          func: isEqualTo
+          b: "201"
+          message: the overridden url must be the one that was called
