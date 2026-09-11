@@ -18,7 +18,7 @@
              skew between them — and so Dependabot raises one PR for the family rather than one per
              artifact. -->
         <httpcore5.version>5.4.3</httpcore5.version>
-        <jackson.version>3.2.1</jackson.version>
+        <jackson.version>3.2.2</jackson.version>
         <snakeyaml.engine.version>3.0.1</snakeyaml.engine.version>
         <jackson.annotations.version>2.22</jackson.annotations.version>
         <bytebuddy.version>1.18.11</bytebuddy.version>
