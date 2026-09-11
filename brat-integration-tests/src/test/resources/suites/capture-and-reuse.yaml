@@ -1,0 +1,38 @@
+# The one suite whose seeding is deliberately BRAT's own: a capture feeding the next request is the
+# claim, so the requests that produce the value have to be BRAT's.
+name: capture and reuse
+description: creates a user, captures its id, and reads it back with that id
+
+requests:
+  - name: create a user
+    requestDefinition:
+      url: "${env.baseUrl}/create"
+      method: POST
+      headers:
+        Content-Type: application/json
+      body:
+        raw: |
+          {"username": "${env.username}", "age": 33}
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: "201"
+          message: the user must have been created
+      setVars:
+        userId: "${response.json.$.id}"
+
+  - name: read the captured user
+    requestDefinition:
+      url: "${env.baseUrl}/user/${vars.userId}"
+      method: GET
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: "200"
+          message: the captured id must address a real user
+        - a: "${response.json.$.username}"
+          func: isEqualTo
+          b: "${env.username}"
+          message: the user read back must be the user created

@@ -1,0 +1,50 @@
+# A capture that cannot resolve, and two later requests: one reading what it failed to set, one reading
+# what was captured after it.
+#
+# The impossible capture is written *first* on purpose. 'Remaining captures still evaluate' is only a
+# claim if something is written after the failure, and setVars keeps its authored order - so the third
+# request below is what proves userId was captured at all.
+name: capture fails
+description: an impossible capture, a later read of it, and a later read of the capture that followed it
+
+requests:
+  - name: create a user
+    requestDefinition:
+      url: "${env.baseUrl}/create"
+      method: POST
+      headers:
+        Content-Type: application/json
+      body:
+        raw: |
+          {"username": "${env.username}"}
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: "201"
+          message: the user must have been created
+      setVars:
+        nickname: "${response.json.$.nicknameThatDoesNotExist}"
+        userId: "${response.json.$.id}"
+
+  - name: read the user by the var that was never set
+    requestDefinition:
+      url: "${env.baseUrl}/user/${vars.nickname}"
+      method: GET
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: "200"
+          message: never evaluated - the request cannot be built
+
+  - name: read the user by the var captured after the failure
+    requestDefinition:
+      url: "${env.baseUrl}/user/${vars.userId}"
+      method: GET
+    responseActions:
+      assertions:
+        - a: "${response.json.$.username}"
+          func: isEqualTo
+          b: "${env.username}"
+          message: the capture after the failed one must still have run

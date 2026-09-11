@@ -1,0 +1,27 @@
+# One request to a host nothing listens on, one to the real server. A transport failure is request
+# data, so the run must continue to the second request.
+name: two hosts
+description: an unreachable host followed by a reachable one
+
+requests:
+  - name: reach a host that is not there
+    requestDefinition:
+      url: "${env.deadUrl}/status/200"
+      method: GET
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: "200"
+          message: never evaluated - there is no response to assert over
+
+  - name: reach the server that is there
+    requestDefinition:
+      url: "${env.baseUrl}/status/200"
+      method: GET
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: "200"
+          message: the run must have carried on past the unreachable host

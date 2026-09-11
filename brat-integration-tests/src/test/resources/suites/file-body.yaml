@@ -1,0 +1,30 @@
+# A body read from a file at request time. The path itself is built from a token, which is the half
+# that works today: the file is read after the definition is interpolated, so the path may hold
+# ${...}. Tokens inside the file's content are a separate, unbuilt thing - see the finding recorded
+# with 8a step 7.
+name: a body from a file
+description: creates a user from a body file named by a token
+
+requests:
+  - name: create a user from a file
+    requestDefinition:
+      url: "${env.baseUrl}/create"
+      method: POST
+      headers:
+        Content-Type: application/json
+      body:
+        file: "classpath:bodies/${env.bodyFile}"
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: "201"
+          message: the user must have been created from the file's content
+        - a: "${response.json.$.username}"
+          func: isEqualTo
+          b: from-a-file
+          message: the username must be the one the file carries
+        - a: "${response.json.$.address.city}"
+          func: isEqualTo
+          b: Testville
+          message: the whole file must have been sent, nested objects included

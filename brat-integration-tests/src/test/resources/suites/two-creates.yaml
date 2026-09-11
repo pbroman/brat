@@ -1,0 +1,35 @@
+# Two requests that each leave a trace on the server, so a cancellation between them is observable in
+# the database rather than only in the result.
+name: two creates
+description: creates two users, one request each
+
+requests:
+  - name: create the first user
+    requestDefinition:
+      url: "${env.baseUrl}/create"
+      method: POST
+      headers:
+        Content-Type: application/json
+      body:
+        raw: '{"username": "first"}'
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: "201"
+          message: the first user must have been created
+
+  - name: create the second user
+    requestDefinition:
+      url: "${env.baseUrl}/create"
+      method: POST
+      headers:
+        Content-Type: application/json
+      body:
+        raw: '{"username": "second"}'
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: "201"
+          message: the second user must have been created

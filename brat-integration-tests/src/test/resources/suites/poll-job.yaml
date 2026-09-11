@@ -1,0 +1,28 @@
+# A job that reports 'pending' until it has been polled often enough: the only shape that makes a
+# repeatUntil mean anything, since the condition reads the response the loop is waiting for.
+#
+# maxAttempts comes from the environment so one suite covers both outcomes - reaching ready, and
+# running out of attempts.
+name: poll a job
+description: polls a job until it reports ready, or until the attempts run out
+
+requests:
+  - name: poll until ready
+    requestDefinition:
+      url: "${env.baseUrl}/job/${env.jobId}"
+      method: GET
+    responseActions:
+      assertions:
+        - a: "${response.json.$.status}"
+          func: isEqualTo
+          b: ready
+          message: the job must have become ready
+    flowControl:
+      repeatUntil:
+        condition:
+          a: "${response.json.$.status}"
+          func: isEqualTo
+          b: ready
+        maxAttempts: "${env.maxAttempts}"
+        waitBetweenAttempts: "20"
+        messageOnFail: the job never became ready

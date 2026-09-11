@@ -1,0 +1,18 @@
+# Deliberately broken: 'responsActions' is a typo. Loaded by LoadingTest, which checks that the error
+# names the key and its position and never echoes a value - the Authorization header below is the
+# value that must not appear in it.
+name: broken suite
+description: a suite with a typo'd key and a credential-shaped value
+
+requests:
+  - name: a request nobody will ever send
+    requestDefinition:
+      url: "http://localhost:1/never"
+      method: GET
+      headers:
+        Authorization: "Bearer do-not-print-me-anywhere"
+    responsActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: "200"

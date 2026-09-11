@@ -1,0 +1,15 @@
+# Reading a non-JSON body as JSON. The response records no json at all, so the assertion cannot be
+# interpolated - and that failure is data on the request, not an exception out of the run.
+name: plain text read as json
+description: asks for a JSONPath into a body that is not JSON
+
+requests:
+  - name: read plain text as json
+    requestDefinition:
+      url: "${env.baseUrl}/text"
+      method: GET
+    responseActions:
+      assertions:
+        - a: "${response.json.$.anything}"
+          func: notNull
+          message: never evaluated - there is no json to read
