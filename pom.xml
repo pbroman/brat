@@ -23,7 +23,7 @@
         <jackson.annotations.version>2.22</jackson.annotations.version>
         <bytebuddy.version>1.18.13</bytebuddy.version>
         <mockito.version>5.23.0</mockito.version>
-        <slf4j.version>2.0.18</slf4j.version>
+        <slf4j.version>2.0.19</slf4j.version>
         <!-- Test-only, and only in brat-integration-tests: Spring Boot hosts the server a suite runs
              against there. Nothing published ever sees it, and brat-core's checkstyle import ban keeps
              it out of everything but the package that boots it. Spring Boot 4 rather than 3 so the
