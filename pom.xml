@@ -21,7 +21,7 @@
         <jackson.version>3.2.2</jackson.version>
         <snakeyaml.engine.version>3.0.1</snakeyaml.engine.version>
         <jackson.annotations.version>2.22</jackson.annotations.version>
-        <bytebuddy.version>1.18.11</bytebuddy.version>
+        <bytebuddy.version>1.18.13</bytebuddy.version>
         <mockito.version>5.23.0</mockito.version>
         <slf4j.version>2.0.18</slf4j.version>
         <!-- Test-only, and only in brat-integration-tests: Spring Boot hosts the server a suite runs
