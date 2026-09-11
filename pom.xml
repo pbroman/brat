@@ -24,11 +24,6 @@
         <bytebuddy.version>1.18.13</bytebuddy.version>
         <mockito.version>5.23.0</mockito.version>
         <slf4j.version>2.0.19</slf4j.version>
-        <!-- Test-only, and only in brat-integration-tests: Spring Boot hosts the server a suite runs
-             against there. Nothing published ever sees it, and brat-core's checkstyle import ban keeps
-             it out of everything but the package that boots it. Spring Boot 4 rather than 3 so the
-             reactor carries one Jackson line (3.x) instead of two. -->
-        <spring.boot.version>4.1.1</spring.boot.version>
     </properties>
 
     <modules>
@@ -38,17 +33,6 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- Imported rather than inherited: brat-parent manages its own versions and must not
-                 inherit an application's starter parent. The BOM gives the integration module one
-                 version line for the server under test, with no plugin or dependency defaults
-                 leaking into brat-core. -->
-            <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-dependencies</artifactId>
-                <version>${spring.boot.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
             <dependency>
                 <groupId>org.apache.httpcomponents.client5</groupId>
                 <artifactId>httpclient5</artifactId>
@@ -77,6 +61,16 @@
             <dependency>
                 <groupId>tools.jackson.core</groupId>
                 <artifactId>jackson-databind</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <!-- Declared although it arrives transitively via databind, for the reason stated below
+                 for jackson-annotations: brat-core uses JacksonException, JsonParser and JsonToken
+                 directly. Pinning it to the same property is also what keeps core and databind from
+                 skewing - a consumer's BOM (brat-integration-tests imports Spring Boot's) otherwise
+                 decides this one while the property decides the other. -->
+            <dependency>
+                <groupId>tools.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
                 <version>${jackson.version}</version>
             </dependency>
             <!-- Jackson 3 kept its annotations under the old com.fasterxml coordinates and on their

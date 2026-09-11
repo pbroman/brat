@@ -25,7 +25,28 @@
     <properties>
         <maven.install.skip>true</maven.install.skip>
         <maven.deploy.skip>true</maven.deploy.skip>
+        <!-- Spring Boot 4 rather than 3 so this module carries one Jackson line (3.x) instead of two. -->
+        <spring.boot.version>4.1.1</spring.boot.version>
     </properties>
+
+    <!--
+        The BOM is imported *here* rather than in brat-parent, and that placement is load-bearing: in the
+        parent it also managed versions for brat-core, where it silently pinned jackson-core to the
+        version Boot ships (3.1.5) while brat-core's own jackson.version pinned databind to 3.2.1. A
+        published module resolving a mixed Jackson pair, decided by a test-only dependency and invisible
+        to Dependabot, is exactly what brat-core's framework-agnostic principle is there to prevent.
+    -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring.boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
