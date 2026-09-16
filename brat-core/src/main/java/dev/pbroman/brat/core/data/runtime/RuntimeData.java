@@ -39,6 +39,13 @@ public class RuntimeData {
     private final Map<String, CaptureTombstone> tombstones = new HashMap<>();
 
     /**
+     * Where the suite being run was loaded from, prefix and all, or {@code null} when it came from no
+     * location. Read when a relative body-file path has to be resolved against the suite.
+     */
+    @Getter
+    private final String suiteLocation;
+
+    /**
      * Equivalent to {@link #RuntimeData(Map, Map, Map, Map)} with {@code vars} and {@code params}
      * defaulted to empty, mutable maps.
      *
@@ -80,6 +87,27 @@ public class RuntimeData {
             Map<String, Object> env,
             Map<String, Object> vars,
             Map<String, Object> params) {
+        this(constants, env, vars, params, null);
+    }
+
+    /**
+     * Constructs the namespaces that exist before anything has run, together with the location the
+     * suite was loaded from.
+     *
+     * @param constants the constants
+     * @param env the environment values
+     * @param vars the runtime-mutable variables
+     * @param params the execution-time parameters
+     * @param suiteLocation where the suite document was loaded from, prefix and all, or {@code null}
+     *        when it came from no location
+     */
+    public RuntimeData(
+            Map<String, Object> constants,
+            Map<String, Object> env,
+            Map<String, Object> vars,
+            Map<String, Object> params,
+            String suiteLocation) {
+        this.suiteLocation = suiteLocation;
         data = new HashMap<>();
         data.put(CONSTANTS, constants);
         data.put(ENV, env);

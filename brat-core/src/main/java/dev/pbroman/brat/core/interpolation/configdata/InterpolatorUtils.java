@@ -1,8 +1,10 @@
 package dev.pbroman.brat.core.interpolation.configdata;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
@@ -11,6 +13,8 @@ import dev.pbroman.brat.core.data.ConfigData;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.Require;
+import dev.pbroman.brat.core.util.ResourceReader;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Helper methods shared by {@code ConfigDataInterpolator} implementations.
@@ -199,5 +203,57 @@ public final class InterpolatorUtils {
             argsValues.put(arg.getKey(), outcome.asString());
         }
         return argsValues;
+    }
+
+    /**
+     * Reads the body file at {@code location} and interpolates its content.
+     * <p>
+     * This is the whole of what a {@code body: {file: …}} entry becomes: the caller has already
+     * interpolated the <em>path</em>, and this resolves it against the suite, reads it, and
+     * interpolates the <em>content</em> — so a body file may hold {@code ${…}} tokens exactly as an
+     * inline body may. The read happens here rather than in a request handler because this is the
+     * only component holding both the resolved path and an {@link Interpolation}.
+     * <p>
+     * <strong>The outcome names the path, never the content.</strong> {@link InterpolationOutcome#value()}
+     * carries the interpolated content, while {@link InterpolationOutcome#reportingString()} carries
+     * {@code <resolved location> → <size>} — for example
+     * {@code file:bodies/create-order.json → 2.1 kB}. A body file is exactly the kind of file that
+     * holds a credential, and a reporting string travels into logs and reports.
+     *
+     * @param location the {@code file} entry's value, already interpolated; never {@code null} or
+     *        blank
+     * @param interpolation the interpolation implementation, applied to the file's content
+     * @param runtimeData the runtime data, read for the suite's own location so that a bare
+     *        {@code location} resolves relative to the suite file
+     * @return an outcome whose value is the file's interpolated content and whose reporting string
+     *         names the resolved location and the content's size. Never {@code null}; an empty file
+     *         yields an outcome with empty content rather than {@code null}
+     * @throws dev.pbroman.brat.core.exception.BratException if {@code location} is {@code null} or
+     *         blank; if it is bare and the runtime data carries no suite location; if no resource
+     *         exists there or it cannot be read; or if interpolating the content fails. Every message
+     *         names the location and none quotes the content
+     */
+    public static InterpolationOutcome interpolatedBodyFile(
+            String location, Interpolation interpolation, RuntimeData runtimeData) {
+        if (StringUtils.isBlank(location)) {
+            throw new BratException("A body file's location may not be blank");
+        }
+        var resolved = ResourceReader.resolve(location, runtimeData.getSuiteLocation());
+        var outcome = interpolation.outcome(ResourceReader.readFileToString(resolved), runtimeData);
+        // The path and the size, never the content: this string travels into logs and reports, and a
+        // body file is exactly the kind that holds a credential.
+        return new InterpolationOutcome(
+                outcome.value(), resolved + " → " + sizeOf(outcome.asString()), outcome.containsSecret());
+    }
+
+    /**
+     * Renders a payload's size for a reporting string.
+     *
+     * @param content the payload
+     * @return the size of {@code content} in UTF-8 bytes, in bytes below a kilobyte and in kB above
+     */
+    private static String sizeOf(String content) {
+        var bytes = content.getBytes(StandardCharsets.UTF_8).length;
+        return bytes < 1000 ? bytes + " B" : String.format(Locale.ROOT, "%.1f kB", bytes / 1000.0);
     }
 }

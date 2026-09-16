@@ -476,4 +476,17 @@ class BratTest {
             };
         }
     }
+
+    @Test
+    void run_failsAtLaunchWhenABodyFileIsNotThere() {
+        // given - a token-free path is knowable before anything runs
+        var definition = new HttpRequestDefinition(
+                "http://url", "POST", null, Map.of("file", "file:/no/such/body.json"), null, null);
+        var request = new Request("create", null, null, null, null, null, definition, null, null);
+
+        // then - and it throws rather than reporting, because no run ever started
+        assertThatThrownBy(() -> brat().run(suite(request), environment))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("body.json");
+    }
 }

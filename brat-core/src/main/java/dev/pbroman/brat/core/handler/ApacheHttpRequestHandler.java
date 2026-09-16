@@ -16,7 +16,6 @@ import dev.pbroman.brat.core.data.result.HttpResponse;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.HttpHeaderUtils;
 import dev.pbroman.brat.core.util.Require;
-import dev.pbroman.brat.core.util.ResourceReader;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
@@ -34,7 +33,6 @@ import org.apache.hc.core5.util.Timeout;
 
 import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
 import static dev.pbroman.brat.core.util.Constants.DEFAULT_TIMEOUT_MS;
-import static dev.pbroman.brat.core.util.Constants.FILE_BODY;
 import static org.apache.hc.core5.http.HttpHeaders.CONTENT_TYPE;
 
 /**
@@ -242,13 +240,13 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
     /**
      * The text to send as the body, or {@code null} when the request declares none.
      * <p>
-     * A {@code file} body is read here rather than at construction, so that both the path and the
-     * file's content may hold {@code ${…}} tokens resolved by then.
+     * The payload is taken from {@code _bodyString} and nothing is read from disk: a {@code file}
+     * body has already been resolved and interpolated into that entry before the definition reaches
+     * any handler. Every handler therefore reads one key, whatever the body was authored as.
      *
      * @param definition the interpolated request
      * @return the payload, or {@code null}
-     * @throws BratException if a {@code file} body cannot be read, or if a body is declared with
-     *         nothing to send
+     * @throws BratException if a body is declared with nothing to send
      */
     private static String payloadOf(HttpRequestDefinition definition) {
         var body = definition.getBody();
@@ -257,9 +255,6 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
         }
         if (body.get(BODY_STRING) != null) {
             return body.get(BODY_STRING);
-        }
-        if (body.get(FILE_BODY) != null) {
-            return ResourceReader.readFileToString(body.get(FILE_BODY), StandardCharsets.UTF_8);
         }
         throw new BratException("The request declares a body with nothing to send. Entries other than 'raw' or 'file' "
                 + "are only joined into a payload under a form-urlencoded 'Content-Type'");
