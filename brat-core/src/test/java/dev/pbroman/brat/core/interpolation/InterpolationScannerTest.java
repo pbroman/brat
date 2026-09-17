@@ -43,6 +43,32 @@ class InterpolationScannerTest extends AbstractInterpolationTest {
     }
 
     @Test
+    void outcome_carriesAWholeTokenNullValueThrough() {
+        // given - one token spanning the whole input is returned whole, never spliced into text.
+        // Built before the stubbing, not inside it: a throw while evaluating thenReturn's argument
+        // leaves the shared mock half-stubbed and fails the next test instead of this one
+        var nullOutcome = new InterpolationOutcome(null, "→ null");
+        when(mockRule.outcome(eq("${vars.email}"), any())).thenReturn(nullOutcome);
+
+        // when
+        var outcome = scanner.outcome("${vars.email}", runtimeData);
+
+        // then
+        assertThat(outcome.value()).isNull();
+    }
+
+    @Test
+    void outcome_throwsWhenANullValuedTokenSitsInsideALargerString() {
+        // given
+        var nullOutcome = new InterpolationOutcome(null, "→ null");
+        when(mockRule.outcome(eq("${vars.email}"), any())).thenReturn(nullOutcome);
+
+        // then - there is no text to splice in, so this is a failure rather than the word "null"
+        assertThatThrownBy(() -> scanner.outcome("mailto:${vars.email}", runtimeData))
+                .isInstanceOf(BratException.class);
+    }
+
+    @Test
     void interpolate_inputWithNoVariables() {
         // given
         var input = "this is a test";

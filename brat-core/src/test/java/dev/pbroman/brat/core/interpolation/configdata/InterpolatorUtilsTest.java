@@ -209,6 +209,15 @@ class InterpolatorUtilsTest {
         assertThat(args).containsOnlyKeys("offset");
     }
 
+    @Test
+    void asStringOrNull_throwsWhenThePresentOutcomeHoldsANullValue() {
+        // given - the null it absorbs is the outcome's, meaning an unauthored field; not the value's
+        var outcome = new InterpolationOutcome(null, "${response.json.$.timeout} → null");
+
+        // then
+        assertThatThrownBy(() -> InterpolatorUtils.asStringOrNull(outcome)).isInstanceOf(BratException.class);
+    }
+
     // --- interpolatedBodyFile ---
 
     @TempDir

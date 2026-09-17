@@ -40,6 +40,22 @@ public class ResponseJsonInterpolationRuleTest extends AbstractInterpolationTest
             }
             """.strip();
 
+    @Test
+    void outcome_resolvesAJsonNullToANullValue() {
+        // given - a body whose own fixture stays untouched, since a new key would shift the
+        // structural assertions the shared one pins
+        var data = new RuntimeData(Map.of(), Map.of());
+        data.setResponseVars(Map.of(JSON, """
+                {"email": null}"""));
+
+        // when
+        var outcome = new ResponseJsonInterpolationRule().outcome("${response.json.$.email}", data);
+
+        // then - present and null is a fact about the response, not a failure to resolve
+        assertThat(outcome).isPresent();
+        assertThat(outcome.get().value()).isNull();
+    }
+
     private static Stream<Arguments> jsonPaths() {
         return Stream.of(
                 Arguments.of("${response.json.id}", "123"),

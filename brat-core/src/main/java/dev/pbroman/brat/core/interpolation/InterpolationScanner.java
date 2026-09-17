@@ -71,7 +71,10 @@ public class InterpolationScanner implements Interpolation {
      *         itself (value and reporting string) if it contained no tokens or none resolved to
      *         a different value
      * @throws BratException if {@code input} or {@code runtimeData} is {@code null}, or any
-     *         token's resolution throws
+     *         token's resolution throws; and if a token <em>inside a larger string</em> resolves to
+     *         a {@code null} value, since there is no text to splice in. A token that spans the whole
+     *         input is returned whole instead, so a {@code null} value survives — that is the path a
+     *         condition operand takes
      */
     @Override
     public InterpolationOutcome outcome(String input, RuntimeData runtimeData) {

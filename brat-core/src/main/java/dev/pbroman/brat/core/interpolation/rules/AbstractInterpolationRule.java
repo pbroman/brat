@@ -155,14 +155,18 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
      * e.g. {@code threadCount:-env.threadCount:-10} for input
      * {@code ${params.threadCount:-env.threadCount:-10}}. Resolution:
      * <ol>
-     *     <li>The first segment is looked up in {@code values}. If present, its value is
-     *         returned — no other segment is considered.</li>
+     *     <li>The first segment is looked up in {@code values}. If present with a non-{@code null}
+     *         value, that value is returned — no other segment is considered. <strong>A key present
+     *         with a {@code null} value counts as absent</strong> and the chain continues: in a
+     *         namespace, a key written with nothing after it (<code>constants: {foo: }</code> in
+     *         ordinary YAML) is the same authoring mistake as not writing it, and an author who
+     *         supplied a {@code :-} fallback plainly expects it to apply.</li>
      *     <li>Otherwise, each remaining segment is tried in order. A segment shaped
      *         {@code namespace.key} where {@code namespace} is one of {@code constants}/
      *         {@code env}/{@code vars}/{@code params} is resolved by looking {@code key} up in
-     *         that namespace via {@code runtimeData}; if found, that value is returned and no
-     *         further segment is considered. If that namespace doesn't have {@code key} either,
-     *         the next segment is tried.</li>
+     *         that namespace via {@code runtimeData}; if found with a non-{@code null} value, that
+     *         value is returned and no further segment is considered. If that namespace doesn't have
+     *         {@code key}, or holds it with a {@code null} value, the next segment is tried.</li>
      *     <li>Any other segment shape (including one naming an unrecognized namespace) is a
      *         literal default — it is returned as-is, terminating the chain. Since a literal
      *         always resolves, a chain only reaches {@link #onMissingReplacement(String, String, RuntimeData)}
@@ -206,8 +210,11 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
         }
         var chain = matcher.group(VARIABLE_GROUP_NAME).split(Pattern.quote(FALLBACK_DELIMITER), -1);
         var key = chain[0];
-        if (values.containsKey(key)) {
-            return values.get(key).toString();
+        // No containsKey: a key present with a null value and an absent key are the same thing here,
+        // so both fall through to the chain below.
+        var value = values.get(key);
+        if (value != null) {
+            return value.toString();
         }
         // orElseGet, not orElse: an override of onMissingReplacement may throw or log, so it must
         // run only when no segment resolved.
@@ -224,9 +231,10 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
      * @param segment one segment of a fallback chain
      * @param runtimeData the object containing values
      * @return the resolved value, if {@code segment} is a {@code namespace.key} reference to a
-     *         fallback-eligible namespace and that namespace has {@code key}; the literal
-     *         {@code segment} itself if it doesn't have that shape; {@code null} if it has that
-     *         shape but the referenced namespace doesn't have {@code key} (try the next segment)
+     *         fallback-eligible namespace and that namespace holds {@code key} with a
+     *         non-{@code null} value; the literal {@code segment} itself if it doesn't have that
+     *         shape; {@code null} if it has that shape but the referenced namespace doesn't have
+     *         {@code key}, or holds it with a {@code null} value (try the next segment)
      */
     private static String resolveFallbackSegment(String segment, RuntimeData runtimeData) {
         var dotIndex = segment.indexOf('.');
@@ -235,9 +243,8 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
             if (FALLBACK_NAMESPACES.contains(namespace)) {
                 var key = segment.substring(dotIndex + 1);
                 var namespaceValues = runtimeData.getData(namespace);
-                return namespaceValues != null && namespaceValues.containsKey(key)
-                        ? namespaceValues.get(key).toString()
-                        : null;
+                var value = namespaceValues == null ? null : namespaceValues.get(key);
+                return value == null ? null : value.toString();
             }
         }
         return segment;

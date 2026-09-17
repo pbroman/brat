@@ -76,9 +76,14 @@ public class InterpolationRuleDispatcher implements Interpolation {
      * Re-reports a claiming rule's outcome against the original input, keeping its value and secret
      * tag. The value is carried through untouched rather than stringified, so a rule that resolved to
      * a {@code List} or an {@code Integer} still returns one.
+     * <p>
+     * The value is rendered for the reporting string only, and null-safely — a {@code null} value is
+     * a JSON {@code null} the response holds, and it has to reach a condition operand intact. Asking
+     * {@link InterpolationOutcome#asString()} here would fail every such token inside the dispatcher,
+     * before anything able to represent one ever sees it.
      */
     private static InterpolationOutcome reported(String input, InterpolationOutcome outcome) {
-        var resolved = outcome.asString();
+        var resolved = String.valueOf(outcome.value());
         if (resolved.equals(input)) {
             return new InterpolationOutcome(outcome.value(), resolved, outcome.containsSecret());
         }

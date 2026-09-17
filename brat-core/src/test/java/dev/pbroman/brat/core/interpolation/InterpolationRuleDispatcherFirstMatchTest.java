@@ -153,6 +153,20 @@ class InterpolationRuleDispatcherFirstMatchTest {
         assertThatThrownBy(() -> dispatcher.outcome(null, runtimeData)).isInstanceOf(BratException.class);
     }
 
+    @Test
+    void outcome_carriesANullValueThroughToTheCaller() {
+        // given - a rule resolving onto a JSON null, which a condition operand has to receive intact
+        var dispatcher = new InterpolationRuleDispatcher(
+                List.of(rule(0, input -> Optional.of(new InterpolationOutcome(null, "reported")))));
+
+        // when
+        var outcome = dispatcher.outcome("${response.json.$.email}", runtimeData);
+
+        // then - the dispatcher renders the value for its reporting string without demanding text
+        assertThat(outcome.value()).isNull();
+        assertThat(outcome.reportingString()).contains("null");
+    }
+
     private static InterpolationRule claiming(String value, int priority) {
         return rule(priority, input -> Optional.of(new InterpolationOutcome(value, "reported")));
     }

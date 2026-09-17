@@ -101,11 +101,18 @@ public final class InterpolatorUtils {
     }
 
     /**
-     * Returns the outcome as string, if it is not {@code null}, then returns {@code null}.
+     * Returns the outcome as string, or {@code null} if there is no outcome at all.
+     * <p>
+     * The {@code null} it answers for is the <em>outcome</em>'s, meaning the field was not authored.
+     * An outcome that exists but holds a {@code null} <em>value</em> is a different thing and is not
+     * absorbed here: it throws, because every caller of this method is populating a field that has to
+     * be text.
      *
      * @param outcome an outcome, or {@code null}
      * @return {@link InterpolationOutcome#asString()}, or {@code null} if {@code outcome} is
      *         {@code null}
+     * @throws dev.pbroman.brat.core.exception.BratException if {@code outcome} is present and its
+     *         value is {@code null}
      */
     public static String asStringOrNull(InterpolationOutcome outcome) {
         return outcome == null ? null : outcome.asString();
