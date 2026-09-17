@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Objects;
 
 import dev.pbroman.brat.core.exception.BratException;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Argument guards that fail with a {@link BratException}.
@@ -26,6 +27,23 @@ public final class Require {
      */
     public static void nonNull(Object value, String message) {
         if (value == null) {
+            throw new BratException(message);
+        }
+    }
+
+    /**
+     * Requires that {@code value} is neither {@code null} nor blank.
+     * <p>
+     * Blank is {@link StringUtils#isBlank}'s: {@code null}, empty, or whitespace only. A value whose
+     * only content is whitespace is rejected rather than trimmed — this decides whether a value is
+     * usable, and does not alter it.
+     *
+     * @param value the value to check
+     * @param message the message of the exception thrown if it is {@code null} or blank
+     * @throws BratException if {@code value} is {@code null}, empty, or whitespace only
+     */
+    public static void nonBlank(String value, String message) {
+        if (StringUtils.isBlank(value)) {
             throw new BratException(message);
         }
     }

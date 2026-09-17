@@ -7,11 +7,11 @@ import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import org.apache.commons.lang3.StringUtils;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
 import static dev.pbroman.brat.core.interpolation.InterpolationPatterns.FUNCTION_CALL_PREFIX;
 import static dev.pbroman.brat.core.interpolation.InterpolationPatterns.TOKEN_SUFFIX;
+import static dev.pbroman.brat.core.util.Require.nonBlank;
 import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
@@ -106,9 +106,7 @@ public final class FunctionEvaluator {
         // character, and that character is the closing brace the guard above already required.
         var nameEnd = openingParen < 0 ? closingBrace : openingParen;
         var name = call.substring(FUNCTION_CALL_PREFIX.length(), nameEnd).trim();
-        if (StringUtils.isBlank(name)) {
-            throw new BratException("The function call '" + call + "' names no function");
-        }
+        nonBlank(name, "The function call '" + call + "' names no function");
         var arguments = nameEnd == closingBrace ? List.<String>of() : argumentsOf(call, openingParen + 1);
 
         var values = new ArrayList<String>(arguments.size());

@@ -4,7 +4,7 @@ import java.util.Optional;
 import java.util.function.UnaryOperator;
 
 import dev.pbroman.brat.core.api.secrets.SecretsProvider;
-import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.util.Require;
 import org.apache.commons.lang3.StringUtils;
 
 /**
@@ -53,9 +53,7 @@ public final class EnvVarSecretsProvider implements SecretsProvider {
 
     @Override
     public Optional<String> getSecret(String key) {
-        if (StringUtils.isBlank(key)) {
-            throw new BratException("The secret key must not be null or blank");
-        }
+        Require.nonBlank(key, "The secret key must not be null or blank");
         var value = lookup.apply(prefix + toUpperSnakeCase(key));
         return StringUtils.isEmpty(value) ? Optional.empty() : Optional.of(value);
     }

@@ -6,8 +6,8 @@ import java.util.Map;
 import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.api.secrets.SecretsProviderFactory;
 import dev.pbroman.brat.core.exception.BratException;
-import org.apache.commons.lang3.StringUtils;
 
+import static dev.pbroman.brat.core.util.Require.nonBlank;
 import static dev.pbroman.brat.core.util.Require.nonNull;
 import static dev.pbroman.brat.core.util.ResourceReader.readFileToString;
 
@@ -58,9 +58,7 @@ public final class FileSecretsProviderFactory implements SecretsProviderFactory 
     public SecretsProvider create(Map<String, String> params) {
         nonNull(params, "params may not be null");
         var location = params.get(LOCATION_PARAM);
-        if (StringUtils.isBlank(location)) {
-            throw new BratException("The params must contain a valid " + LOCATION_PARAM);
-        }
+        nonBlank(location, "The params must contain a valid " + LOCATION_PARAM);
         var map = new HashMap<>(FlatYamlLoader.load(readFileToString(location)));
         map.remove(TYPE_KEY);
         return new MapSecretsProvider(map);

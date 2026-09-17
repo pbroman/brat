@@ -10,7 +10,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import dev.pbroman.brat.core.exception.BratException;
-import org.apache.commons.lang3.StringUtils;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -88,9 +87,7 @@ public final class ResourceReader {
      *         against — the message says so rather than guessing a working directory
      */
     public static String resolve(String location, String suiteLocation) {
-        if (StringUtils.isBlank(location)) {
-            throw new BratException("The location may not be blank");
-        }
+        Require.nonBlank(location, "The location may not be blank");
         if (location.startsWith(FILE_PREFIX) || location.startsWith(CLASSPATH_PREFIX)) {
             return location;
         }
@@ -116,9 +113,7 @@ public final class ResourceReader {
      * @throws BratException if {@code location} is {@code null} or blank
      */
     public static boolean exists(String location) {
-        if (StringUtils.isBlank(location)) {
-            throw new BratException("The location may not be blank");
-        }
+        Require.nonBlank(location, "The location may not be blank");
         if (location.startsWith(FILE_PREFIX)) {
             return Files.isRegularFile(filePath(location));
         }

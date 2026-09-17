@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import dev.pbroman.brat.core.exception.BratException;
-import org.apache.commons.lang3.StringUtils;
+import dev.pbroman.brat.core.util.Require;
 import org.snakeyaml.engine.v2.api.LoadSettings;
 import org.snakeyaml.engine.v2.api.lowlevel.Compose;
 import org.snakeyaml.engine.v2.exceptions.Mark;
@@ -74,9 +74,7 @@ final class YamlComposer {
      * @return the composed root node
      */
     private static Node composeNode(String yaml) {
-        if (StringUtils.isBlank(yaml)) {
-            throw new BratException("The suite document is empty");
-        }
+        Require.nonBlank(yaml, "The suite document is empty");
         try {
             // Defaults are deliberate and none is raised: duplicate keys already rejected, marks kept,
             // 50 aliases, 3 MB, no recursive keys. Global tags stay off - this is YAML 1.2.

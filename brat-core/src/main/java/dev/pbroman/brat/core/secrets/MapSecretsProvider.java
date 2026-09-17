@@ -7,6 +7,7 @@ import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.exception.BratException;
 import org.apache.commons.lang3.StringUtils;
 
+import static dev.pbroman.brat.core.util.Require.nonBlank;
 import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
@@ -58,9 +59,7 @@ public final class MapSecretsProvider implements SecretsProvider {
     @Override
     public Optional<String> getSecret(String key) {
         nonNull(key, "The secrets key may not be null.");
-        if (StringUtils.isBlank(key)) {
-            throw new BratException("The secrets key may not be blank.");
-        }
+        nonBlank(key, "The secrets key may not be blank.");
         return Optional.ofNullable(secrets.get(key));
     }
 }

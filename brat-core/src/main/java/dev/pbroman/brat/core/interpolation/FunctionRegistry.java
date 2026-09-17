@@ -8,9 +8,9 @@ import java.util.Map;
 import dev.pbroman.brat.core.api.interpolation.BratFunction;
 import dev.pbroman.brat.core.exception.BratException;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationPatterns.FUNCTION_PREFIX;
+import static dev.pbroman.brat.core.util.Require.nonBlank;
 import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
@@ -62,9 +62,7 @@ public final class FunctionRegistry {
         for (var function : functions) {
             nonNull(function, "A function of a registry must not be null");
             var name = function.name();
-            if (StringUtils.isBlank(name)) {
-                throw new BratException("A function name must not be null or blank");
-            }
+            nonBlank(name, "A function name must not be null or blank");
             if (name.startsWith(FUNCTION_PREFIX)) {
                 throw new BratException("The function name '" + name + "' must not carry the '" + FUNCTION_PREFIX
                         + "' prefix, which is syntax rather than part of the name");
@@ -114,9 +112,7 @@ public final class FunctionRegistry {
      * The lookup key for {@code name}: the name lower-cased, since matching is case-insensitive.
      */
     private static String requireName(String name) {
-        if (StringUtils.isBlank(name)) {
-            throw new BratException("A function name must not be null or blank");
-        }
+        nonBlank(name, "A function name must not be null or blank");
         return name.toLowerCase(Locale.ROOT);
     }
 }

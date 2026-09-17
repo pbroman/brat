@@ -6,9 +6,9 @@ import java.util.Optional;
 
 import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.exception.BratException;
-import org.apache.commons.lang3.StringUtils;
 
 import static dev.pbroman.brat.core.util.Require.noNullElements;
+import static dev.pbroman.brat.core.util.Require.nonBlank;
 
 /**
  * A {@link SecretsProvider} that resolves a key against an ordered chain of other providers,
@@ -51,9 +51,7 @@ public final class CompositeSecretsProvider implements SecretsProvider {
      */
     @Override
     public Optional<String> getSecret(String key) {
-        if (StringUtils.isBlank(key)) {
-            throw new BratException("A secrets key must not be null or blank");
-        }
+        nonBlank(key, "A secrets key must not be null or blank");
         for (SecretsProvider provider : providers) {
             var optionalValue = provider.getSecret(key);
             if (optionalValue.isPresent()) {

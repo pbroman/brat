@@ -14,7 +14,6 @@ import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.Require;
 import dev.pbroman.brat.core.util.ResourceReader;
-import org.apache.commons.lang3.StringUtils;
 
 /**
  * Helper methods shared by {@code ConfigDataInterpolator} implementations.
@@ -235,9 +234,7 @@ public final class InterpolatorUtils {
      */
     public static InterpolationOutcome interpolatedBodyFile(
             String location, Interpolation interpolation, RuntimeData runtimeData) {
-        if (StringUtils.isBlank(location)) {
-            throw new BratException("A body file's location may not be blank");
-        }
+        Require.nonBlank(location, "A body file's location may not be blank");
         var resolved = ResourceReader.resolve(location, runtimeData.getSuiteLocation());
         var outcome = interpolation.outcome(ResourceReader.readFileToString(resolved), runtimeData);
         // The path and the size, never the content: this string travels into logs and reports, and a

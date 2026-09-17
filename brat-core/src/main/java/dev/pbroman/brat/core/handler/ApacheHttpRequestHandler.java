@@ -227,9 +227,7 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
      * @throws BratException if {@code url} is blank or is not a valid URI
      */
     private static URI uriOf(String url) {
-        if (StringUtils.isBlank(url)) {
-            throw new BratException("A request needs a 'url'");
-        }
+        Require.nonBlank(url, "A request needs a 'url'");
         try {
             return new URI(url);
         } catch (URISyntaxException e) {

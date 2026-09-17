@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import dev.pbroman.brat.core.exception.BratException;
 import org.apache.commons.lang3.StringUtils;
 
+import static dev.pbroman.brat.core.util.Require.nonBlank;
 import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
@@ -47,9 +48,7 @@ public record SecretsProviderConfig(Map<String, Map<String, String>> providerPar
         for (var providerEntry : providerParams.entrySet()) {
             var type = providerEntry.getKey();
             var params = providerEntry.getValue();
-            if (StringUtils.isBlank(type)) {
-                throw new BratException("A provider type must not be null or blank");
-            }
+            nonBlank(type, "A provider type must not be null or blank");
             nonNull(params, "The params of provider type '" + type + "' must not be null");
             for (var paramEntry : params.entrySet()) {
                 if (StringUtils.isBlank(paramEntry.getKey()) || paramEntry.getValue() == null) {
@@ -76,9 +75,7 @@ public record SecretsProviderConfig(Map<String, Map<String, String>> providerPar
      * @throws BratException if {@code type} is {@code null} or blank
      */
     public Map<String, String> paramsFor(String type) {
-        if (StringUtils.isBlank(type)) {
-            throw new BratException("A provider type must not be null or blank");
-        }
+        nonBlank(type, "A provider type must not be null or blank");
         return providerParams.getOrDefault(type, Map.of());
     }
 
