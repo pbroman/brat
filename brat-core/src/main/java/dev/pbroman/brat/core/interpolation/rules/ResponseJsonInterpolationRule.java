@@ -83,9 +83,12 @@ public final class ResponseJsonInterpolationRule implements InterpolationRule {
      *
      * @param input the token to resolve
      * @param runtimeData the object containing values; must hold the {@code responseVars} namespace
-     * @return the outcome holding the resolved value, typed as JsonPath produced it; or
-     *         {@link Optional#empty()} if {@code input} is not a whole {@code ${response.json.…}}
-     *         token, or is one holding a token of its own, leaving it for another rule
+     * @return the outcome holding the resolved value, typed as JsonPath produced it — including
+     *         {@code null} where the path resolves onto a JSON {@code null}, which is a value the
+     *         body holds and not a failure to resolve, so that {@code isNull} can be asserted against
+     *         it; or {@link Optional#empty()} if {@code input} is not a whole
+     *         {@code ${response.json.…}} token, or is one holding a token of its own, leaving it for
+     *         another rule
      * @throws BratException if {@code input} is {@code null}; or, for a token this rule claims, if
      *         {@code runtimeData} is {@code null}, if it has no {@code responseVars}, if the response
      *         holds no JSON, if the token names no path, if the path is malformed or matches nothing

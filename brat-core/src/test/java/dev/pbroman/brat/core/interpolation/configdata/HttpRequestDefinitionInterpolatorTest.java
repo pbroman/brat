@@ -1,6 +1,10 @@
 package dev.pbroman.brat.core.interpolation.configdata;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
@@ -10,6 +14,7 @@ import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.apache.hc.core5.http.HttpHeaders.CONTENT_TYPE;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -94,5 +99,94 @@ class HttpRequestDefinitionInterpolatorTest {
         assertThat(interpolated.getOutcomes()).doesNotContainKey("timeout");
         assertThat(interpolated.getBody()).isNull();
         assertThat(interpolated.getHeaders()).isNull();
+    }
+
+    // --- file bodies ---
+
+    @TempDir
+    Path bodyDir;
+
+    /**
+     * Leaves its input alone, unlike the class's {@code interpolation}, which appends to everything —
+     * including a path, which would then name no file on disk.
+     */
+    Interpolation passthrough = (input, data) -> new InterpolationOutcome(input, input);
+
+    @Test
+    void interpolated_resolvesAFileBodyIntoBodyString() throws IOException {
+        // given - a handler must receive a payload it never has to read from disk
+        var file = bodyDir.resolve("order.json");
+        Files.writeString(file, "{\"id\": 1}");
+        var request = new HttpRequestDefinition("http://url", "POST", null, Map.of("file", "file:" + file), null, null);
+        var data = new RuntimeData(Map.of(), Map.of(), new LinkedHashMap<>(), Map.of(), null);
+
+        // when
+        var interpolated = underTest.interpolated(request, passthrough, data);
+
+        // then
+        assertThat(interpolated.getBody()).containsKey("_bodyString");
+        assertThat(interpolated.getBody().get("_bodyString")).contains("{\"id\": 1}");
+    }
+
+    @Test
+    void interpolated_reportsAFileBodyByPathNotByContent() throws IOException {
+        // given
+        var file = bodyDir.resolve("secret.json");
+        Files.writeString(file, "{\"password\": \"hunter2\"}");
+        var request = new HttpRequestDefinition("http://url", "POST", null, Map.of("file", "file:" + file), null, null);
+        var data = new RuntimeData(Map.of(), Map.of(), new LinkedHashMap<>(), Map.of(), null);
+
+        // when
+        var interpolated = underTest.interpolated(request, passthrough, data);
+
+        // then - a reporting string travels into logs, and a body file may hold a credential
+        assertThat(interpolated.getOutcomes().get("body._bodyString").reportingString())
+                .contains("secret.json")
+                .doesNotContain("hunter2");
+    }
+
+    @Test
+    void interpolated_resolvesABareFileBodyPathAgainstTheSuite() throws IOException {
+        // given
+        var file = bodyDir.resolve("order.json");
+        Files.writeString(file, "{}");
+        var request = new HttpRequestDefinition("http://url", "POST", null, Map.of("file", "order.json"), null, null);
+        var data = new RuntimeData(
+                Map.of(), Map.of(), new LinkedHashMap<>(), Map.of(), "file:" + bodyDir.resolve("orders.yaml"));
+
+        // when
+        var interpolated = underTest.interpolated(request, passthrough, data);
+
+        // then
+        assertThat(interpolated.getBody()).containsKey("_bodyString");
+    }
+
+    @Test
+    void interpolated_throwsWhenAFileBodyCannotBeRead() {
+        // given
+        var request = new HttpRequestDefinition(
+                "http://url", "POST", null, Map.of("file", "file:" + bodyDir.resolve("absent.json")), null, null);
+        var data = new RuntimeData(Map.of(), Map.of(), new LinkedHashMap<>(), Map.of(), null);
+
+        // then
+        assertThatThrownBy(() -> underTest.interpolated(request, passthrough, data))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("absent.json");
+    }
+
+    @Test
+    void interpolated_interpolatesTheFileBodyPathBeforeReadingIt() throws IOException {
+        // given - the file on disk is named as the path becomes *after* interpolation, so only a read
+        // that happens after it can find the file at all
+        Files.writeString(bodyDir.resolve("payload.json-i"), "{}");
+        var request = new HttpRequestDefinition(
+                "http://url", "POST", null, Map.of("file", "file:" + bodyDir.resolve("payload.json")), null, null);
+        var data = new RuntimeData(Map.of(), Map.of(), new LinkedHashMap<>(), Map.of(), null);
+
+        // when
+        var interpolated = underTest.interpolated(request, interpolation, data);
+
+        // then
+        assertThat(interpolated.getBody()).containsKey("_bodyString");
     }
 }

@@ -6,13 +6,13 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import dev.pbroman.brat.core.exception.BratException;
-import org.apache.commons.lang3.StringUtils;
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.JsonParser;
 import tools.jackson.core.JsonToken;
 import tools.jackson.dataformat.yaml.YAMLMapper;
 
 import static dev.pbroman.brat.core.util.JacksonUtils.locationOf;
+import static dev.pbroman.brat.core.util.Require.nonBlank;
 import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
@@ -81,9 +81,7 @@ public final class FlatYamlLoader {
                 throw new BratException("Expected a YAML mapping key, but found " + token);
             }
             var key = parser.currentName();
-            if (StringUtils.isBlank(key)) {
-                throw new BratException("Blank YAML mapping key under '" + prefix + "'");
-            }
+            nonBlank(key, "Blank YAML mapping key under '" + prefix + "'");
             if (!keysInThisMapping.add(key)) {
                 throw new BratException("Duplicate key '" + key + "' in the same mapping");
             }

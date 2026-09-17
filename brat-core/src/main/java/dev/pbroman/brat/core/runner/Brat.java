@@ -187,8 +187,9 @@ public final class Brat {
      * @return the run's record, holding one {@link dev.pbroman.brat.core.data.result.RequestResult}
      *         per request that ran, in execution order
      * @throws BratException if either argument is {@code null}, if {@code suite} declares
-     *         {@code subSuites}, or if the run cannot be assembled — a secrets source naming an
-     *         unregistered provider type, say
+     *         {@code subSuites}, if a body file the suite names with a token-free path does not
+     *         exist, or if the run cannot be assembled — a secrets source naming an unregistered
+     *         provider type, say
      */
     public RunResult run(TestSuite suite, Environment environment) {
         return run(suite, environment, List.of(), new NoOpRunControl());
@@ -223,6 +224,9 @@ public final class Brat {
             throw new BratException("The suite '" + suite.name()
                     + "' declares subSuites, which this runner cannot walk. Run a suite with requests only.");
         }
+        // Before the first event: a body file that is not there is a launch failure, not a run that
+        // started and then went wrong.
+        BodyFileChecks.check(suite, environment.suiteLocation());
 
         var startedAt = System.currentTimeMillis();
         emit(listeners, new RunEvent.RunStarted(Instant.now()));
@@ -268,7 +272,12 @@ public final class Brat {
             List<RunListener> listeners,
             RunControl runControl,
             List<RequestResult> results) {
-        var runtimeData = new RuntimeData(suite.constants(), environment.env(), new HashMap<>(), environment.params());
+        var runtimeData = new RuntimeData(
+                suite.constants(),
+                environment.env(),
+                new HashMap<>(),
+                environment.params(),
+                environment.suiteLocation());
         // try-with-resources rather than a finally: a chain holding a lease or a file handle is built
         // per run and must not outlive it, and this is the form that suppresses a close failure when
         // the run itself threw, instead of replacing the failure the caller needs to see.

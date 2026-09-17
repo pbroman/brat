@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.HttpHeaderUtils;
 import lombok.Getter;
 import org.apache.commons.lang3.Strings;
@@ -41,8 +42,8 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
      * derived without I/O.
      * <p>
      * {@code body} is not mutated: the instance holds a copy carrying any derived
-     * {@code _bodyString} entry. A {@code file:} body is <em>not</em> read here — the read happens at
-     * request time, after interpolation, so that both the path and the file's content may contain
+     * {@code _bodyString} entry. A {@code file} body is <em>not</em> read here — it is resolved
+     * while the definition is interpolated, so that both the path and the file's content may hold
      * {@code ${...}} tokens.
      *
      * @param url the request URL, possibly holding {@code ${...}} tokens
@@ -54,10 +55,11 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
      * @param auth the authentication to apply, or {@code null}
      * @param outcomes the interpolation outcomes of an interpolated copy, or {@code null} on an
      *        as-authored instance
-     * @throws dev.pbroman.brat.core.exception.BratException if two header names differ only in case.
-     *         They are one header to HTTP and two keys to YAML, so declaring both states two values
-     *         for one header — rejected here rather than resolved arbitrarily at lookup time, so that
-     *         it fails whether or not anything reads that particular header
+     * @throws BratException if two header names differ only in case. They are one header to HTTP and
+     *         two keys to YAML, so declaring both states two values for one header, and it fails
+     *         whether or not anything reads that header
+     * @throws BratException if {@code body} declares both {@code raw} and {@code file}, which states
+     *         two payloads for one request. The message quotes neither of them
      */
     public HttpRequestDefinition(
             String url,
@@ -68,6 +70,7 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
             Auth auth,
             Map<String, InterpolationOutcome> outcomes) {
         super(outcomes);
+        // Rejected here rather than resolved arbitrarily at lookup time.
         HttpHeaderUtils.requireNoCaseDuplicates(headers);
         this.url = url;
         this.method = method == null ? DEFAULT_METHOD : method;
@@ -106,17 +109,27 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
      * the request's {@code Content-Type} is form-encoded (matched case-insensitively, since a suite
      * may spell the header any way) and no {@code _bodyString} is present yet, the remaining entries
      * are joined as {@code k=v&k=v}; otherwise the body is returned unchanged. A {@code file} body
-     * falls into the third case and is resolved at request time.
+     * falls into the third case: its {@code _bodyString} is written while the definition is
+     * interpolated, which is the only point holding both the resolved path and an interpolator.
      *
      * @param body the authored body, or {@code null}
      * @param headers the request headers, already copied, or {@code null}
      * @return an unmodifiable copy of {@code body} with any derivable {@code _bodyString} added, or
      *         {@code null} if {@code body} is {@code null}. Never throws for an absent or
      *         differently-spelled {@code Content-Type}, nor for {@code null} headers
+     * @throws BratException if {@code body} declares both {@code raw} and {@code file}. Each names a
+     *         whole payload, so the two together state two bodies for one request. The message names
+     *         neither value
      */
     private static Map<String, String> prepared(Map<String, String> body, Map<String, String> headers) {
         if (body == null) {
             return null;
+        }
+        // Rejected rather than ordered: raw is derived here and file is resolved during
+        // interpolation, so whichever won would be decided by which step ran last.
+        if (body.get(RAW_BODY) != null && body.get(FILE_BODY) != null) {
+            throw new BratException("The request declares both a 'raw' and a 'file' body, which states two payloads "
+                    + "for one request. Declare one or the other.");
         }
         var prepared = new LinkedHashMap<>(body);
         if (body.get(RAW_BODY) != null) {

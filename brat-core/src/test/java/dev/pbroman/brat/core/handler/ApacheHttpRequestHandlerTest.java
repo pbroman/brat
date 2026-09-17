@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
 import static dev.pbroman.brat.core.util.Constants.FILE_BODY;
 import static dev.pbroman.brat.core.util.Constants.RAW_BODY;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -194,31 +195,35 @@ class ApacheHttpRequestHandlerTest {
     }
 
     @Test
-    void performRequest_readsAFileBodyAtRequestTime(@TempDir Path dir) throws Exception {
-        // given - read here, not at load, so both the path and the content may hold ${...}
+    void performRequest_sendsAFileBodyFromBodyStringWithoutReadingIt(@TempDir Path dir) throws Exception {
+        // given - the interpolator resolved the file already; the handler reads one key and no disk.
+        // The file exists and holds something else entirely, so a handler that read it would fail here.
         var file = dir.resolve("payload.json");
-        Files.writeString(file, "{\"from\": \"a file\"}");
-        var definition = new HttpRequestDefinition(
-                stub.baseUrl() + "/orders", "POST", null, Map.of(FILE_BODY, "file:" + file), null, null);
+        Files.writeString(file, "{\"from\": \"the file on disk\"}");
+        var body = new LinkedHashMap<String, String>();
+        body.put(FILE_BODY, "file:" + file);
+        body.put(BODY_STRING, "{\"from\": \"the interpolator\"}");
+        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "POST", null, body, null, null);
 
         // when
         underTest.performRequest(definition);
 
         // then
-        assertThat(stub.lastRequest().body()).isEqualTo("{\"from\": \"a file\"}");
+        assertThat(stub.lastRequest().body()).isEqualTo("{\"from\": \"the interpolator\"}");
     }
 
     @Test
-    void performRequest_throwsNamingAFileBodyItCannotRead(@TempDir Path dir) {
-        // given
-        var absent = dir.resolve("absent.json");
+    void performRequest_throwsWhenAFileBodyWasNeverResolved(@TempDir Path dir) throws Exception {
+        // given - a file entry with no _bodyString means nothing resolved it, which is a wiring fault
+        // rather than an authoring one. The file deliberately **exists**: a handler that still reads
+        // from disk would succeed here, so this fails until the read leaves the handler.
+        var file = dir.resolve("payload.json");
+        Files.writeString(file, "{\"from\": \"the file on disk\"}");
         var definition = new HttpRequestDefinition(
-                stub.baseUrl() + "/orders", "POST", null, Map.of(FILE_BODY, "file:" + absent), null, null);
+                stub.baseUrl() + "/orders", "POST", null, Map.of(FILE_BODY, "file:" + file), null, null);
 
-        // then - the path is what an author needs, and no load-time check exists to catch it earlier
-        assertThatThrownBy(() -> underTest.performRequest(definition))
-                .isInstanceOf(BratException.class)
-                .hasMessageContaining("absent.json");
+        // then
+        assertThatThrownBy(() -> underTest.performRequest(definition)).isInstanceOf(BratException.class);
     }
 
     @Test

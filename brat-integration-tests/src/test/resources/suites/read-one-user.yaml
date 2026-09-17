@@ -46,6 +46,9 @@ requests:
         - a: "${response.json.$.createdAt}"
           func: isIsoDateTime
           message: the server's timestamp must be an ISO date-time
-        # An assertion over a JSON null is deliberately absent here: ${response.json.$.email}
-        # currently fails to interpolate rather than resolving to null. Found by this suite, not yet
-        # decided - see the finding reported with step 7.
+        # The seeded user declares no email, so the server sends one that is present and null -
+        # which is what this asserts: a JSONPath onto a JSON null resolves to null rather than
+        # failing to interpolate.
+        - a: "${response.json.$.email}"
+          func: isNull
+          message: a JSON null must be assertable as null

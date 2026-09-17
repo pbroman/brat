@@ -4,7 +4,6 @@ import java.util.Optional;
 
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.data.Condition;
-import org.apache.commons.lang3.Strings;
 
 import static dev.pbroman.brat.core.util.Constants.IS_PREFIX;
 import static dev.pbroman.brat.core.util.Constants.NULL;
@@ -30,7 +29,13 @@ public final class NullConditionResolverRule implements ConditionResolverRule {
     }
 
     /**
-     * If {@code a} is null, this resolver returns true if func is either 'null' or 'isNull', otherwise false.
+     * If {@code a} is null, this resolver returns true if func is either {@code null} or
+     * {@code isNull}, matched ignoring case, and false for every other func — including one that
+     * merely starts the same way, such as {@code is}.
+     * <p>
+     * Claiming every func rather than declining the ones it does not know is deliberate: with
+     * {@code a} null there is nothing for a later rule to compare, so {@code isEqualTo} against a
+     * null is a failed assertion rather than an unresolvable one.
      *
      * @param condition the {@link Condition}
      * @return the result of the null check of {@code a}, or empty if {@code a} is not null
@@ -39,8 +44,8 @@ public final class NullConditionResolverRule implements ConditionResolverRule {
     public Optional<Boolean> resolve(Condition condition) {
         nonNull(condition, "The condition may not be null");
         if (condition.getA() == null) {
-            return Optional.of(
-                    NULL.equals(condition.getFunc()) || Strings.CI.startsWith(IS_PREFIX + NULL, condition.getFunc()));
+            var func = condition.getFunc();
+            return Optional.of(NULL.equalsIgnoreCase(func) || (IS_PREFIX + NULL).equalsIgnoreCase(func));
         }
         return Optional.empty();
     }

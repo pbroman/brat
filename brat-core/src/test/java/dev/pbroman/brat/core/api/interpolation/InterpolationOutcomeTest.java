@@ -20,10 +20,24 @@ class InterpolationOutcomeTest {
     }
 
     @Test
-    void constructor_throwsExceptionWhenValueIsNull() {
+    void constructor_acceptsANullValue() {
+        // when - a token resolving onto a JSON null is a value the body holds, not a failed lookup
+        var outcome = new InterpolationOutcome(null, "${response.json.$.email} → null", false);
+
         // then
-        assertThatThrownBy(() -> new InterpolationOutcome(null, "reportingString", false))
-                .isInstanceOf(BratException.class);
+        assertThat(outcome.value()).isNull();
+        assertThat(outcome.reportingString()).isEqualTo("${response.json.$.email} → null");
+    }
+
+    @Test
+    void asString_throwsForANullValue() {
+        // given
+        var outcome = new InterpolationOutcome(null, "${response.json.$.email} → null");
+
+        // then - the message names the token, which only the reporting string knows
+        assertThatThrownBy(outcome::asString)
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("${response.json.$.email}");
     }
 
     @Test

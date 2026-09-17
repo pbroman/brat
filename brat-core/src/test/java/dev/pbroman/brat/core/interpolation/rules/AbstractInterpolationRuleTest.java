@@ -1,5 +1,6 @@
 package dev.pbroman.brat.core.interpolation.rules;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -362,6 +363,48 @@ class AbstractInterpolationRuleTest {
         protected String resolve(String input, RuntimeData runtimeData) {
             return "bareValue";
         }
+    }
+
+    @Test
+    void simpleInterpolation_treatsAKeyWithANullValueAsAbsent() {
+        // given - `stub: {threadCount: }` in ordinary authored YAML binds a present key to null
+        var values = new HashMap<String, String>();
+        values.put("threadCount", null);
+        var rule = new FallbackStubInterpolationRule(values);
+
+        // then - the namespace's own missing-value policy decides, rather than an NPE
+        assertThatThrownBy(() -> claimed(rule, "${stub.threadCount}", runtimeData))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("threadCount");
+    }
+
+    @Test
+    void simpleInterpolation_appliesTheFallbackChainForAKeyWithANullValue() {
+        // given - an author who wrote a fallback plainly expects it to apply
+        var values = new HashMap<String, String>();
+        values.put("threadCount", null);
+        var rule = new FallbackStubInterpolationRule(values);
+
+        // when
+        var result = claimed(rule, "${stub.threadCount:-10}", runtimeData);
+
+        // then
+        assertThat(result.value()).isEqualTo("10");
+    }
+
+    @Test
+    void simpleInterpolation_skipsAFallbackSegmentWhoseNamespaceHoldsANull() {
+        // given - the same rule one level on: a null in a referenced namespace is not a value
+        var constants = new HashMap<String, Object>();
+        constants.put("threadCount", null);
+        var data = new RuntimeData(constants, Map.of());
+        var rule = new FallbackStubInterpolationRule(Map.of());
+
+        // when
+        var result = claimed(rule, "${stub.threadCount:-constants.threadCount:-10}", data);
+
+        // then
+        assertThat(result.value()).isEqualTo("10");
     }
 
     private static final class FallbackStubInterpolationRule extends AbstractInterpolationRule {

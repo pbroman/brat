@@ -50,4 +50,28 @@ class EnvironmentTest {
         assertThatThrownBy(() -> Environment.of(null, Map.of())).isInstanceOf(BratException.class);
         assertThatThrownBy(() -> Environment.of(Map.of(), null)).isInstanceOf(BratException.class);
     }
+
+    @Test
+    void suiteLocation_defaultsToNull() {
+        // then - a suite held in memory has no location, and that is legal until a bare path needs one
+        assertThat(Environment.of(Map.of(), Map.of()).suiteLocation()).isNull();
+        assertThat(new Environment(Map.of(), Map.of(), emptyConfig).suiteLocation())
+                .isNull();
+    }
+
+    @Test
+    void withSuiteLocation_copiesTheEnvironmentCarryingTheLocation() {
+        // given
+        var environment = new Environment(Map.of("baseUrl", "http://localhost"), Map.of("n", "5"), emptyConfig);
+
+        // when
+        var located = environment.withSuiteLocation("classpath:suites/orders.yaml");
+
+        // then - everything else survives; the launch knows the location after building the rest
+        assertThat(located.suiteLocation()).isEqualTo("classpath:suites/orders.yaml");
+        assertThat(located.env()).isEqualTo(environment.env());
+        assertThat(located.params()).isEqualTo(environment.params());
+        assertThat(located.secretsConfig()).isEqualTo(environment.secretsConfig());
+        assertThat(environment.suiteLocation()).isNull();
+    }
 }

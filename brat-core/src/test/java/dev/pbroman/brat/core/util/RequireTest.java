@@ -26,6 +26,42 @@ class RequireTest {
     }
 
     @Test
+    void nonBlank_doesNothingForAValueWithContent() {
+        // when / then
+        assertThatCode(() -> Require.nonBlank("a value", "must be set")).doesNotThrowAnyException();
+    }
+
+    @Test
+    void nonBlank_doesNotTrimTheValueItAccepts() {
+        // when / then - whitespace around content is content's business, not a guard's
+        assertThatCode(() -> Require.nonBlank("  a value  ", "must be set")).doesNotThrowAnyException();
+    }
+
+    @Test
+    void nonBlank_throwsWithTheGivenMessageForANullValue() {
+        // when / then
+        assertThatThrownBy(() -> Require.nonBlank(null, "the value must be set"))
+                .isInstanceOf(BratException.class)
+                .hasMessage("the value must be set");
+    }
+
+    @Test
+    void nonBlank_throwsWithTheGivenMessageForAnEmptyValue() {
+        // when / then
+        assertThatThrownBy(() -> Require.nonBlank("", "the value must be set"))
+                .isInstanceOf(BratException.class)
+                .hasMessage("the value must be set");
+    }
+
+    @Test
+    void nonBlank_throwsWithTheGivenMessageForAWhitespaceOnlyValue() {
+        // when / then - whitespace only is blank, not a one-character value
+        assertThatThrownBy(() -> Require.nonBlank(" \t\n ", "the value must be set"))
+                .isInstanceOf(BratException.class)
+                .hasMessage("the value must be set");
+    }
+
+    @Test
     void noNullElements_doesNothingForAListWithoutNulls() {
         // when / then
         assertThatCode(() -> Require.noNullElements(List.of("a", "b"), "must be set"))

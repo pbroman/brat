@@ -14,6 +14,9 @@ import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.a
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateIfPresent;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateMapWithOutcomes;
+import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolatedBodyFile;
+import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
+import static dev.pbroman.brat.core.util.Constants.FILE_BODY;
 
 /**
  * Interpolates every field of an {@link HttpRequestDefinition}.
@@ -43,15 +46,24 @@ public final class HttpRequestDefinitionInterpolator implements ConfigDataInterp
      * {@code url} and {@code method} are always interpolated and always recorded; everything else is
      * optional. A {@code null} {@code auth} is legal and yields no {@code auth.*} outcomes and a
      * {@code null} on the copy.
+     * <p>
+     * <strong>A {@code file} body is resolved here</strong>, after its path is interpolated: the file
+     * is read, its content interpolated, and the result placed under {@code _bodyString} on the copy
+     * — so a request handler receives a payload it never has to read from disk, and a body file may
+     * hold {@code ${…}} tokens exactly as an inline body may. A bare path resolves relative to the
+     * suite document, whose location the runtime data carries. The {@code body._bodyString} outcome
+     * names the resolved path and the content's size rather than the content itself.
      *
      * @param target the request definition to interpolate
      * @param interpolation the interpolation implementation
-     * @param runtimeData the runtime data
-     * @return a new request definition with every declared field interpolated, whose {@code body}
-     *         carries the {@code _bodyString} its constructor derives from the interpolated values
+     * @param runtimeData the runtime data; its suite location is what a bare {@code file} body path
+     *        resolves against
+     * @return a new request definition whose every declared field is interpolated and whose
+     *         {@code body} carries a {@code _bodyString} — derived by the constructor for a
+     *         {@code raw} or form-encoded body, and read from disk here for a {@code file} one
      * @throws dev.pbroman.brat.core.exception.BratException if {@code target} is already an
-     *         interpolated copy, or if the interpolated headers contain two names differing only in
-     *         case
+     *         interpolated copy; if the interpolated headers contain two names differing only in
+     *         case; or if a {@code file} body cannot be resolved, read, or interpolated
      */
     @Override
     public HttpRequestDefinition interpolated(
@@ -69,6 +81,12 @@ public final class HttpRequestDefinitionInterpolator implements ConfigDataInterp
         var timeoutOutcome = interpolateIfPresent(interpolation, runtimeData, outcomes, "timeout", target.getTimeout());
 
         var bodyOutcomes = interpolateMapWithOutcomes(interpolation, runtimeData, target.getBody());
+        // A file body is resolved here, once its path has been interpolated above: the content lands
+        // under _bodyString so that every handler reads one key and none of them reads a disk.
+        var fileOutcome = bodyOutcomes.get(FILE_BODY);
+        if (fileOutcome != null) {
+            bodyOutcomes.put(BODY_STRING, interpolatedBodyFile(fileOutcome.asString(), interpolation, runtimeData));
+        }
         putPrefixed(outcomes, "body.", bodyOutcomes);
 
         var headerOutcomes = interpolateMapWithOutcomes(interpolation, runtimeData, target.getHeaders());

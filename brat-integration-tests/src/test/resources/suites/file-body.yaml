@@ -1,7 +1,6 @@
-# A body read from a file at request time. The path itself is built from a token, which is the half
-# that works today: the file is read after the definition is interpolated, so the path may hold
-# ${...}. Tokens inside the file's content are a separate, unbuilt thing - see the finding recorded
-# with 8a step 7.
+# A body read from a file. Both halves are asserted here: the path is built from a token, and the
+# file's *content* holds one too - which is the case the finding from 8a step 7 was about, and is
+# what a large templated body is for.
 name: a body from a file
 description: creates a user from a body file named by a token
 
@@ -28,3 +27,7 @@ requests:
           func: isEqualTo
           b: Testville
           message: the whole file must have been sent, nested objects included
+        - a: "${response.json.$.address.street}"
+          func: isEqualTo
+          b: Sesame Street
+          message: a token inside the body file must be resolved before the file is sent
