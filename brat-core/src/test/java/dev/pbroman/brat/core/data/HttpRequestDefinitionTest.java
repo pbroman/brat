@@ -157,6 +157,22 @@ class HttpRequestDefinitionTest {
     }
 
     @Test
+    void constructor_rejectsABodyDeclaringBothRawAndFile() {
+        // given - each names a whole payload, so the two together state two bodies for one request
+        var body = new LinkedHashMap<String, String>();
+        body.put(RAW_BODY, "{\"a\": 1}");
+        body.put(FILE_BODY, "classpath:bodies/order.json");
+
+        // then - rejected at construction rather than resolved by whichever step happens to run last,
+        // and the message quotes neither payload
+        assertThatThrownBy(() -> new HttpRequestDefinition("http://x", "POST", null, body, null, null))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("'raw'")
+                .hasMessageContaining("'file'")
+                .hasMessageNotContaining("order.json");
+    }
+
+    @Test
     void constructor_keepsAnAuthoredBodyStringOverFormEncoding() {
         // given - the author supplied _bodyString themselves
         var body = new LinkedHashMap<String, String>();

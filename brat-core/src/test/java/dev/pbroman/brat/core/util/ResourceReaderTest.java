@@ -85,6 +85,18 @@ class ResourceReaderTest {
     }
 
     @Test
+    void readFileToString_throwsForADirectory() {
+        // then - a directory opens as a stream of zero bytes rather than failing, so reading one
+        // would put an empty body on the wire instead of naming the mistake. All three media
+        assertThatThrownBy(() -> ResourceReader.readFileToString("file:" + tempDir))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> ResourceReader.readFileToString("classpath:resource-reader"))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> ResourceReader.readFileToString("org/junit/jupiter/api"))
+                .isInstanceOf(BratException.class);
+    }
+
+    @Test
     void readFileToString_throwsBratExceptionForUnsupportedScheme() {
         // then
         assertThatThrownBy(() -> ResourceReader.readFileToString("http://example.com/greeting.txt"))
@@ -122,12 +134,21 @@ class ResourceReaderTest {
     }
 
     @Test
-    void resolve_returnsTheLocationWhenTheSuiteNamesNoDirectory() {
-        // when - a suite location with no '/' is its own directory
+    void resolve_returnsTheLocationWhenABareSuiteNamesNoDirectory() {
+        // when - a bare suite location with no '/' is its own directory, and has no prefix to keep
         var resolved = ResourceReader.resolve("bodies/order.json", "orders.yaml");
 
         // then
         assertThat(resolved).isEqualTo("bodies/order.json");
+    }
+
+    @Test
+    void resolve_keepsTheSuitesPrefixWhenItNamesNoDirectory() {
+        // then - a suite in the working directory still says which medium its bodies live in, so the
+        // result is not a bare path that the classloader would then be asked for
+        assertThat(ResourceReader.resolve("order.json", "file:orders.yaml")).isEqualTo("file:order.json");
+        assertThat(ResourceReader.resolve("bodies/order.json", "classpath:orders.yaml"))
+                .isEqualTo("classpath:bodies/order.json");
     }
 
     @Test
@@ -194,6 +215,22 @@ class ResourceReaderTest {
         assertThat(ResourceReader.exists("file:" + tempDir)).isFalse();
         assertThat(ResourceReader.exists("classpath:resource-reader")).isFalse();
         assertThat(ResourceReader.exists("resource-reader")).isFalse();
+    }
+
+    @Test
+    void exists_isTrueForAResourceInsideAJar() {
+        // then - a dependency jar on the test classpath is the only way to reach the branch that runs
+        // whenever BRAT itself is packaged as one
+        assertThat(ResourceReader.exists("org/junit/jupiter/api/Test.class")).isTrue();
+    }
+
+    @Test
+    void exists_isFalseForADirectoryInsideAJar() {
+        // then - a classloader answers a directory lookup written without a trailing slash with a URL
+        // carrying none either, so the jar's own entry has to decide it. Read as content it would
+        // yield zero bytes, which is an empty body rather than a missing file
+        assertThat(ResourceReader.exists("org/junit/jupiter/api")).isFalse();
+        assertThat(ResourceReader.exists("org/junit/jupiter/api/")).isFalse();
     }
 
     @Test

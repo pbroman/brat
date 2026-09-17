@@ -100,7 +100,7 @@ public final class BodyFileChecks {
         try {
             var resolved = ResourceReader.resolve(location, suiteLocation);
             if (!ResourceReader.exists(resolved)) {
-                unreadable.add(line(requestPath, resolved, "no such resource"));
+                unreadable.add(line(requestPath, resolved, "not found, or not readable"));
             }
         } catch (BratException e) {
             unreadable.add(line(requestPath, location, e.getMessage()));

@@ -273,6 +273,19 @@ class InterpolatorUtilsTest {
     }
 
     @Test
+    void interpolatedBodyFile_reportsASizeInKilobytesOnceThePayloadPassesOne() throws IOException {
+        // given - 1500 bytes, which the stub interpolation grows to 1509
+        var file = bodyDir.resolve("large.json");
+        Files.writeString(file, "x".repeat(1500));
+
+        // when
+        var outcome = InterpolatorUtils.interpolatedBodyFile("file:" + file, interpolation, withSuiteAt(null));
+
+        // then - the size is the interpolated content's, and kB is the form above a kilobyte
+        assertThat(outcome.reportingString()).endsWith("1.5 kB");
+    }
+
+    @Test
     void interpolatedBodyFile_throwsNamingTheFileWhenItIsMissing() {
         // given
         var absent = bodyDir.resolve("absent.json");
