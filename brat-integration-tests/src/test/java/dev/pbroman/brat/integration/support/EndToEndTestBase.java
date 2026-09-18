@@ -35,7 +35,7 @@ public abstract class EndToEndTestBase {
     /** Shared for the module run: one pooled client, closed when the test JVM exits. */
     private static final ApacheHttpRequestHandler HANDLER = closedAtExit(new ApacheHttpRequestHandler());
 
-    private static final SuiteLoader LOADER = new SuiteLoader();
+    private static final SuiteLoader LOADER = SuiteLoader.httpOnly();
 
     /** The hand-wired runner under test. */
     protected static final Brat BRAT = Brat.builder().requestHandler(HANDLER).build();

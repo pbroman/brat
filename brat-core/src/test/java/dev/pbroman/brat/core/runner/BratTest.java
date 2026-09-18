@@ -189,6 +189,47 @@ class BratTest {
         assertThatThrownBy(() -> Brat.builder().classLoader(null)).isInstanceOf(BratException.class);
     }
 
+    // ---------- the loader this runner agrees with ----------
+
+    @Test
+    void loader_bindsWhatThisRunnerCanExecute() {
+        // given - the loader's protocols come from the registered handlers, so the two cannot drift
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      url: http://localhost:8080/x
+                """;
+
+        // when
+        var suite = brat().loader().load(yaml);
+
+        // then
+        assertThat(suite.requests())
+                .singleElement()
+                .satisfies(
+                        request -> assertThat(request.requestDefinition()).isInstanceOf(HttpRequestDefinition.class));
+    }
+
+    @Test
+    void loader_rejectsAProtocolThisRunnerHasNoHandlerFor() {
+        // given - authorable is the same set as executable: this fails at load, not at execution
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      protocol: ftp
+                      url: ftp://x/y
+                """;
+
+        // then
+        assertThatThrownBy(() -> brat().loader().load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("ftp");
+    }
+
     // ---------- selecting a handler ----------
 
     @Test

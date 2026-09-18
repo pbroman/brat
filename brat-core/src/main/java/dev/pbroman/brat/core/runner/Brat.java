@@ -55,6 +55,7 @@ import dev.pbroman.brat.core.interpolation.rules.ResponseJsonInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.ResponseStatusCodeInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.SecretsInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.VarsInterpolationRule;
+import dev.pbroman.brat.core.loader.SuiteLoader;
 import dev.pbroman.brat.core.resolver.assertion.AssertionChainResolver;
 import dev.pbroman.brat.core.resolver.condition.ConditionResolverRuleDispatcher;
 import dev.pbroman.brat.core.resolver.condition.rules.BooleanConditionResolverRule;
@@ -247,6 +248,21 @@ public final class Brat {
      */
     public static Builder builder() {
         return new Builder();
+    }
+
+    /**
+     * A loader for suites this runner can execute.
+     * <p>
+     * <strong>The blessed path.</strong> The loader binds each {@code requestDefinition:} block to the
+     * class the protocol's handler declares, so the two cannot drift: a document naming a protocol
+     * this runner has no handler for fails at load, with a message, rather than at execution with a
+     * cast. Building a {@code SuiteLoader} by hand stays possible for a consumer with its own protocol
+     * set, and that consumer owns the agreement.
+     *
+     * @return a loader over this runner's registered protocols; never {@code null}
+     */
+    public SuiteLoader loader() {
+        return new SuiteLoader(protocolRegistry.protocolBindings());
     }
 
     /**
