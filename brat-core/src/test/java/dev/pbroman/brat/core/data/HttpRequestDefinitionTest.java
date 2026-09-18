@@ -241,4 +241,28 @@ class HttpRequestDefinitionTest {
         // then
         assertThat(definition.protocol()).isEqualTo("http");
     }
+
+    @Test
+    void args_defaultToAnEmptyMapRatherThanNull() {
+        // given - every handler has to validate the bag, so none of them should have to null-check it
+        var definition = new HttpRequestDefinition("http://x/y", "GET", null, null, null, null);
+
+        // then
+        assertThat(definition.getArgs()).isEmpty();
+    }
+
+    @Test
+    void args_areCopiedAndUnmodifiable() {
+        // given
+        var authored = new LinkedHashMap<String, String>();
+        authored.put("certAlias", "client-a");
+        var definition = new HttpRequestDefinition("http://x/y", "GET", null, null, null, null, authored);
+
+        // when - the author's map goes on living after the definition is built
+        authored.put("added", "later");
+
+        // then
+        assertThat(definition.getArgs()).containsExactly(java.util.Map.entry("certAlias", "client-a"));
+        assertThatThrownBy(() -> definition.getArgs().put("x", "y")).isInstanceOf(UnsupportedOperationException.class);
+    }
 }

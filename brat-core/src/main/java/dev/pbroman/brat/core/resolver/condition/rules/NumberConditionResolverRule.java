@@ -55,14 +55,17 @@ public final class NumberConditionResolverRule extends AbstractConditionResolver
         predicates.put(LESS_THAN_OR_EQUAL_TO, lessOrEqual);
         predicates.put(SYMBOL_LESS_THAN_OR_EQUAL_TO, lessOrEqual);
         predicates.put(BETWEEN, (a, b, args) -> {
-            rejectUnknownArgs(args, ARG_MIN, ARG_MAX);
+            rejectUnknownArgs(args, NUMBER_CONDITION, BETWEEN, ARG_MIN, ARG_MAX);
             var value = parse(a);
-            return value.compareTo(parse(requiredArg(args, ARG_MIN))) >= 0
-                    && value.compareTo(parse(requiredArg(args, ARG_MAX))) <= 0;
+            return value.compareTo(parse(requiredArg(args, NUMBER_CONDITION, BETWEEN, ARG_MIN))) >= 0
+                    && value.compareTo(parse(requiredArg(args, NUMBER_CONDITION, BETWEEN, ARG_MAX))) <= 0;
         });
         predicates.put(CLOSE_TO, (a, b, args) -> {
-            rejectUnknownArgs(args, ARG_OFFSET);
-            return parse(a).subtract(parse(b)).abs().compareTo(parse(requiredArg(args, ARG_OFFSET))) <= 0;
+            rejectUnknownArgs(args, NUMBER_CONDITION, CLOSE_TO, ARG_OFFSET);
+            return parse(a).subtract(parse(b))
+                            .abs()
+                            .compareTo(parse(requiredArg(args, NUMBER_CONDITION, CLOSE_TO, ARG_OFFSET)))
+                    <= 0;
         });
         return predicates;
     }

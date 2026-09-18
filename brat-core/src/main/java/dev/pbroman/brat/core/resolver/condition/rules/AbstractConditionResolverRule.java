@@ -3,12 +3,12 @@ package dev.pbroman.brat.core.resolver.condition.rules;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import dev.pbroman.brat.core.api.resolver.ConditionPredicate;
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.util.ArgsUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 
@@ -107,36 +107,44 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
     }
 
     /**
-     * Rejects any argument this func does not know, so a typo fails loudly instead of being
-     * silently ignored — the check a typed field would have given for free.
+     * Rejects any argument {@code func} does not know, naming the func in the message.
      *
      * @param args the func's arguments
-     * @param legalKeys every key this func accepts
+     * @param category this rule's category, since a predicate is built statically and cannot ask for
+     *        it
+     * @param func the func whose arguments these are
+     * @param legalKeys every key that func accepts
      * @throws BratException if {@code args} holds a key that is not among {@code legalKeys}
      */
-    protected static void rejectUnknownArgs(Map<String, String> args, String... legalKeys) {
-        var legal = Set.of(legalKeys);
-        var unknown = args.keySet().stream()
-                .filter(key -> !legal.contains(key))
-                .sorted()
-                .toList();
-        if (!unknown.isEmpty()) {
-            throw new BratException("Unknown argument(s) " + unknown + "; this function takes " + legal);
-        }
+    protected static void rejectUnknownArgs(
+            Map<String, String> args, String category, String func, String... legalKeys) {
+        ArgsUtils.rejectUnknownArgs(args, subject(category, func), legalKeys);
     }
 
     /**
-     * Returns an argument this func requires.
+     * Returns an argument {@code func} requires, naming the func if it is absent.
      *
      * @param args the func's arguments
+     * @param category this rule's category, since a predicate is built statically and cannot ask for
+     *        it
+     * @param func the func whose arguments these are
      * @param key the argument to read
      * @return the value
      * @throws BratException if {@code args} has no entry for {@code key}
      */
-    protected static String requiredArg(Map<String, String> args, String key) {
-        var value = args.get(key);
-        nonNull(value, "The argument '" + key + "' is required for this function");
-        return value;
+    protected static String requiredArg(Map<String, String> args, String category, String func, String key) {
+        return ArgsUtils.requiredArg(args, subject(category, func), key);
+    }
+
+    /**
+     * Names this rule's func the way a message should read it.
+     *
+     * @param category the rule's category
+     * @param func the func being resolved
+     * @return the subject, for example {@code the Number func 'isBetween'}
+     */
+    private static String subject(String category, String func) {
+        return "the " + category + " func '" + func + "'";
     }
 
     record PreparedFunction(String function, boolean negate) {}

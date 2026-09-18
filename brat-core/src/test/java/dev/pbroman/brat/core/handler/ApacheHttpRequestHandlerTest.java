@@ -513,6 +513,21 @@ class ApacheHttpRequestHandlerTest {
         assertThat(vars).isEqualTo(HttpResponseVars.of(response));
     }
 
+    @Test
+    void performRequest_rejectsAnyHandlerArgument() {
+        // given - this handler understands none, and ignoring them would run the request without the
+        // settings the author asked some other handler for
+        var definition = new HttpRequestDefinition(
+                stub.baseUrl() + "/orders", "GET", null, null, null, null, Map.of("certAlias", "client-a"));
+
+        // when / then - before anything is sent, so the request is errored rather than half-made
+        assertThatThrownBy(() -> underTest.performRequest(definition))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("certAlias")
+                .hasMessageContaining("httpclient5");
+        assertThat(stub.requestCount()).isZero();
+    }
+
     // ---------- pool configuration ----------
 
     @Test

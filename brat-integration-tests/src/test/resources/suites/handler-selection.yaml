@@ -1,0 +1,34 @@
+# Two handlers for one protocol, chosen per request. The second request names none and must reach the
+# real server, which is what makes the first request's answer evidence of selection rather than of
+# wiring.
+name: handler selection
+description: a request names the handler that executes it; its sibling does not and gets the default
+
+requests:
+  - name: name the fixed handler
+    requestHandlers:
+      http: fixed
+    requestDefinition:
+      url: "${env.baseUrl}/all"
+      method: GET
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: "299"
+          message: the named handler answered, so no server was involved
+        - a: "${response.json.$.handler}"
+          func: isEqualTo
+          b: fixed
+          message: the body is the named handler's, not the server's
+
+  - name: name nothing and get the default
+    requestDefinition:
+      url: "${env.baseUrl}/all"
+      method: GET
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: "200"
+          message: an unnamed request goes to the default handler, which talks to the server

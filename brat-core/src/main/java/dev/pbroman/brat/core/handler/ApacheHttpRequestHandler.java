@@ -14,6 +14,7 @@ import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.result.HttpResponse;
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.util.ArgsUtils;
 import dev.pbroman.brat.core.util.HttpHeaderUtils;
 import dev.pbroman.brat.core.util.Require;
 import org.apache.commons.lang3.StringUtils;
@@ -208,6 +209,11 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
     @Override
     public HttpResponse performRequest(HttpRequestDefinition requestDefinition) {
         Require.nonNull(requestDefinition, "Cannot perform a null request definition");
+
+        // This handler takes no arguments at all, so any key is unknown. Ignoring them would make the
+        // one handler everybody starts with the exception to what the author documents - and would
+        // run a request without the mTLS settings its args asked another handler for.
+        ArgsUtils.rejectUnknownArgs(requestDefinition.getArgs(), "the '" + NAME + "' request handler");
 
         var builder = ClassicRequestBuilder.create(requestDefinition.getMethod().toUpperCase(Locale.ROOT))
                 .setUri(uriOf(requestDefinition.getUrl()));
