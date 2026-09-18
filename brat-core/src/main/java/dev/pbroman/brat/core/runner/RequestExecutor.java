@@ -10,7 +10,6 @@ import dev.pbroman.brat.core.data.result.RequestCoordinates;
 import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.handler.HttpResponseVars;
 import dev.pbroman.brat.core.util.FailureMessages;
 
 /**
@@ -131,7 +130,7 @@ class RequestExecutor {
             long start = System.currentTimeMillis();
             var response = requestHandler.performRequest(definition);
             long roundTripTimeMs = System.currentTimeMillis() - start;
-            var responseVars = HttpResponseVars.of(response);
+            var responseVars = requestHandler.responseVars(response);
             runtimeData.setResponseVars(responseVars);
             return new RequestStatus.Completed(responseVars, attemptNo, roundTripTimeMs);
         } catch (Exception e) {

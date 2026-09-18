@@ -38,7 +38,19 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class BratTest {
 
-    private final HttpRequestHandler handler = definition -> new HttpResponse(200, Map.of(), "{\"id\": \"7\"}");
+    // Not a lambda any more: a handler carries its own name, so it has two abstract methods.
+    private final HttpRequestHandler handler = new HttpRequestHandler() {
+
+        @Override
+        public String name() {
+            return "test";
+        }
+
+        @Override
+        public HttpResponse performRequest(HttpRequestDefinition definition) {
+            return new HttpResponse(200, Map.of(), "{\"id\": \"7\"}");
+        }
+    };
 
     private final Environment environment = Environment.of(Map.of("baseUrl", "http://localhost:8080"), Map.of());
 

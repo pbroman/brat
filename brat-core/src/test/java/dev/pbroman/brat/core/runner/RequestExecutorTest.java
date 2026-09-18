@@ -16,6 +16,7 @@ import dev.pbroman.brat.core.data.result.RequestCoordinates;
 import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.handler.HttpResponseVars;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -45,6 +46,9 @@ class RequestExecutorTest {
     @BeforeEach
     void setUp() {
         requestHandler = mock(HttpRequestHandler.class);
+        // responseVars is a default method on the protocol interface, so a bare mock answers it with
+        // an empty map and the namespace this test asserts on would be the mock's, not HTTP's.
+        when(requestHandler.responseVars(any())).thenAnswer(call -> HttpResponseVars.of(call.getArgument(0)));
         conditionEvaluator = mock(ConditionEvaluator.class);
         attempts.clear();
         underTest = new RequestExecutor(requestHandler, conditionEvaluator, attempts::add);

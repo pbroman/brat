@@ -3,10 +3,12 @@ package dev.pbroman.brat.core.handler;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
+import dev.pbroman.brat.core.data.result.HttpResponse;
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -420,6 +422,95 @@ class ApacheHttpRequestHandlerTest {
 
         // then
         assertThat(stub.lastRequest().headers()).doesNotContainKey("Authorization");
+    }
+
+    @Test
+    void performRequest_sendsOneRequestWhenTheServerAnswers503() {
+        // given - the client would retry this once, a second later, and the result would record one
+        // attempt while the server saw two
+        stub.respond(503, "unavailable");
+
+        // when
+        var response = underTest.performRequest(get("/orders"));
+
+        // then
+        assertThat(response.statusCode()).isEqualTo(503);
+        assertThat(stub.requestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void performRequest_sendsOneRequestWhenTheServerAnswers429() {
+        // given - the other status in the client's retriable set, and the one a rate-limiting suite
+        // is deliberately provoking
+        stub.respond(429, "slow down");
+
+        // when
+        var response = underTest.performRequest(get("/orders"));
+
+        // then
+        assertThat(response.statusCode()).isEqualTo(429);
+        assertThat(stub.requestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void performRequest_neverReplaysACookieTheServerSet() {
+        // given - the client would manage cookies by default, in a store belonging to the client and
+        // therefore to the process, so a session would outlive the run that established it
+        stub.respond(200, "ok", "Set-Cookie", "session=abc123; Path=/");
+        underTest.performRequest(get("/login"));
+
+        // when
+        underTest.performRequest(get("/orders"));
+
+        // then
+        assertThat(stub.lastRequest().headers()).doesNotContainKey("Cookie");
+    }
+
+    @Test
+    void performRequest_returnsASetCookieHeaderLikeAnyOther() {
+        // given - not sending cookies is not the same as hiding them: a suite captures what it needs
+        stub.respond(200, "ok", "Set-Cookie", "session=abc123; Path=/", "Set-Cookie", "theme=dark");
+
+        // when
+        var response = underTest.performRequest(get("/login"));
+
+        // then
+        assertThat(response.headers().get("set-cookie")).containsExactly("session=abc123; Path=/", "theme=dark");
+    }
+
+    // ---------- the registration key, and the protocol's own vocabulary ----------
+
+    @Test
+    void protocol_isHttp() {
+        // then - the half of the key a request is dispatched on, and what a requestHandlers map keys by
+        assertThat(underTest.protocol()).isEqualTo("http");
+    }
+
+    @Test
+    void name_isTheNameASuiteSelectsItBy() {
+        // then - core makes this one the default for http, so the string is load-bearing
+        assertThat(underTest.name()).isEqualTo("httpclient5");
+        assertThat(ApacheHttpRequestHandler.NAME).isEqualTo(underTest.name());
+    }
+
+    @Test
+    void definitionType_isWhatAnAuthoredRequestDefinitionBindsTo() {
+        // then - the loader binds a protocol's block to this class, and the interpolator registry
+        // checks it has an interpolator
+        assertThat(underTest.definitionType()).isEqualTo(HttpRequestDefinition.class);
+    }
+
+    @Test
+    void responseVars_isTheHttpVocabulary() {
+        // given - inherited from the protocol interface, so every HTTP handler reports alike
+        var response = new HttpResponse(201, Map.of("Location", List.of("/orders/7")), "{\"id\": 7}");
+
+        // when
+        var vars = underTest.responseVars(response);
+
+        // then
+        assertThat(vars).containsEntry("statusCode", 201).containsEntry("json", "{\"id\": 7}");
+        assertThat(vars).isEqualTo(HttpResponseVars.of(response));
     }
 
     // ---------- pool configuration ----------

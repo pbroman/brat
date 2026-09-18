@@ -62,8 +62,32 @@ import static org.apache.hc.core5.http.HttpHeaders.CONTENT_TYPE;
  * limits are constructor arguments rather than inherited. The library's own defaults (25 total, 5 per
  * route) throttle a suite hammering one host at five concurrent requests, blocking the sixth with
  * nothing logged, which would make a performance run measure its own queue.
+ *
+ * <h2>One request per call</h2>
+ * <strong>Performing a request sends it exactly once.</strong> There is no transport-level retry: a
+ * 429 or a 503 comes back as the response it is, and a connection that fails fails. Retrying is the
+ * suite's to declare, through {@code repeatUntil} — which is the only version that counts its own
+ * attempts, waits the interval the author chose, and reports what it did.
+ * <p>
+ * The client's own automatic retries are switched off rather than left at their default, because
+ * they are invisible from above: the server would see two requests where the result records one,
+ * {@code roundTripTimeMs} would carry a retry and its one-second wait, and a {@code POST} answered
+ * 503 would be re-sent to a server that may have processed the first one.
+ *
+ * <h2>Cookies</h2>
+ * <strong>This handler neither stores nor sends cookies.</strong> A {@code Set-Cookie} arrives as an
+ * ordinary response header and is read like any other; a suite needing one on a later request
+ * captures it with {@code setVars} and declares it as a {@code Cookie} header, which is visible in
+ * the suite rather than implicit in the client.
+ * <p>
+ * The client's own cookie management is switched off rather than left at its default, because its
+ * store belongs to the client and the client belongs to the process: a session established by one
+ * run would be replayed in the next, and a suite would pass or fail depending on what ran before it.
  */
 public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoCloseable {
+
+    /** The name a suite selects this handler by, and the one core makes the default for HTTP. */
+    public static final String NAME = "httpclient5";
 
     /** The pool's total connection ceiling when none is given. */
     public static final int DEFAULT_MAX_TOTAL = 200;
@@ -107,6 +131,14 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
                     maxPerRoute, maxTotal));
         }
         this.client = HttpClients.custom()
+                // Off deliberately: the client retries 429 and 503 once, a second apart, and
+                // retries an idempotent request after an IOException - a second retry layer beneath
+                // the one the suite authored, invisible to it. See the class Javadoc.
+                .disableAutomaticRetries()
+                // Off deliberately: HttpClient5 manages cookies unless told not to, in a store it
+                // creates per client - so a session would outlive the run that established it. See
+                // the class Javadoc for what a suite does instead.
+                .disableCookieManagement()
                 .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
                         .setMaxConnTotal(maxTotal)
                         .setMaxConnPerRoute(maxPerRoute)
@@ -115,6 +147,11 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
                                 .build())
                         .build())
                 .build();
+    }
+
+    @Override
+    public String name() {
+        return NAME;
     }
 
     /**

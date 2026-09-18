@@ -232,4 +232,13 @@ class HttpRequestDefinitionTest {
         // then - the documented third case: returned unchanged
         assertThat(definition.getBody()).containsOnlyKeys("a");
     }
+
+    @Test
+    void protocol_isHttpAndComesFromTheTypeRatherThanTheDocument() {
+        // given - the authored protocol: key selects which class binds and is consumed doing so
+        var definition = new HttpRequestDefinition("http://x/y", "GET", null, null, null, null);
+
+        // then
+        assertThat(definition.protocol()).isEqualTo("http");
+    }
 }

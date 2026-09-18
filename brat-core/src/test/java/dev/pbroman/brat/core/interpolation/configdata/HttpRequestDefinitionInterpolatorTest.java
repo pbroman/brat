@@ -189,4 +189,10 @@ class HttpRequestDefinitionInterpolatorTest {
         // then
         assertThat(interpolated.getBody()).containsKey("_bodyString");
     }
+
+    @Test
+    void definitionType_isTheClassThisIsLookedUpBy() {
+        // then - the registry keys on it, and lookup is by exact class so a subclass is not a match
+        assertThat(underTest.definitionType()).isEqualTo(HttpRequestDefinition.class);
+    }
 }

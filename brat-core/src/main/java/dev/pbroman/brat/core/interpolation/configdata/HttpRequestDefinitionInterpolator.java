@@ -6,6 +6,7 @@ import java.util.Map;
 import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import dev.pbroman.brat.core.api.interpolation.RequestDefinitionInterpolator;
 import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
@@ -21,7 +22,7 @@ import static dev.pbroman.brat.core.util.Constants.FILE_BODY;
 /**
  * Interpolates every field of an {@link HttpRequestDefinition}.
  */
-public final class HttpRequestDefinitionInterpolator implements ConfigDataInterpolator<HttpRequestDefinition> {
+public final class HttpRequestDefinitionInterpolator implements RequestDefinitionInterpolator<HttpRequestDefinition> {
 
     private final ConfigDataInterpolator<Auth> authInterpolation;
 
@@ -32,6 +33,11 @@ public final class HttpRequestDefinitionInterpolator implements ConfigDataInterp
      */
     public HttpRequestDefinitionInterpolator(ConfigDataInterpolator<Auth> authInterpolation) {
         this.authInterpolation = authInterpolation;
+    }
+
+    @Override
+    public Class<HttpRequestDefinition> definitionType() {
+        return HttpRequestDefinition.class;
     }
 
     /**

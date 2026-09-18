@@ -16,6 +16,7 @@ import org.apache.commons.lang3.Strings;
 import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
 import static dev.pbroman.brat.core.util.Constants.DEFAULT_METHOD;
 import static dev.pbroman.brat.core.util.Constants.FILE_BODY;
+import static dev.pbroman.brat.core.util.Constants.HTTP;
 import static dev.pbroman.brat.core.util.Constants.RAW_BODY;
 import static org.apache.hc.core5.http.ContentType.APPLICATION_FORM_URLENCODED;
 import static org.apache.hc.core5.http.HttpHeaders.CONTENT_TYPE;
@@ -36,6 +37,11 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
     private final Map<String, String> body;
     private final Map<String, String> headers;
     private final Auth auth;
+
+    @Override
+    public String protocol() {
+        return HTTP;
+    }
 
     /**
      * Constructs a request definition, deriving the body's {@code _bodyString} form where it can be
