@@ -12,8 +12,10 @@ import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
 import dev.pbroman.brat.core.api.handler.RequestHandler;
 import dev.pbroman.brat.core.api.interpolation.BratFunction;
+import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
+import dev.pbroman.brat.core.api.interpolation.RequestDefinitionInterpolator;
 import dev.pbroman.brat.core.api.listener.AttemptFinished;
 import dev.pbroman.brat.core.api.listener.RunControl;
 import dev.pbroman.brat.core.api.listener.RunEvent;
@@ -123,6 +125,22 @@ class BratTest {
         public HttpResponse performRequest(HttpRequestDefinition requestDefinition) {
             calls++;
             return new HttpResponse(200, Map.of(), "{}");
+        }
+    }
+
+    /** Interpolates an HTTP definition to a fixed URL, so a test can see which one ran. */
+    private static final class FixedUrlInterpolator implements RequestDefinitionInterpolator<HttpRequestDefinition> {
+
+        @Override
+        public Class<HttpRequestDefinition> definitionType() {
+            return HttpRequestDefinition.class;
+        }
+
+        @Override
+        public HttpRequestDefinition interpolated(
+                HttpRequestDefinition target, Interpolation interpolation, RuntimeData runtimeData) {
+            return new HttpRequestDefinition(
+                    "http://replaced/by-the-builder", target.getMethod(), null, null, null, null, null, Map.of());
         }
     }
 
@@ -384,6 +402,44 @@ class BratTest {
 
         // then - a jar on the classpath is a registration, which is what path 3 exists for
         assertThat(result.requestResults().getFirst().status()).isInstanceOf(RequestStatus.Completed.class);
+    }
+
+    @Test
+    void builder_addedInterpolatorReplacesCoresForTheSameDefinitionType() {
+        // given - the interpolators are collapsed into a type→interpolator map, so the later one wins;
+        // this is how a consumer replaces how a definition is prepared without touching core
+        var brat = Brat.builder()
+                .requestHandler(handler)
+                .requestDefinitionInterpolator(new FixedUrlInterpolator())
+                .build();
+
+        // when
+        var result = brat.run(suite(request("r", "${env.baseUrl}/ignored")), environment);
+
+        // then - the definition on the result is the one this interpolator produced
+        assertThat(result.requestResults())
+                .singleElement()
+                .satisfies(requestResult -> assertThat(
+                                ((HttpRequestDefinition) requestResult.requestDefinition()).getUrl())
+                        .isEqualTo("http://replaced/by-the-builder"));
+    }
+
+    @Test
+    void build_discoversRequestDefinitionInterpolators() {
+        // given - the fixture declares an interpolator for HttpRequestDefinition, which replaces core's
+        var root = BratTest.class.getClassLoader().getResource("interpolator-plugin-fixture/");
+        var loader = new URLClassLoader(new URL[] {root}, BratTest.class.getClassLoader());
+        var brat = Brat.builder().requestHandler(handler).classLoader(loader).build();
+
+        // when
+        var result = brat.run(suite(request("r", "${env.baseUrl}/ignored")), environment);
+
+        // then - a jar on the classpath registers an interpolator exactly as it registers a handler
+        assertThat(result.requestResults())
+                .singleElement()
+                .satisfies(requestResult -> assertThat(
+                                ((HttpRequestDefinition) requestResult.requestDefinition()).getUrl())
+                        .isEqualTo(PluginDiscoveryTest.DiscoverableInterpolator.URL));
     }
 
     @Test

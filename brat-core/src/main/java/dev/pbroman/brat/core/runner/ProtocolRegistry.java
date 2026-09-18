@@ -172,8 +172,10 @@ final class ProtocolRegistry {
         Require.nonNull(definition, "The request definition must not be null");
         Require.nonNull(names, "The request handler names must not be null");
         var protocol = definition.protocol();
+        // A protocol's entry is created with a handler in it and nothing ever removes one, so an
+        // entry that exists is never empty - absent is the only way to have no handler.
         var forProtocol = byProtocol.get(protocol);
-        if (forProtocol == null || forProtocol.isEmpty()) {
+        if (forProtocol == null) {
             throw new BratException(
                     "No request handler is registered for the protocol '" + protocol + "'. " + registeredProtocols());
         }
@@ -237,11 +239,12 @@ final class ProtocolRegistry {
     /**
      * Names the handlers registered for one protocol, for a message.
      *
-     * @param forProtocol the handlers, or {@code null} when the protocol has none
+     * @param forProtocol the handlers, or {@code null} when the protocol has none — never empty,
+     *        since an entry is only created with a handler in it
      * @return a sentence naming them
      */
     private static String candidates(Map<String, RequestHandler<?, ?>> forProtocol) {
-        if (forProtocol == null || forProtocol.isEmpty()) {
+        if (forProtocol == null) {
             return "No handler is registered for that protocol";
         }
         return "Registered: " + String.join(", ", forProtocol.keySet());

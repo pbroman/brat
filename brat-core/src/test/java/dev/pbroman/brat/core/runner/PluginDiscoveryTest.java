@@ -6,6 +6,7 @@ import java.util.List;
 
 import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
 import dev.pbroman.brat.core.api.interpolation.BratFunction;
+import dev.pbroman.brat.core.api.interpolation.RequestDefinitionInterpolator;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.result.HttpResponse;
 import dev.pbroman.brat.core.exception.BratException;
@@ -38,6 +39,29 @@ class PluginDiscoveryTest {
         @Override
         public HttpResponse performRequest(HttpRequestDefinition requestDefinition) {
             return new HttpResponse(200, java.util.Map.of(), "discovered");
+        }
+    }
+
+    /**
+     * Declared in the interpolator fixture, so a builder test can prove that a definition
+     * interpolator arrives by discovery too — the second collected point 8a-2 added.
+     */
+    public static final class DiscoverableInterpolator implements RequestDefinitionInterpolator<HttpRequestDefinition> {
+
+        /** The URL every definition this interpolates comes back with. */
+        public static final String URL = "http://replaced/by-discovery";
+
+        @Override
+        public Class<HttpRequestDefinition> definitionType() {
+            return HttpRequestDefinition.class;
+        }
+
+        @Override
+        public HttpRequestDefinition interpolated(
+                HttpRequestDefinition target,
+                dev.pbroman.brat.core.api.interpolation.Interpolation interpolation,
+                dev.pbroman.brat.core.data.runtime.RuntimeData runtimeData) {
+            return new HttpRequestDefinition(URL, target.getMethod(), null, null, null, null, null, java.util.Map.of());
         }
     }
 

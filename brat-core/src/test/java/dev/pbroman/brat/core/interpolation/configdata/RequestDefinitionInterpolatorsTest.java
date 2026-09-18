@@ -52,13 +52,16 @@ class RequestDefinitionInterpolatorsTest {
 
     @Test
     void interpolated_throwsForADefinitionThatIsNotConfigData() {
-        // given - a definition has to be interpolatable, which the api's bound states and this enforces
-        RequestDefinition notConfigData = () -> "stub";
-        var registry = new RequestDefinitionInterpolators(List.of(new StubInterpolator()));
+        // given - the interface's intersection bound means only an unchecked registration can get
+        // here, which is exactly what this interpolator does: it declares one type and answers with
+        // another. The message has to name the class, since a plugin author sees nothing else
+        var registry = new RequestDefinitionInterpolators(List.of(new MisdeclaringInterpolator()));
 
         // when / then
-        assertThatThrownBy(() -> registry.interpolated(notConfigData, interpolation, runtimeData))
-                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> registry.interpolated(new NotConfigData(), interpolation, runtimeData))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining(NotConfigData.class.getName())
+                .hasMessageContaining("ConfigData");
     }
 
     @Test
@@ -110,12 +113,25 @@ class RequestDefinitionInterpolatorsTest {
         }
     }
 
-    /** Registered for a type nothing in a test constructs, so a lookup can miss deliberately. */
-    private static final class StubInterpolator implements RequestDefinitionInterpolator<SubclassedDefinition> {
+    /** A request definition that forgot to be {@link ConfigData}, which no bound can stop at runtime. */
+    private static final class NotConfigData implements RequestDefinition {
 
         @Override
+        public String protocol() {
+            return "stub";
+        }
+    }
+
+    /**
+     * Registers itself for a class that is not a {@link ConfigData}, which the interface's bound
+     * forbids and an unchecked cast allows anyway — the only route to the guard this exercises.
+     */
+    private static final class MisdeclaringInterpolator implements RequestDefinitionInterpolator<SubclassedDefinition> {
+
+        @Override
+        @SuppressWarnings("unchecked")
         public Class<SubclassedDefinition> definitionType() {
-            return SubclassedDefinition.class;
+            return (Class<SubclassedDefinition>) (Class<?>) NotConfigData.class;
         }
 
         @Override

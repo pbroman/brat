@@ -6,9 +6,12 @@ import java.util.Map;
 import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
 import dev.pbroman.brat.core.api.handler.RequestHandler;
+import dev.pbroman.brat.core.api.interpolation.Interpolation;
+import dev.pbroman.brat.core.api.interpolation.RequestDefinitionInterpolator;
 import dev.pbroman.brat.core.data.ConfigData;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.result.HttpResponse;
+import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.configdata.AuthInterpolator;
 import dev.pbroman.brat.core.interpolation.configdata.HttpRequestDefinitionInterpolator;
@@ -180,6 +183,43 @@ class ProtocolRegistryTest {
                 .isInstanceOf(BratException.class);
     }
 
+    @Test
+    void resolve_failsWhenTheHandlerDoesNotExecuteThisDefinitionsClass() {
+        // given - a handler answering for http while executing something else. The registry cannot see
+        // this at construction: with no second http handler there is nothing to disagree with
+        RequestHandler<?, ?> mismatched = new StubHandler("http", "odd", OtherDefinition.class);
+        var registry = new ProtocolRegistry(
+                List.of(mismatched),
+                Map.of(),
+                new RequestDefinitionInterpolators(List.of(new OtherDefinitionInterpolator())));
+
+        // when / then - named here rather than as a ClassCastException inside the handler
+        assertThatThrownBy(() -> registry.resolve(httpRequest, Map.of()))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining(OtherDefinition.class.getName())
+                .hasMessageContaining(HttpRequestDefinition.class.getName());
+    }
+
+    @Test
+    void constructor_failsWhenADefaultNamesAProtocolWithNoHandlersAtAll() {
+        // given - a default for a protocol nobody wired, which is a wiring error rather than an overlay
+        assertThatThrownBy(() -> registry(Map.of("ftp", "vsftpd"), http("httpclient5")))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("ftp")
+                .hasMessageContaining("No handler is registered for that protocol");
+    }
+
+    @Test
+    void resolve_saysSoWhenNothingIsRegisteredAtAll() {
+        // given - a registry with no handlers is legal to build; it just cannot run anything
+        var registry = registry(Map.of());
+
+        // when / then
+        assertThatThrownBy(() -> registry.resolve(httpRequest, Map.of()))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("No request handler is registered at all");
+    }
+
     // ---------- what it publishes ----------
 
     @Test
@@ -237,6 +277,21 @@ class ProtocolRegistryTest {
         @Override
         public Map<String, Object> responseVars(Object response) {
             return Map.of();
+        }
+    }
+
+    /** Lets a protocol whose definition is {@link OtherDefinition} be registered at all. */
+    private record OtherDefinitionInterpolator() implements RequestDefinitionInterpolator<OtherDefinition> {
+
+        @Override
+        public Class<OtherDefinition> definitionType() {
+            return OtherDefinition.class;
+        }
+
+        @Override
+        public OtherDefinition interpolated(
+                OtherDefinition target, Interpolation interpolation, RuntimeData runtimeData) {
+            return target;
         }
     }
 

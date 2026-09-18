@@ -304,6 +304,10 @@ public final class Brat {
      * WARN and the run continues; a reporting bug must not turn a green suite red.
      * <p>
      * Cancellation is checked <strong>between requests</strong>, so an in-flight request finishes.
+     * <p>
+     * Every {@code RequestStarted} is followed by a {@code RequestFinished}: a request whose handler
+     * cannot be resolved aborts the run <em>before</em> it is announced, so no listener is left holding
+     * a request that never ends.
      *
      * @param suite the suite whose top-level requests to run; never {@code null}
      * @param environment the launch namespaces and secrets configuration for this run; never
@@ -428,8 +432,11 @@ public final class Brat {
             requestNo++;
             var coordinates = new RequestCoordinates(
                     suite.name() + PATH_DELIMITER + request.name(), request.id(), request.name(), requestNo);
-            emit(listeners, new RunEvent.RequestStarted(coordinates));
+            // Resolved before the request is announced: a handler this wiring lacks aborts the run,
+            // and a RequestStarted with no RequestFinished would leave a listener's test tree holding
+            // a node that never ends.
             var handler = protocolRegistry.resolve(request.requestDefinition(), effectiveHandlerNames(suite, request));
+            emit(listeners, new RunEvent.RequestStarted(coordinates));
             var result = processor.process(request, coordinates, runtimeData, handler);
             results.add(result);
             emit(listeners, new RunEvent.RequestFinished(result));

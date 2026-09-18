@@ -184,6 +184,22 @@ class SuiteLoaderTest {
     }
 
     @Test
+    void load_rejectsARequestDefinitionThatIsNotAMapping() {
+        // given - the block is where a protocol is read from, so it has to be one before anything else
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition: just a string
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("mapping");
+    }
+
+    @Test
     void load_rejectsAProtocolThatIsNotAString() {
         // given
         var yaml = """
