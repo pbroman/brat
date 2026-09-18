@@ -4,7 +4,10 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.List;
 
+import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
 import dev.pbroman.brat.core.api.interpolation.BratFunction;
+import dev.pbroman.brat.core.data.HttpRequestDefinition;
+import dev.pbroman.brat.core.data.result.HttpResponse;
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
 
@@ -24,6 +27,20 @@ class PluginDiscoveryTest {
     }
 
     /** Declared by the fixture's service file; must be public with a no-argument constructor. */
+    /** Declared in the plugin fixture, so a builder test can prove a handler arrives by discovery. */
+    public static final class DiscoverableHandler implements HttpRequestHandler {
+
+        @Override
+        public String name() {
+            return "discovered-handler";
+        }
+
+        @Override
+        public HttpResponse performRequest(HttpRequestDefinition requestDefinition) {
+            return new HttpResponse(200, java.util.Map.of(), "discovered");
+        }
+    }
+
     public static final class DiscoverableFunction implements BratFunction {
 
         @Override

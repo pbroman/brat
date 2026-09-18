@@ -3,12 +3,11 @@ package dev.pbroman.brat.core.runner;
 import java.util.Optional;
 
 import dev.pbroman.brat.core.api.data.RequestDefinition;
-import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
+import dev.pbroman.brat.core.api.handler.RequestHandler;
 import dev.pbroman.brat.core.api.handler.ResponseHandler;
 import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.data.FlowControl;
-import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.Request;
 import dev.pbroman.brat.core.data.result.RequestCoordinates;
 import dev.pbroman.brat.core.data.result.RequestResult;
@@ -16,6 +15,7 @@ import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.data.result.ResponseActionsResult;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.interpolation.configdata.RequestDefinitionInterpolators;
 import dev.pbroman.brat.core.util.FailureMessages;
 import dev.pbroman.brat.core.util.Require;
 import lombok.extern.slf4j.Slf4j;
@@ -32,21 +32,16 @@ import lombok.extern.slf4j.Slf4j;
  * {@link BratException} leaves this class only for a <em>structural</em> failure that is not about
  * this request at all: a {@code null} argument, or a missing collaborator.
  * <p>
- * ⚠ <strong>Every request is treated as HTTP, and that is temporary.</strong>
- * {@link Request#requestDefinition()} is typed to the interface, but no protocol selection exists
- * yet: the definition is cast to {@link HttpRequestDefinition} and handed to the one
- * {@link HttpRequestHandler} this was constructed with, and a definition of any other type is a
- * structural error. What replaces it is a lookup — {@link RequestDefinition} carrying the protocol it
- * is, and {@link Request#requestHandlers()} naming which handler serves that protocol — so this field
- * becomes a registry and the cast goes. Note the selection is two-part by design: several handlers
- * for one protocol can be live at once, because a proxied or client-certificate suite is a
- * differently configured handler rather than a different implementation.
+ * <strong>It does not choose the handler.</strong> Which handler performs a request depends on what
+ * the suite tree declares, and only whatever walks that tree knows the answer — so the handler
+ * arrives per request while the interpolators, which depend on the definition's type alone, are
+ * wired once.
  */
 @Slf4j
 public class RequestProcessor {
 
     private final Interpolation interpolation;
-    private final ConfigDataInterpolator<HttpRequestDefinition> requestDefinitionInterpolator;
+    private final RequestDefinitionInterpolators requestDefinitionInterpolators;
     private final ConditionEvaluator conditionEvaluator;
     private final ResponseHandler responseHandler;
     private final ConfigDataInterpolator<FlowControl> flowControlInterpolator;
@@ -56,7 +51,8 @@ public class RequestProcessor {
      * Constructs a processor over the collaborators it delegates to.
      *
      * @param interpolation resolves the tokens in a definition, a skip condition and a capture
-     * @param requestDefinitionInterpolator produces the interpolated copy of the request definition
+     * @param requestDefinitionInterpolators produce the interpolated copy of a request definition,
+     *        looked up by its own type
      * @param conditionEvaluator interpolates and answers the skip condition
      * @param responseHandler runs the response actions against the response
      * @param flowControlInterpolator produces the interpolated copy of the flow control, whose
@@ -66,13 +62,13 @@ public class RequestProcessor {
      */
     public RequestProcessor(
             Interpolation interpolation,
-            ConfigDataInterpolator<HttpRequestDefinition> requestDefinitionInterpolator,
+            RequestDefinitionInterpolators requestDefinitionInterpolators,
             ConditionEvaluator conditionEvaluator,
             ResponseHandler responseHandler,
             ConfigDataInterpolator<FlowControl> flowControlInterpolator,
             RequestExecutor requestExecutor) {
         this.interpolation = interpolation;
-        this.requestDefinitionInterpolator = requestDefinitionInterpolator;
+        this.requestDefinitionInterpolators = requestDefinitionInterpolators;
         this.conditionEvaluator = conditionEvaluator;
         this.responseHandler = responseHandler;
         this.flowControlInterpolator = flowControlInterpolator;
@@ -153,30 +149,34 @@ public class RequestProcessor {
      * gains every successful capture and a tombstone for every failed one, and those <em>do</em>
      * survive: they are the mechanism for keeping something.
      *
-     * @param request the request to run; never {@code null}, and its {@code requestDefinition} must
-     *        be an {@link HttpRequestDefinition}
+     * @param request the request to run; never {@code null}
      * @param coordinates where this request sits, which the caller computes — the path is built from
      *        the names from the root down, and only the walk knows the ancestors. Passed rather than
      *        read off {@code runtimeData} so that it cannot be forgotten
      * @param runtimeData the namespaces to resolve against; its {@code currentPath} and
      *        {@code currentRequestNo} are <strong>set</strong> from {@code coordinates} before
      *        anything else runs
+     * @param handler the handler that performs this request, already selected by the caller; never
+     *        {@code null}
      * @return what happened; never {@code null}. Ask {@link RequestResult#failed()} for the verdict,
      *         which the status alone does not give
-     * @throws BratException if {@code request}, {@code coordinates} or {@code runtimeData} is
-     *         {@code null}, if the request declares no {@code requestDefinition}, or if it is not an
-     *         {@link HttpRequestDefinition}. These are structural — a suite that could not be run
-     *         rather than a request that failed. A failure belonging to <em>this</em> request never
-     *         throws: it is {@link RequestStatus.Errored} on the returned result
+     * @throws BratException if {@code request}, {@code coordinates}, {@code runtimeData} or
+     *         {@code handler} is {@code null}, if the request declares no {@code requestDefinition},
+     *         or if no interpolator is registered for that definition's type. These are structural — a
+     *         suite that could not be run rather than a request that failed. A failure belonging to
+     *         <em>this</em> request never throws: it is {@link RequestStatus.Errored} on the result
      */
-    public RequestResult process(Request request, RequestCoordinates coordinates, RuntimeData runtimeData) {
+    public RequestResult process(
+            Request request,
+            RequestCoordinates coordinates,
+            RuntimeData runtimeData,
+            RequestHandler<RequestDefinition, Object> handler) {
         Require.nonNull(request, "The request must not be null");
         Require.nonNull(coordinates, "The coordinates must not be null");
         Require.nonNull(runtimeData, "The runtimeData must not be null");
-        Require.nonNull(request.requestDefinition(), "The request definition must not be null");
-        if (!(request.requestDefinition() instanceof HttpRequestDefinition requestDef)) {
-            throw new BratException("The request definition is not a HttpRequestDefinition");
-        }
+        Require.nonNull(handler, "The request handler must not be null");
+        var requestDef = request.requestDefinition();
+        Require.nonNull(requestDef, "The request definition must not be null");
 
         long methodStart = System.currentTimeMillis();
         runtimeData.setCurrentPath(coordinates.path());
@@ -199,9 +199,10 @@ public class RequestProcessor {
             }
         }
 
-        HttpRequestDefinition interpolatedRequestDef;
+        RequestDefinition interpolatedRequestDef;
         try {
-            interpolatedRequestDef = requestDefinitionInterpolator.interpolated(requestDef, interpolation, runtimeData);
+            interpolatedRequestDef =
+                    requestDefinitionInterpolators.interpolated(requestDef, interpolation, runtimeData);
         } catch (Exception e) {
             var message = FailureMessages.causeOf(e, "Request definition interpolation");
             return errored(coordinates, requestDef, message, methodStart);
@@ -219,7 +220,7 @@ public class RequestProcessor {
         }
 
         try {
-            var status = requestExecutor.execute(interpolatedRequestDef, pollBounds, coordinates, runtimeData);
+            var status = requestExecutor.execute(interpolatedRequestDef, handler, pollBounds, coordinates, runtimeData);
             ResponseActionsResult responseActionsResult = null;
             if (carriesAResponse(status) && request.responseActions() != null) {
                 try {

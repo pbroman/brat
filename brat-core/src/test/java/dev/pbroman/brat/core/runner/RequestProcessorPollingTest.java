@@ -4,7 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
+import dev.pbroman.brat.core.api.data.RequestDefinition;
+import dev.pbroman.brat.core.api.handler.RequestHandler;
 import dev.pbroman.brat.core.api.handler.ResponseHandler;
 import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
@@ -23,6 +24,7 @@ import dev.pbroman.brat.core.data.result.ResponseActionsResult;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.handler.HttpResponseVars;
+import dev.pbroman.brat.core.interpolation.configdata.RequestDefinitionInterpolators;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -41,11 +43,11 @@ import static org.mockito.Mockito.when;
  */
 class RequestProcessorPollingTest {
 
-    private ConfigDataInterpolator<HttpRequestDefinition> requestDefinitionInterpolator;
+    private RequestDefinitionInterpolators requestDefinitionInterpolator;
     private ConfigDataInterpolator<Condition> conditionInterpolator;
     private ConfigDataInterpolator<FlowControl> flowControlInterpolator;
     private ConditionResolver conditionResolver;
-    private HttpRequestHandler requestHandler;
+    private RequestHandler<RequestDefinition, Object> requestHandler;
     private ResponseHandler responseHandler;
     private RequestProcessor underTest;
     private RuntimeData runtimeData;
@@ -61,11 +63,11 @@ class RequestProcessorPollingTest {
     @SuppressWarnings("unchecked")
     @BeforeEach
     void setUp() {
-        requestDefinitionInterpolator = mock(ConfigDataInterpolator.class);
+        requestDefinitionInterpolator = mock(RequestDefinitionInterpolators.class);
         conditionInterpolator = mock(ConfigDataInterpolator.class);
         flowControlInterpolator = mock(ConfigDataInterpolator.class);
         conditionResolver = mock(ConditionResolver.class);
-        requestHandler = mock(HttpRequestHandler.class);
+        requestHandler = mock(RequestHandler.class);
         // responseVars is a default method on the protocol interface, so a bare mock answers it with
         // an empty map and the namespace this test asserts on would be the mock's, not HTTP's.
         when(requestHandler.responseVars(any())).thenAnswer(call -> HttpResponseVars.of(call.getArgument(0)));
@@ -80,7 +82,7 @@ class RequestProcessorPollingTest {
                 conditionEvaluator,
                 responseHandler,
                 flowControlInterpolator,
-                new RequestExecutor(requestHandler, conditionEvaluator, attempts::add));
+                new RequestExecutor(conditionEvaluator, attempts::add));
 
         runtimeData = new RuntimeData(Map.of(), Map.of());
         when(requestDefinitionInterpolator.interpolated(any(), any(), any())).thenReturn(interpolated);
@@ -117,7 +119,7 @@ class RequestProcessorPollingTest {
         when(conditionResolver.resolve(any())).thenReturn(false);
 
         // when
-        var result = underTest.process(polling("3", "0", "still processing"), coordinates, runtimeData);
+        var result = underTest.process(polling("3", "0", "still processing"), coordinates, runtimeData, requestHandler);
 
         // then - never reaching the condition is a failure, not a pass
         assertThat(result.status())
@@ -137,7 +139,7 @@ class RequestProcessorPollingTest {
         when(conditionResolver.resolve(any())).thenReturn(false);
 
         // when
-        var result = underTest.process(polling("2", "0", null), coordinates, runtimeData);
+        var result = underTest.process(polling("2", "0", null), coordinates, runtimeData, requestHandler);
 
         // then - never null: a report needs a sentence even where the author wrote none
         assertThat(result.status())
@@ -155,7 +157,7 @@ class RequestProcessorPollingTest {
                 .thenThrow(new BratException("The parameter 'attempts' is not set."));
 
         // when
-        var result = underTest.process(request, coordinates, runtimeData);
+        var result = underTest.process(request, coordinates, runtimeData, requestHandler);
 
         // then - the loop's bounds are unknowable, and guessing them is how a suite spins
         assertThat(result.status()).isInstanceOf(RequestStatus.Errored.class);
@@ -169,7 +171,7 @@ class RequestProcessorPollingTest {
         var request = new Request("once", null, null, null, null, null, authored, null, null);
 
         // when
-        underTest.process(request, coordinates, runtimeData);
+        underTest.process(request, coordinates, runtimeData, requestHandler);
 
         // then - no loop, so no progress to report within one
         assertThat(attempts).isEmpty();
@@ -189,7 +191,7 @@ class RequestProcessorPollingTest {
                 "poll", null, null, null, null, null, authored, new ResponseActions(List.of(), Map.of()), flowControl);
 
         // when
-        underTest.process(request, coordinates, runtimeData);
+        underTest.process(request, coordinates, runtimeData, requestHandler);
 
         // then
         verify(responseHandler).handleResponse(any(), any());
@@ -203,7 +205,7 @@ class RequestProcessorPollingTest {
         var request = pollingWithResponseActions("3", null);
 
         // when
-        var result = underTest.process(request, coordinates, runtimeData);
+        var result = underTest.process(request, coordinates, runtimeData, requestHandler);
 
         // then
         verify(responseHandler).handleResponse(any(), any());
@@ -220,7 +222,7 @@ class RequestProcessorPollingTest {
         var request = pollingWithResponseActions("2", "gave up");
 
         // when
-        var result = underTest.process(request, coordinates, runtimeData);
+        var result = underTest.process(request, coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(result.status())
@@ -237,7 +239,7 @@ class RequestProcessorPollingTest {
         when(requestHandler.performRequest(any())).thenReturn(response(200));
 
         // when
-        var result = underTest.process(polling("0", "0", null), coordinates, runtimeData);
+        var result = underTest.process(polling("0", "0", null), coordinates, runtimeData, requestHandler);
 
         // then - the same treatment an unparseable value gets, rather than a silent default
         assertThat(result.status())

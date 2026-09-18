@@ -8,7 +8,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
+import dev.pbroman.brat.core.api.handler.RequestHandler;
 import dev.pbroman.brat.core.api.interpolation.BratFunction;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
@@ -29,6 +31,7 @@ import dev.pbroman.brat.core.data.result.HttpResponse;
 import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.handler.ApacheHttpRequestHandler;
 import dev.pbroman.brat.core.secrets.SecretsProviderConfig;
 import dev.pbroman.brat.core.secrets.SecretsSource;
 import org.junit.jupiter.api.Test;
@@ -83,6 +86,75 @@ class BratTest {
         return Brat.builder().requestHandler(handler).build();
     }
 
+    /** A request naming which handler should execute it. */
+    private static Request requestWithHandlers(Map<String, String> requestHandlers) {
+        return new Request(
+                "r",
+                null,
+                null,
+                null,
+                null,
+                requestHandlers,
+                new HttpRequestDefinition("http://localhost:8080/x", "GET", null, null, null, null),
+                null,
+                null);
+    }
+
+    private static RecordingHandler recordingHandler(String name) {
+        return new RecordingHandler(name);
+    }
+
+    /** An HTTP handler that answers everything and remembers how often it was asked. */
+    private static final class RecordingHandler implements HttpRequestHandler {
+
+        private final String name;
+        private int calls;
+
+        private RecordingHandler(String name) {
+            this.name = name;
+        }
+
+        @Override
+        public String name() {
+            return name;
+        }
+
+        @Override
+        public HttpResponse performRequest(HttpRequestDefinition requestDefinition) {
+            calls++;
+            return new HttpResponse(200, Map.of(), "{}");
+        }
+    }
+
+    /** A handler for a protocol core has no interpolator for. */
+    private static final class StubProtocolHandler implements RequestHandler<RequestDefinition, Object> {
+
+        @Override
+        public String protocol() {
+            return "stub";
+        }
+
+        @Override
+        public String name() {
+            return "stub";
+        }
+
+        @Override
+        public Class<RequestDefinition> definitionType() {
+            return RequestDefinition.class;
+        }
+
+        @Override
+        public Object performRequest(RequestDefinition requestDefinition) {
+            return null;
+        }
+
+        @Override
+        public Map<String, Object> responseVars(Object response) {
+            return Map.of();
+        }
+    }
+
     // --- wiring ---
 
     @Test
@@ -115,6 +187,172 @@ class BratTest {
         assertThatThrownBy(() -> Brat.builder().secretsProviderFactory(null)).isInstanceOf(BratException.class);
         assertThatThrownBy(() -> Brat.builder().requestHandler(null)).isInstanceOf(BratException.class);
         assertThatThrownBy(() -> Brat.builder().classLoader(null)).isInstanceOf(BratException.class);
+    }
+
+    // ---------- selecting a handler ----------
+
+    @Test
+    void run_usesTheHandlerTheRequestNames() {
+        // given - two handlers for one protocol, which is what selection by name exists for
+        var named = recordingHandler("mtls");
+        var brat = Brat.builder()
+                .requestHandler(handler)
+                .requestHandler(named)
+                .defaultRequestHandler("http", "test")
+                .build();
+        var request = requestWithHandlers(Map.of("http", "mtls"));
+
+        // when
+        brat.run(
+                new TestSuite("s", null, null, null, null, null, null, null, null, List.of(request), null),
+                environment);
+
+        // then
+        assertThat(named.calls).isEqualTo(1);
+    }
+
+    @Test
+    void run_usesTheHandlerTheSuiteNamesWhenTheRequestNamesNone() {
+        // given - the suite-level declaration is inherited by a request that says nothing
+        var named = recordingHandler("mtls");
+        var brat = Brat.builder()
+                .requestHandler(handler)
+                .requestHandler(named)
+                .defaultRequestHandler("http", "test")
+                .build();
+        var suite = new TestSuite(
+                "s",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                Map.of("http", "mtls"),
+                List.of(request("r", "${env.baseUrl}/x")),
+                null);
+
+        // when
+        brat.run(suite, environment);
+
+        // then
+        assertThat(named.calls).isEqualTo(1);
+    }
+
+    @Test
+    void run_letsARequestOverrideOneProtocolWithoutDroppingAnother() {
+        // given - merged per key, which is why requestHandlers is a map rather than a single name
+        var suiteNamed = recordingHandler("mtls");
+        var requestNamed = recordingHandler("proxy");
+        var brat = Brat.builder()
+                .requestHandler(handler)
+                .requestHandler(suiteNamed)
+                .requestHandler(requestNamed)
+                .defaultRequestHandler("http", "test")
+                .build();
+        var suite = new TestSuite(
+                "s",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                Map.of("http", "mtls", "ftp", "vsftpd"),
+                List.of(requestWithHandlers(Map.of("http", "proxy"))),
+                null);
+
+        // when
+        brat.run(suite, environment);
+
+        // then - the request's own entry won, and the inherited ftp entry did not disturb it
+        assertThat(requestNamed.calls).isEqualTo(1);
+        assertThat(suiteNamed.calls).isZero();
+    }
+
+    @Test
+    void run_abortsWhenASuiteNamesAHandlerThisWiringLacks() {
+        // given - a suite naming a handler is not portable to a wiring without it, and fails loudly
+        var brat = Brat.builder().requestHandler(handler).build();
+        var request = requestWithHandlers(Map.of("http", "mtls"));
+
+        // when / then - structural, so it is not an errored result
+        assertThatThrownBy(() -> brat.run(
+                        new TestSuite("s", null, null, null, null, null, null, null, null, List.of(request), null),
+                        environment))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("mtls");
+    }
+
+    @Test
+    void build_seedsCoresOwnHandlerAsTheHttpDefault() {
+        // given - adding a second handler must not change which client an existing suite uses
+        var second = recordingHandler("second");
+        var brat = Brat.builder()
+                .requestHandler(new ApacheHttpRequestHandler())
+                .requestHandler(second)
+                .build();
+
+        // when - nothing names a handler, and two are registered
+        var result = brat.run(suite(request("r", "http://localhost:1/unreachable")), environment);
+
+        // then - httpclient5 was used, so the connection failed rather than the stub answering
+        assertThat(second.calls).isZero();
+        assertThat(result.requestResults().getFirst().status()).isInstanceOf(RequestStatus.Errored.class);
+    }
+
+    @Test
+    void build_failsWhenADefaultNamesAHandlerNobodyRegistered() {
+        // when / then
+        assertThatThrownBy(() -> Brat.builder()
+                        .requestHandler(handler)
+                        .defaultRequestHandler("http", "nope")
+                        .build())
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("nope");
+    }
+
+    @Test
+    void build_failsWhenAHandlersProtocolHasNoInterpolator() {
+        // given - a plugin shipping a handler and forgetting its interpolator
+        var brat = Brat.builder().requestHandler(handler).requestHandler(new StubProtocolHandler());
+
+        // when / then - named at wiring time rather than on the first request of that protocol
+        assertThatThrownBy(brat::build).isInstanceOf(BratException.class).hasMessageContaining("stub");
+    }
+
+    @Test
+    void build_discoversRequestHandlers() {
+        // given - its own fixture, so that discovering a handler cannot disturb tests about discovering
+        // anything else: two handlers and no default is a failure, which is the point of the ladder
+        var root = BratTest.class.getClassLoader().getResource("handler-plugin-fixture/");
+        var loader = new URLClassLoader(new URL[] {root}, BratTest.class.getClassLoader());
+        var brat = Brat.builder()
+                .requestHandler(handler)
+                .defaultRequestHandler("http", "test")
+                .classLoader(loader)
+                .build();
+        var request = requestWithHandlers(Map.of("http", "discovered-handler"));
+
+        // when
+        var result = brat.run(
+                new TestSuite("s", null, null, null, null, null, null, null, null, List.of(request), null),
+                environment);
+
+        // then - a jar on the classpath is a registration, which is what path 3 exists for
+        assertThat(result.requestResults().getFirst().status()).isInstanceOf(RequestStatus.Completed.class);
+    }
+
+    @Test
+    void builder_throwsForANullInterpolatorOrDefault() {
+        assertThatThrownBy(() -> Brat.builder().requestDefinitionInterpolator(null))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> Brat.builder().defaultRequestHandler(null, "x"))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> Brat.builder().defaultRequestHandler("http", " "))
+                .isInstanceOf(BratException.class);
     }
 
     @Test
