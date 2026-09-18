@@ -2,19 +2,25 @@ package dev.pbroman.brat.core.loader;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import dev.pbroman.brat.core.api.data.RequestDefinition;
+import dev.pbroman.brat.core.data.ConfigData;
+import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.Phase;
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import static dev.pbroman.brat.core.util.Constants.HTTP;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SuiteLoaderTest {
 
-    private final SuiteLoader underTest = new SuiteLoader();
+    private final SuiteLoader underTest = SuiteLoader.httpOnly();
 
     // ---------- the happy path ----------
 
@@ -95,6 +101,183 @@ class SuiteLoaderTest {
 
         // then
         assertThat(suite.requests()).hasSize(2);
+    }
+
+    // ---------- binding by protocol ----------
+
+    @Test
+    void load_bindsARequestDefinitionWithNoProtocolAsHttp() {
+        // given - no HTTP suite gains a line for a key whose answer is the default
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      url: http://x/y
+                """;
+
+        // when
+        var suite = underTest.load(yaml);
+
+        // then
+        assertThat(suite.requests().getFirst().requestDefinition()).isInstanceOf(HttpRequestDefinition.class);
+    }
+
+    @Test
+    void load_bindsTheProtocolTheBlockDeclares() {
+        // given - a loader wired for two protocols, which is what a plugin's handler produces
+        var loader = new SuiteLoader(Map.of(HTTP, HttpRequestDefinition.class, "stub", StubDefinition.class));
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      protocol: stub
+                      target: somewhere
+                """;
+
+        // when
+        var suite = loader.load(yaml);
+
+        // then
+        assertThat(suite.requests().getFirst().requestDefinition()).isInstanceOf(StubDefinition.class);
+    }
+
+    @Test
+    void load_consumesProtocolRatherThanBindingIt() {
+        // given - no definition type declares the key, and unknown keys are a load error, so a
+        // protocol that reached the bound type would fail every request that named one
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      protocol: http
+                      url: http://x/y
+                """;
+
+        // when
+        var suite = underTest.load(yaml);
+
+        // then
+        assertThat(((HttpRequestDefinition) suite.requests().getFirst().requestDefinition()).getUrl())
+                .isEqualTo("http://x/y");
+    }
+
+    @Test
+    void load_rejectsAProtocolThisLoaderHasNoClassFor() {
+        // given - authorable is the same set as executable, so this fails at load rather than at a cast
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      protocol: ftp
+                      url: http://x/y
+                """;
+
+        // then - naming what this loader knows, since a hand-built one may know less than its runner
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("ftp")
+                .hasMessageContaining("http");
+    }
+
+    @Test
+    void load_rejectsARequestDefinitionThatIsNotAMapping() {
+        // given - the block is where a protocol is read from, so it has to be one before anything else
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition: just a string
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("mapping");
+    }
+
+    @Test
+    void load_rejectsAProtocolThatIsNotAString() {
+        // given
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      protocol: [http]
+                      url: http://x/y
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml)).isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void load_keepsThePositionOfAFailureInsideARequestDefinition() {
+        // given - the deserializer runs inside the one convertValue call precisely so that Jackson's
+        // own path still produces the pointer the position index is keyed by
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      url: http://x/y
+                      headers: not a mapping
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("headers")
+                .hasMessageContaining("line 6");
+    }
+
+    @Test
+    void load_keepsThePositionOfAnUnknownKeyInsideARequestDefinition() {
+        // given - the chosen type's own unknown-key check must survive the delegation
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      url: http://x/y
+                      methd: GET
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("methd")
+                .hasMessageContaining("line 6");
+    }
+
+    @Test
+    void constructor_rejectsNullProtocols() {
+        assertThatThrownBy(() -> new SuiteLoader(null)).isInstanceOf(BratException.class);
+    }
+
+    /** A definition of a protocol core knows nothing about, to prove the lookup is not hardcoded. */
+    public static final class StubDefinition extends ConfigData implements RequestDefinition {
+
+        private final String target;
+
+        @JsonCreator
+        public StubDefinition(String target) {
+            super(null);
+            this.target = target;
+        }
+
+        public String getTarget() {
+            return target;
+        }
+
+        @Override
+        public String protocol() {
+            return "stub";
+        }
     }
 
     // ---------- structural rejections ----------

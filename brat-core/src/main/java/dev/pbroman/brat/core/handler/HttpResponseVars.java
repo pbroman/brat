@@ -28,10 +28,12 @@ import static dev.pbroman.brat.core.util.Constants.STATUS_CODE;
  * second protocol adds its own builder here instead of a second method on the type every protocol
  * shares.
  * <p>
- * <strong>The namespace is a lossy, interpolation-shaped view, not the response.</strong> Headers
- * collapse to one value each because {@code ${response.headers.Content-Type}} substitutes a single
- * string. Nothing is lost overall: the full multi-valued {@link HttpResponse} is what lands on the
- * request's result, and is where anything needing every value should look.
+ * <strong>Every header value is kept here; the projection to one string happens later.</strong>
+ * {@code ${response.headers.Content-Type}} substitutes a single string, so
+ * {@code ResponseHeaderInterpolationRule} takes a header's first value when it resolves a token —
+ * but it takes it from this namespace, which holds all of them. The distinction matters for a
+ * repeated header such as {@code Set-Cookie}: the later values are unreachable from a token today,
+ * and they are not discarded.
  */
 public final class HttpResponseVars {
 
@@ -51,8 +53,9 @@ public final class HttpResponseVars {
      * <ul>
      *   <li>{@code statusCode} — the status as an {@link Integer}. Always present</li>
      *   <li>{@code body} — the response body verbatim. Omitted when the response has no body</li>
-     *   <li>{@code headers} — a {@code Map<String, String>} holding each header's <em>first</em>
-     *       value, looked up case-insensitively. Always present, possibly empty</li>
+     *   <li>{@code headers} — a {@code Map<String, List<String>>} holding <em>every</em> value of
+     *       each header, in the order the server sent them, looked up case-insensitively. Always
+     *       present, possibly empty</li>
      *   <li>{@code json} — the body verbatim again, present only when the body is a JSON
      *       <em>object or array</em>. A bare scalar does not qualify, however valid it is as a JSON
      *       document: a plain-text body of {@code 42} parses, and putting it here would only move its
@@ -65,7 +68,7 @@ public final class HttpResponseVars {
      *
      * @param response the response to flatten
      * @return an unmodifiable map of the namespace, whose {@code headers} entry is itself
-     *         unmodifiable and case-insensitive; never {@code null}
+     *         unmodifiable, case-insensitive and multi-valued; never {@code null}
      * @throws dev.pbroman.brat.core.exception.BratException if {@code response} is {@code null}
      */
     public static Map<String, Object> of(HttpResponse response) {
@@ -73,7 +76,7 @@ public final class HttpResponseVars {
 
         var map = new HashMap<String, Object>();
         map.put(STATUS_CODE, response.statusCode());
-        map.put(HEADERS, flattenHeaders(response));
+        map.put(HEADERS, headersOf(response));
         if (response.body() != null) {
             map.put(BODY, response.body());
             addJson(response, map);
@@ -83,24 +86,23 @@ public final class HttpResponseVars {
     }
 
     /**
-     * Flattens each header to its first value, keeping the case the server sent.
+     * Copies the headers into a case-insensitive map, keeping every value and the case the server
+     * sent.
      * <p>
      * The map is case-insensitive rather than the keys being lower-cased, and that is the only shape
      * that works: {@code AbstractInterpolationRule.simpleInterpolation} looks a header up with the
      * author's placeholder text verbatim, and it is shared with {@code vars} and {@code constants},
      * where case-sensitivity is correct. So the insensitivity has to live in the map.
      *
-     * @param response the response whose headers to flatten
-     * @return an unmodifiable, case-insensitive map of each header's first value
+     * @param response the response whose headers to copy
+     * @return an unmodifiable, case-insensitive map of every value of each header
      */
-    private static Map<String, String> flattenHeaders(HttpResponse response) {
-        var flattened = new TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER);
+    private static Map<String, List<String>> headersOf(HttpResponse response) {
+        var headers = new TreeMap<String, List<String>>(String.CASE_INSENSITIVE_ORDER);
         for (Map.Entry<String, List<String>> header : response.headers().entrySet()) {
-            if (!header.getValue().isEmpty()) {
-                flattened.put(header.getKey(), header.getValue().getFirst());
-            }
+            headers.put(header.getKey(), List.copyOf(header.getValue()));
         }
-        return Collections.unmodifiableMap(flattened);
+        return Collections.unmodifiableMap(headers);
     }
 
     /**

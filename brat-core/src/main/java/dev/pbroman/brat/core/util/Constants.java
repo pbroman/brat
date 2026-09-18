@@ -28,6 +28,12 @@ public final class Constants {
     public static final String MISC = "misc";
     public static final String FALLBACK_DELIMITER = ":-";
 
+    /** The protocol of a request core can execute without a plugin, and the default when none is declared. */
+    public static final String HTTP = "http";
+
+    /** The key inside a {@code requestDefinition:} block naming what kind of request it describes. */
+    public static final String PROTOCOL = "protocol";
+
     public static final String REQUEST_RESULTS = "requestResults";
     public static final String RESPONSE = "response";
     public static final String RESPONSE_VARS = "responseVars";

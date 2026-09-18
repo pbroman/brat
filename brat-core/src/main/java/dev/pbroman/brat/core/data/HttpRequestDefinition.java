@@ -16,6 +16,7 @@ import org.apache.commons.lang3.Strings;
 import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
 import static dev.pbroman.brat.core.util.Constants.DEFAULT_METHOD;
 import static dev.pbroman.brat.core.util.Constants.FILE_BODY;
+import static dev.pbroman.brat.core.util.Constants.HTTP;
 import static dev.pbroman.brat.core.util.Constants.RAW_BODY;
 import static org.apache.hc.core5.http.ContentType.APPLICATION_FORM_URLENCODED;
 import static org.apache.hc.core5.http.HttpHeaders.CONTENT_TYPE;
@@ -36,6 +37,12 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
     private final Map<String, String> body;
     private final Map<String, String> headers;
     private final Auth auth;
+    private final Map<String, String> args;
+
+    @Override
+    public String protocol() {
+        return HTTP;
+    }
 
     /**
      * Constructs a request definition, deriving the body's {@code _bodyString} form where it can be
@@ -53,6 +60,9 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
      * @param body the body, keyed by one of the well-known body keys, or {@code null}
      * @param headers the request headers, or {@code null}
      * @param auth the authentication to apply, or {@code null}
+     * @param args extra arguments for the handler that performs this request, or {@code null} for
+     *        none. Their keys belong to that handler, not to HTTP — which is why they are a bag and
+     *        not fields, and why the handler is what rejects one it does not know
      * @param outcomes the interpolation outcomes of an interpolated copy, or {@code null} on an
      *        as-authored instance
      * @throws BratException if two header names differ only in case. They are one header to HTTP and
@@ -68,6 +78,7 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
             Map<String, String> body,
             Map<String, String> headers,
             Auth auth,
+            Map<String, String> args,
             Map<String, InterpolationOutcome> outcomes) {
         super(outcomes);
         // Rejected here rather than resolved arbitrarily at lookup time.
@@ -77,6 +88,7 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
         this.timeout = timeout;
         this.headers = headers == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(headers));
         this.auth = auth;
+        this.args = args == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(args));
         this.body = prepared(body, this.headers);
     }
 
@@ -90,6 +102,7 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
      * @param body the request body entries
      * @param headers the request headers
      * @param auth the auth configuration
+     * @param args extra arguments for the handler, or {@code null} for none
      */
     @JsonCreator
     public HttpRequestDefinition(
@@ -98,8 +111,30 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
             String timeout,
             Map<String, String> body,
             Map<String, String> headers,
+            Auth auth,
+            Map<String, String> args) {
+        this(url, method, timeout, body, headers, auth, args, null);
+    }
+
+    /**
+     * A request that passes its handler no arguments, which is every request until one needs a
+     * handler-specific knob.
+     *
+     * @param url the request URL
+     * @param method the HTTP method
+     * @param timeout the request timeout
+     * @param body the request body entries
+     * @param headers the request headers
+     * @param auth the auth configuration
+     */
+    public HttpRequestDefinition(
+            String url,
+            String method,
+            String timeout,
+            Map<String, String> body,
+            Map<String, String> headers,
             Auth auth) {
-        this(url, method, timeout, body, headers, auth, null);
+        this(url, method, timeout, body, headers, auth, null, null);
     }
 
     /**

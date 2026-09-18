@@ -1,0 +1,40 @@
+# A protocol brat-core has never heard of, reachable from a suite file: the loader binds the block,
+# the plugin's interpolator resolves its tokens, and the plugin's own namespace carries the response.
+name: stub protocol
+description: a request of a protocol that arrived on the classpath
+
+constants:
+  greeting: hello
+
+requests:
+  - name: echo something
+    requestDefinition:
+      protocol: stub
+      say: "${constants.greeting} from a plugin"
+    responseActions:
+      assertions:
+        - a: "${stub.echoed}"
+          func: isEqualTo
+          b: hello from a plugin
+          message: the definition was interpolated before the handler saw it
+        - a: "${stub.length}"
+          func: isEqualTo
+          b: "19"
+          message: the handler's own namespace is readable from the suite
+      setVars:
+        echoed: "${stub.echoed}"
+
+  - name: mix protocols in one suite
+    requestDefinition:
+      url: "${env.baseUrl}/all"
+      method: GET
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: "200"
+          message: an HTTP request still works beside a plugin protocol
+        - a: "${vars.echoed}"
+          func: isEqualTo
+          b: hello from a plugin
+          message: a capture from a plugin protocol crosses to the next request like any other

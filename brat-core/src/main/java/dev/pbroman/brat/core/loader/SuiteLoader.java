@@ -8,6 +8,7 @@ import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.TestSuite;
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.util.Require;
 import dev.pbroman.brat.core.util.ResourceReader;
 import org.apache.commons.lang3.StringUtils;
 import tools.jackson.core.JacksonException;
@@ -18,6 +19,8 @@ import tools.jackson.databind.exc.MismatchedInputException;
 import tools.jackson.databind.exc.UnrecognizedPropertyException;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.module.SimpleModule;
+
+import static dev.pbroman.brat.core.util.Constants.HTTP;
 
 /**
  * Turns a suite document into a {@link TestSuite}, or says why it cannot in words its author can act
@@ -46,19 +49,46 @@ import tools.jackson.databind.module.SimpleModule;
  */
 public final class SuiteLoader {
 
+    private final ObjectMapper mapper;
+
     /**
-     * Binds the converted tree. Unknown keys fail rather than binding nothing, and enum values match
-     * whatever case an author wrote — the published documents use both.
+     * Constructs a loader for documents that may declare any of the given protocols.
      * <p>
-     * ⚠ The abstract-type mapping is a temporary stand-in for protocol selection: every
-     * {@code requestDefinition:} binds as HTTP. It is replaced by a lookup on the protocol the
-     * definition declares, at which point a suite can hold more than one kind of request.
+     * <strong>The map is the wiring's, not the loader's.</strong> It comes from the registered
+     * request handlers — each declaring the class its protocol's blocks bind to — which is what makes
+     * "you can author exactly what you can execute" true by construction. {@code Brat.loader()} is the
+     * path that guarantees it; building one by hand is for a consumer with its own protocol set, and
+     * that consumer owns keeping the two in step.
+     *
+     * @param protocols the definition class per protocol name; never {@code null}, and a copy is kept
+     * @throws BratException if {@code protocols} is {@code null}
      */
-    private static final ObjectMapper MAPPER = JsonMapper.builder()
-            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-            .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS)
-            .addModule(new SimpleModule().addAbstractTypeMapping(RequestDefinition.class, HttpRequestDefinition.class))
-            .build();
+    public SuiteLoader(Map<String, Class<? extends RequestDefinition>> protocols) {
+        Require.nonNull(protocols, "The protocols a loader can bind must not be null");
+        // Unknown keys fail rather than binding nothing, and enum values match whatever case an
+        // author wrote - the published documents use both.
+        this.mapper = JsonMapper.builder()
+                .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS)
+                .addModule(new SimpleModule()
+                        .addDeserializer(
+                                RequestDefinition.class, new RequestDefinitionDeserializer(Map.copyOf(protocols))))
+                .build();
+    }
+
+    /**
+     * A loader for documents that use HTTP and nothing else.
+     * <p>
+     * Named rather than offered as a no-argument constructor, so that a loader knowing one protocol
+     * says so at the call site. A suite it loads that declares any other protocol fails, naming
+     * {@code http} as all it knows — which is the right answer for a runner wired the same way, and a
+     * misleading one for a runner that has more. Prefer {@code Brat.loader()} wherever a runner exists.
+     *
+     * @return a loader that binds every {@code requestDefinition:} as HTTP
+     */
+    public static SuiteLoader httpOnly() {
+        return new SuiteLoader(Map.of(HTTP, HttpRequestDefinition.class));
+    }
 
     /**
      * Loads a suite from document content.
@@ -93,7 +123,7 @@ public final class SuiteLoader {
      */
     private TestSuite bind(YamlDocument document, String origin) {
         try {
-            return MAPPER.convertValue(document.root(), TestSuite.class);
+            return mapper.convertValue(document.root(), TestSuite.class);
         } catch (UnrecognizedPropertyException e) {
             throw LoaderErrors.at(origin, document, pointerOf(e), "Unknown key '" + e.getPropertyName() + "'");
         } catch (JacksonException e) {

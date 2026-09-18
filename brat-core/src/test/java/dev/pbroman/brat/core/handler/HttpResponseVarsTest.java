@@ -41,15 +41,39 @@ class HttpResponseVarsTest {
     }
 
     @Test
-    void of_flattensEachHeaderToItsFirstValue() {
+    void of_keepsEveryValueOfARepeatedHeader() {
         // given - Set-Cookie is the everyday repeated header
         var response = new HttpResponse(200, Map.of("Set-Cookie", List.of("a=1", "b=2")), null);
 
         // when
         var vars = HttpResponseVars.of(response);
 
-        // then - ${response.headers.Set-Cookie} substitutes one string; the full list stays on HttpResponse
-        assertThat(headersOf(vars)).containsEntry("Set-Cookie", "a=1");
+        // then - a token substitutes one string, but the narrowing is the rule's; nothing is dropped here
+        assertThat(headersOf(vars)).containsEntry("Set-Cookie", List.of("a=1", "b=2"));
+    }
+
+    @Test
+    void of_keepsTheOrderTheServerSentValuesIn() {
+        // given - which value is "first" is the server's statement, not an accident of the copy
+        var response = new HttpResponse(200, Map.of("Set-Cookie", List.of("second=2", "first=1")), null);
+
+        // when
+        var vars = HttpResponseVars.of(response);
+
+        // then
+        assertThat(headersOf(vars).get("Set-Cookie")).containsExactly("second=2", "first=1");
+    }
+
+    @Test
+    void of_holdsHeaderValuesThatCannotBeModified() {
+        // given
+        var response = new HttpResponse(200, Map.of("Set-Cookie", List.of("a=1")), null);
+
+        // when
+        var values = headersOf(HttpResponseVars.of(response)).get("Set-Cookie");
+
+        // then - the namespace outlives the call and is read by rules; nothing may edit it underneath them
+        assertThatThrownBy(() -> values.add("b=2")).isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
@@ -61,7 +85,7 @@ class HttpResponseVarsTest {
         var vars = HttpResponseVars.of(response);
 
         // then - an author writing ${response.headers.content-type} must not depend on the server's choice
-        assertThat(headersOf(vars)).containsEntry("content-type", "application/json");
+        assertThat(headersOf(vars)).containsEntry("content-type", List.of("application/json"));
     }
 
     @Test
@@ -176,7 +200,8 @@ class HttpResponseVarsTest {
                 HttpResponseVars.of(new HttpResponse(200, Map.of("Content-Type", List.of("text/plain")), null)));
 
         // then
-        assertThatThrownBy(() -> headers.put("X-Added", "y")).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> headers.put("X-Added", List.of("y")))
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
@@ -185,7 +210,7 @@ class HttpResponseVarsTest {
     }
 
     @SuppressWarnings("unchecked")
-    private static Map<String, String> headersOf(Map<String, Object> vars) {
-        return (Map<String, String>) vars.get(HEADERS);
+    private static Map<String, List<String>> headersOf(Map<String, Object> vars) {
+        return (Map<String, List<String>>) vars.get(HEADERS);
     }
 }

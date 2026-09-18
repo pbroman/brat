@@ -3,14 +3,13 @@ package dev.pbroman.brat.core.runner;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
+import dev.pbroman.brat.core.api.data.RequestDefinition;
+import dev.pbroman.brat.core.api.handler.RequestHandler;
 import dev.pbroman.brat.core.api.listener.AttemptFinished;
-import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.result.RequestCoordinates;
 import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.handler.HttpResponseVars;
 import dev.pbroman.brat.core.util.FailureMessages;
 
 /**
@@ -25,22 +24,19 @@ import dev.pbroman.brat.core.util.FailureMessages;
  */
 class RequestExecutor {
 
-    private final HttpRequestHandler requestHandler;
     private final ConditionEvaluator conditionEvaluator;
     private final Consumer<AttemptFinished> attemptListener;
 
     /**
      * Constructs an executor over the collaborators it delegates to.
+     * <p>
+     * The handler is not among them: which one performs a request is decided per request by whatever
+     * walks the suite, so it arrives as an argument rather than as wiring.
      *
-     * @param requestHandler performs one attempt
      * @param conditionEvaluator interpolates and answers the loop condition
      * @param attemptListener receives one {@link AttemptFinished} per attempt of a polling request
      */
-    RequestExecutor(
-            HttpRequestHandler requestHandler,
-            ConditionEvaluator conditionEvaluator,
-            Consumer<AttemptFinished> attemptListener) {
-        this.requestHandler = requestHandler;
+    RequestExecutor(ConditionEvaluator conditionEvaluator, Consumer<AttemptFinished> attemptListener) {
         this.conditionEvaluator = conditionEvaluator;
         this.attemptListener = attemptListener;
     }
@@ -70,6 +66,10 @@ class RequestExecutor {
      * spending the whole budget with waits in between cannot make it start working.
      *
      * @param definition the interpolated request to perform; never {@code null}
+     * @param handler the handler that performs it, already selected for this request; never
+     *        {@code null}
+     * @param <T> the definition's own type, which the handler executes
+     * @param <R> the handler's response type, which only it and its {@code responseVars} ever see
      * @param bounds the loop's bounds, or {@link Optional#empty()} for a request that runs once
      * @param coordinates which request this is, for the attempt events
      * @param runtimeData the namespaces to resolve a loop condition against, and whose
@@ -78,25 +78,27 @@ class RequestExecutor {
      * @throws BratException if the thread is interrupted while waiting between attempts, which is
      *         cancellation of the run rather than a failure of this request
      */
-    RequestStatus execute(
-            HttpRequestDefinition definition,
+    <T extends RequestDefinition, R> RequestStatus execute(
+            T definition,
+            RequestHandler<T, R> handler,
             Optional<PollBounds> bounds,
             RequestCoordinates coordinates,
             RuntimeData runtimeData) {
         if (bounds.isEmpty()) {
-            return attempt(definition, runtimeData, 1);
+            return attempt(definition, handler, runtimeData, 1);
         }
-        return poll(definition, bounds.get(), coordinates, runtimeData);
+        return poll(definition, handler, bounds.get(), coordinates, runtimeData);
     }
 
-    private RequestStatus poll(
-            HttpRequestDefinition definition,
+    private <T extends RequestDefinition, R> RequestStatus poll(
+            T definition,
+            RequestHandler<T, R> handler,
             PollBounds bounds,
             RequestCoordinates coordinates,
             RuntimeData runtimeData) {
         RequestStatus lastStatus = null;
         for (int attemptNo = 1; attemptNo <= bounds.maxAttempts(); attemptNo++) {
-            lastStatus = attempt(definition, runtimeData, attemptNo);
+            lastStatus = attempt(definition, handler, runtimeData, attemptNo);
             if (lastStatus instanceof RequestStatus.Completed) {
                 boolean conditionMet;
                 try {
@@ -126,12 +128,13 @@ class RequestExecutor {
      * One attempt: perform it, and publish its response so the loop condition and the response actions
      * can read it.
      */
-    private RequestStatus attempt(HttpRequestDefinition definition, RuntimeData runtimeData, int attemptNo) {
+    private <T extends RequestDefinition, R> RequestStatus attempt(
+            T definition, RequestHandler<T, R> handler, RuntimeData runtimeData, int attemptNo) {
         try {
             long start = System.currentTimeMillis();
-            var response = requestHandler.performRequest(definition);
+            var response = handler.performRequest(definition);
             long roundTripTimeMs = System.currentTimeMillis() - start;
-            var responseVars = HttpResponseVars.of(response);
+            var responseVars = handler.responseVars(response);
             runtimeData.setResponseVars(responseVars);
             return new RequestStatus.Completed(responseVars, attemptNo, roundTripTimeMs);
         } catch (Exception e) {

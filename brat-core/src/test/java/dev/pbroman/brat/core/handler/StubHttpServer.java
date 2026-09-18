@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -26,6 +27,7 @@ final class StubHttpServer implements AutoCloseable {
     private final HttpServer server;
     private final AtomicReference<Consumer<HttpExchange>> behaviour = new AtomicReference<>();
     private final AtomicReference<ReceivedRequest> received = new AtomicReference<>();
+    private final AtomicInteger requestCount = new AtomicInteger();
 
     /** What the stub saw, so a test can assert on what was actually sent. */
     record ReceivedRequest(String method, String path, Map<String, List<String>> headers, String body) {}
@@ -92,12 +94,18 @@ final class StubHttpServer implements AutoCloseable {
         return received.get();
     }
 
+    /** @return how many requests the stub has received, which is how a test sees a retry it did not ask for */
+    int requestCount() {
+        return requestCount.get();
+    }
+
     private void handle(HttpExchange exchange) throws IOException {
         var body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
         var headers = new java.util.LinkedHashMap<String, List<String>>();
         for (var entry : exchange.getRequestHeaders().entrySet()) {
             headers.put(entry.getKey(), new ArrayList<>(entry.getValue()));
         }
+        requestCount.incrementAndGet();
         received.set(new ReceivedRequest(
                 exchange.getRequestMethod(), exchange.getRequestURI().getPath(), headers, body));
         var current = behaviour.get();

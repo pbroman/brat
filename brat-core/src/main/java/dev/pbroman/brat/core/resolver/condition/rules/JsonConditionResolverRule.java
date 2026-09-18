@@ -59,7 +59,7 @@ public final class JsonConditionResolverRule extends AbstractConditionResolverRu
     private static Map<String, ConditionPredicate> predicates() {
         var predicates = new HashMap<String, ConditionPredicate>();
         predicates.put(EQUAL_TO, (a, b, args) -> {
-            rejectUnknownArgs(args, ARG_IGNORE);
+            rejectUnknownArgs(args, JSON_CONDITION, EQUAL_TO, ARG_IGNORE);
             var ignored = ignoredKeys(args);
             return Objects.equals(withoutIgnored(a, ignored), withoutIgnored(b, ignored));
         });
@@ -72,9 +72,10 @@ public final class JsonConditionResolverRule extends AbstractConditionResolverRu
         predicates.put(HAS_SIZE, (a, b, args) -> sizeOf(a) == size(b));
         predicates.put(HAS_SIZE_GREATER_THAN, (a, b, args) -> sizeOf(a) > size(b));
         predicates.put(HAS_SIZE_BETWEEN, (a, b, args) -> {
-            rejectUnknownArgs(args, ARG_MIN, ARG_MAX);
+            rejectUnknownArgs(args, JSON_CONDITION, HAS_SIZE_BETWEEN, ARG_MIN, ARG_MAX);
             var size = sizeOf(a);
-            return size >= size(requiredArg(args, ARG_MIN)) && size <= size(requiredArg(args, ARG_MAX));
+            return size >= size(requiredArg(args, JSON_CONDITION, HAS_SIZE_BETWEEN, ARG_MIN))
+                    && size <= size(requiredArg(args, JSON_CONDITION, HAS_SIZE_BETWEEN, ARG_MAX));
         });
         predicates.put(DOES_NOT_HAVE_DUPLICATES, (a, b, args) -> {
             var elements = asList(a);

@@ -189,4 +189,38 @@ class HttpRequestDefinitionInterpolatorTest {
         // then
         assertThat(interpolated.getBody()).containsKey("_bodyString");
     }
+
+    @Test
+    void definitionType_isTheClassThisIsLookedUpBy() {
+        // then - the registry keys on it, and lookup is by exact class so a subclass is not a match
+        assertThat(underTest.definitionType()).isEqualTo(HttpRequestDefinition.class);
+    }
+
+    @Test
+    void interpolated_resolvesTheHandlerArgsAndKeysTheirOutcomes() {
+        // given - args interpolate like headers, so ${secrets.…} inside one resolves and is masked
+        var args = new LinkedHashMap<String, String>();
+        args.put("certAlias", "${vars.alias}");
+        var definition = new HttpRequestDefinition("http://url", "GET", null, null, null, null, args);
+
+        // when
+        var interpolated = underTest.interpolated(definition, interpolation, runtimeData);
+
+        // then
+        assertThat(interpolated.getArgs()).containsEntry("certAlias", "${vars.alias}-i");
+        assertThat(interpolated.getOutcomes()).containsKey("args.certAlias");
+    }
+
+    @Test
+    void interpolated_leavesArgsEmptyWhenTheRequestDeclaresNone() {
+        // given
+        var definition = new HttpRequestDefinition("http://url", "GET", null, null, null, null);
+
+        // when
+        var interpolated = underTest.interpolated(definition, interpolation, runtimeData);
+
+        // then - empty rather than null, and no stray args.* outcome keys
+        assertThat(interpolated.getArgs()).isEmpty();
+        assertThat(interpolated.getOutcomes().keySet()).noneMatch(key -> key.startsWith("args."));
+    }
 }

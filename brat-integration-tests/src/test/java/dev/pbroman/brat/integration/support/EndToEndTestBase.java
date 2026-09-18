@@ -35,10 +35,27 @@ public abstract class EndToEndTestBase {
     /** Shared for the module run: one pooled client, closed when the test JVM exits. */
     private static final ApacheHttpRequestHandler HANDLER = closedAtExit(new ApacheHttpRequestHandler());
 
-    private static final SuiteLoader LOADER = new SuiteLoader();
+    /**
+     * The second HTTP handler, so that selection is exercised by every run rather than by one test.
+     *
+     * <p>Its presence is itself an assertion: two handlers are registered for {@code http} and no
+     * default is configured, so every suite in this module that names none runs only because core
+     * seeds its own handler as the default. If that seeding broke, this module would go red rather
+     * than quietly changing which client it tests through.
+     */
+    protected static final FixedResponseHttpHandler FIXED = new FixedResponseHttpHandler();
 
     /** The hand-wired runner under test. */
-    protected static final Brat BRAT = Brat.builder().requestHandler(HANDLER).build();
+    protected static final Brat BRAT =
+            Brat.builder().requestHandler(HANDLER).requestHandler(FIXED).build();
+
+    /**
+     * The loader this runner agrees with, rather than one built beside it.
+     *
+     * <p>It binds exactly the protocols {@code BRAT} has handlers for — including any a plugin jar
+     * contributed — so a suite that loads here is one this runner can execute.
+     */
+    private static final SuiteLoader LOADER = BRAT.loader();
 
     /** Seeds and inspects the server without going through BRAT. */
     protected final CrudClient crud = new CrudClient(baseUrl());
@@ -139,6 +156,16 @@ public abstract class EndToEndTestBase {
      */
     protected static TestSuite suite(String resource) {
         return LOADER.load(ResourceReader.readFileToString(resource), resource);
+    }
+
+    /**
+     * Loads a suite from content a test built itself, for a document no fixture file should hold.
+     *
+     * @param yaml the document content
+     * @return the loaded suite
+     */
+    protected static TestSuite suiteFrom(String yaml) {
+        return LOADER.load(yaml, "<test>");
     }
 
     /**

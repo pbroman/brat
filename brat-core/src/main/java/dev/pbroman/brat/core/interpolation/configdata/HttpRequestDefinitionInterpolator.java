@@ -6,6 +6,7 @@ import java.util.Map;
 import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import dev.pbroman.brat.core.api.interpolation.RequestDefinitionInterpolator;
 import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
@@ -21,7 +22,7 @@ import static dev.pbroman.brat.core.util.Constants.FILE_BODY;
 /**
  * Interpolates every field of an {@link HttpRequestDefinition}.
  */
-public final class HttpRequestDefinitionInterpolator implements ConfigDataInterpolator<HttpRequestDefinition> {
+public final class HttpRequestDefinitionInterpolator implements RequestDefinitionInterpolator<HttpRequestDefinition> {
 
     private final ConfigDataInterpolator<Auth> authInterpolation;
 
@@ -34,13 +35,18 @@ public final class HttpRequestDefinitionInterpolator implements ConfigDataInterp
         this.authInterpolation = authInterpolation;
     }
 
+    @Override
+    public Class<HttpRequestDefinition> definitionType() {
+        return HttpRequestDefinition.class;
+    }
+
     /**
      * Interpolates the request's {@code url}, {@code method}, {@code timeout}, every {@code body} and
      * {@code header} value, and the nested {@code auth} block.
      * <p>
      * Outcome keys are {@code url}, {@code method}, {@code timeout}, then {@code body.<key>},
-     * {@code header.<name>} and {@code auth.<field>} — a nested block is flattened into this map with
-     * a prefix rather than nested, so a renderer sees one flat set of keys. Header names keep the
+     * {@code header.<name>}, {@code args.<key>} and {@code auth.<field>} — a nested block is flattened
+     * into this map with a prefix rather than nested, so a renderer sees one flat set of keys. Header names keep the
      * author's own capitalisation, since that is what a report should echo.
      * <p>
      * {@code url} and {@code method} are always interpolated and always recorded; everything else is
@@ -92,6 +98,11 @@ public final class HttpRequestDefinitionInterpolator implements ConfigDataInterp
         var headerOutcomes = interpolateMapWithOutcomes(interpolation, runtimeData, target.getHeaders());
         putPrefixed(outcomes, "header.", headerOutcomes);
 
+        // The handler's own arguments, interpolated like everything else so a ${secrets.…} inside one
+        // resolves and is masked in the report. What the keys mean is the handler's business.
+        var argOutcomes = interpolateMapWithOutcomes(interpolation, runtimeData, target.getArgs());
+        putPrefixed(outcomes, "args.", argOutcomes);
+
         // A null auth is legal — the constructor's Javadoc permits it — and yields no auth.* outcomes
         // and a null on the copy, which is what every other optional field already does.
         Auth interpolatedAuth = null;
@@ -107,6 +118,7 @@ public final class HttpRequestDefinitionInterpolator implements ConfigDataInterp
                 resolveOrNull(target.getBody(), bodyOutcomes),
                 resolveOrNull(target.getHeaders(), headerOutcomes),
                 interpolatedAuth,
+                resolveOrNull(target.getArgs(), argOutcomes),
                 outcomes);
     }
 

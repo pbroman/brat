@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.data.RequestDefinition;
-import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
+import dev.pbroman.brat.core.api.handler.RequestHandler;
 import dev.pbroman.brat.core.api.handler.ResponseHandler;
 import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
@@ -21,7 +21,9 @@ import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.data.result.ResponseActionsResult;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.handler.HttpResponseVars;
 import dev.pbroman.brat.core.interpolation.configdata.ConditionInterpolator;
+import dev.pbroman.brat.core.interpolation.configdata.RequestDefinitionInterpolators;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -36,10 +38,10 @@ import static org.mockito.Mockito.when;
 class RequestProcessorTest {
 
     private Interpolation interpolation;
-    private ConfigDataInterpolator<HttpRequestDefinition> requestDefinitionInterpolator;
+    private RequestDefinitionInterpolators requestDefinitionInterpolator;
     private ConfigDataInterpolator<Condition> conditionInterpolator;
     private ConditionResolver conditionResolver;
-    private HttpRequestHandler requestHandler;
+    private RequestHandler<RequestDefinition, Object> requestHandler;
     private ResponseHandler responseHandler;
     private ConfigDataInterpolator<FlowControl> flowControlInterpolator;
     private RequestProcessor underTest;
@@ -55,10 +57,13 @@ class RequestProcessorTest {
     @BeforeEach
     void setUp() {
         interpolation = mock(Interpolation.class);
-        requestDefinitionInterpolator = mock(ConfigDataInterpolator.class);
+        requestDefinitionInterpolator = mock(RequestDefinitionInterpolators.class);
         conditionInterpolator = mock(ConfigDataInterpolator.class);
         conditionResolver = mock(ConditionResolver.class);
-        requestHandler = mock(HttpRequestHandler.class);
+        requestHandler = mock(RequestHandler.class);
+        // responseVars is a default method on the protocol interface, so a bare mock answers it with
+        // an empty map and the namespace this test asserts on would be the mock's, not HTTP's.
+        when(requestHandler.responseVars(any())).thenAnswer(call -> HttpResponseVars.of(call.getArgument(0)));
         responseHandler = mock(ResponseHandler.class);
         flowControlInterpolator = mock(ConfigDataInterpolator.class);
         var conditionEvaluator = new ConditionEvaluator(interpolation, conditionInterpolator, conditionResolver);
@@ -68,7 +73,7 @@ class RequestProcessorTest {
                 conditionEvaluator,
                 responseHandler,
                 flowControlInterpolator,
-                new RequestExecutor(requestHandler, conditionEvaluator, attempt -> {}));
+                new RequestExecutor(conditionEvaluator, attempt -> {}));
 
         runtimeData = new RuntimeData(Map.of(), Map.of());
 
@@ -88,7 +93,7 @@ class RequestProcessorTest {
     @Test
     void process_completesAndCarriesTheInterpolatedDefinition() {
         // when
-        var result = underTest.process(requestWith(null, null), coordinates, runtimeData);
+        var result = underTest.process(requestWith(null, null), coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(result.status()).isInstanceOf(RequestStatus.Completed.class);
@@ -99,7 +104,7 @@ class RequestProcessorTest {
     @Test
     void process_carriesTheCoordinatesItWasGiven() {
         // when - the path is the walk's to build, not this class's
-        var result = underTest.process(requestWith(null, null), coordinates, runtimeData);
+        var result = underTest.process(requestWith(null, null), coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(result.coordinates()).isSameAs(coordinates);
@@ -108,7 +113,7 @@ class RequestProcessorTest {
     @Test
     void process_setsTheRuntimeCursorFromTheCoordinates() {
         // when - so code called further down can record where it was without being handed the identity
-        underTest.process(requestWith(null, null), coordinates, runtimeData);
+        underTest.process(requestWith(null, null), coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(runtimeData.getCurrentPath()).isEqualTo("happy path/create an order");
@@ -121,7 +126,7 @@ class RequestProcessorTest {
         when(requestDefinitionInterpolator.interpolated(any(), any(), any())).thenThrow(new BratException("nope"));
 
         // when
-        underTest.process(requestWith(null, null), coordinates, runtimeData);
+        underTest.process(requestWith(null, null), coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(runtimeData.getCurrentPath()).isEqualTo("happy path/create an order");
@@ -130,14 +135,14 @@ class RequestProcessorTest {
     @Test
     void process_throwsForNullCoordinates() {
         // when / then
-        assertThatThrownBy(() -> underTest.process(requestWith(null, null), null, runtimeData))
+        assertThatThrownBy(() -> underTest.process(requestWith(null, null), null, runtimeData, requestHandler))
                 .isInstanceOf(BratException.class);
     }
 
     @Test
     void process_reportsOneAttemptBecauseItDoesNotPoll() {
         // when
-        var result = underTest.process(requestWith(null, null), coordinates, runtimeData);
+        var result = underTest.process(requestWith(null, null), coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(result.status())
@@ -157,7 +162,8 @@ class RequestProcessorTest {
         });
 
         // when
-        underTest.process(requestWith(null, new ResponseActions(List.of(), Map.of())), coordinates, runtimeData);
+        underTest.process(
+                requestWith(null, new ResponseActions(List.of(), Map.of())), coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(seen).containsEntry("statusCode", 200);
@@ -166,7 +172,7 @@ class RequestProcessorTest {
     @Test
     void process_leavesNoResponseVarsBehindAfterACompletedRequest() {
         // when
-        underTest.process(requestWith(null, null), coordinates, runtimeData);
+        underTest.process(requestWith(null, null), coordinates, runtimeData, requestHandler);
 
         // then - the response dies with the request; a later one cannot read it at all
         assertThat(runtimeData.getResponseVars()).isEmpty();
@@ -175,7 +181,7 @@ class RequestProcessorTest {
     @Test
     void process_snapshotsResponseVarsOntoTheStatus() {
         // when
-        var result = underTest.process(requestWith(null, null), coordinates, runtimeData);
+        var result = underTest.process(requestWith(null, null), coordinates, runtimeData, requestHandler);
 
         // then - the runtime namespace is replaced by the next request, so the status holds a copy
         var completed = (RequestStatus.Completed) result.status();
@@ -191,7 +197,7 @@ class RequestProcessorTest {
         when(responseHandler.handleResponse(any(), any())).thenReturn(produced);
 
         // when
-        var result = underTest.process(requestWith(null, responseActions), coordinates, runtimeData);
+        var result = underTest.process(requestWith(null, responseActions), coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(result.responseActionsResult()).isSameAs(produced);
@@ -200,7 +206,7 @@ class RequestProcessorTest {
     @Test
     void process_runsNoResponseActionsWhenTheRequestDeclaresNone() {
         // when
-        var result = underTest.process(requestWith(null, null), coordinates, runtimeData);
+        var result = underTest.process(requestWith(null, null), coordinates, runtimeData, requestHandler);
 
         // then
         verify(responseHandler, never()).handleResponse(any(), any());
@@ -215,7 +221,7 @@ class RequestProcessorTest {
         when(conditionResolver.resolve(any())).thenReturn(true);
 
         // when
-        var result = underTest.process(requestWith(skipCondition, null), coordinates, runtimeData);
+        var result = underTest.process(requestWith(skipCondition, null), coordinates, runtimeData, requestHandler);
 
         // then - nothing else runs, and a skipped request has not failed
         assertThat(result.status()).isInstanceOf(RequestStatus.Skipped.class);
@@ -232,7 +238,7 @@ class RequestProcessorTest {
         when(conditionResolver.resolve(any())).thenReturn(false);
 
         // when
-        var result = underTest.process(requestWith(skipCondition, null), coordinates, runtimeData);
+        var result = underTest.process(requestWith(skipCondition, null), coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(result.status()).isInstanceOf(RequestStatus.Completed.class);
@@ -246,7 +252,7 @@ class RequestProcessorTest {
                 .thenThrow(new BratException("The variable 'nope' has not been set"));
 
         // when
-        var result = underTest.process(requestWith(skipCondition, null), coordinates, runtimeData);
+        var result = underTest.process(requestWith(skipCondition, null), coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(result.status()).isInstanceOf(RequestStatus.Errored.class);
@@ -262,7 +268,7 @@ class RequestProcessorTest {
                 .thenThrow(new BratException("The variable 'nope' has not been set"));
 
         // when
-        var result = underTest.process(requestWith(skipCondition, null), coordinates, runtimeData);
+        var result = underTest.process(requestWith(skipCondition, null), coordinates, runtimeData, requestHandler);
 
         // then - otherwise a reader is sent looking at the URL
         assertThat(result.status())
@@ -279,7 +285,7 @@ class RequestProcessorTest {
         when(conditionInterpolator.interpolated(any(), any(), any())).thenThrow(new BratException("nope"));
 
         // when
-        var result = underTest.process(requestWith(skipCondition, null), coordinates, runtimeData);
+        var result = underTest.process(requestWith(skipCondition, null), coordinates, runtimeData, requestHandler);
 
         // then - the definition was never reached, so there is no interpolated copy
         assertThat(result.requestDefinition()).isSameAs(authored);
@@ -294,7 +300,7 @@ class RequestProcessorTest {
         when(conditionResolver.resolve(any())).thenThrow(new BratException("no rule for 'noSuchFunc'"));
 
         // when
-        var result = underTest.process(requestWith(skipCondition, null), coordinates, runtimeData);
+        var result = underTest.process(requestWith(skipCondition, null), coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(result.status())
@@ -312,7 +318,7 @@ class RequestProcessorTest {
                 .thenThrow(new BratException("The constant 'baseUrl' is not set."));
 
         // when
-        var result = underTest.process(requestWith(null, null), coordinates, runtimeData);
+        var result = underTest.process(requestWith(null, null), coordinates, runtimeData, requestHandler);
 
         // then - there is no interpolated copy, so the authored one is what a reporter gets
         assertThat(result.status()).isInstanceOf(RequestStatus.Errored.class);
@@ -326,7 +332,7 @@ class RequestProcessorTest {
         when(requestHandler.performRequest(any())).thenThrow(new BratException("Connection refused"));
 
         // when
-        var result = underTest.process(requestWith(null, null), coordinates, runtimeData);
+        var result = underTest.process(requestWith(null, null), coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(result.status())
@@ -343,7 +349,7 @@ class RequestProcessorTest {
         when(requestHandler.performRequest(any())).thenThrow(new IllegalStateException("broke"));
 
         // when
-        var result = underTest.process(requestWith(null, null), coordinates, runtimeData);
+        var result = underTest.process(requestWith(null, null), coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(result.status())
@@ -360,7 +366,7 @@ class RequestProcessorTest {
         when(requestHandler.performRequest(any())).thenThrow(new BratException("Connection refused"));
 
         // when
-        underTest.process(requestWith(null, null), coordinates, runtimeData);
+        underTest.process(requestWith(null, null), coordinates, runtimeData, requestHandler);
 
         // then - there must be no previous response rather than an old one: an assertion that passes
         // against some earlier request's response is worse than one that stops and says why
@@ -375,7 +381,7 @@ class RequestProcessorTest {
         when(conditionResolver.resolve(any())).thenReturn(true);
 
         // when
-        underTest.process(requestWith(skipCondition, null), coordinates, runtimeData);
+        underTest.process(requestWith(skipCondition, null), coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(runtimeData.getResponseVars()).isEmpty();
@@ -389,7 +395,7 @@ class RequestProcessorTest {
 
         // when
         var result = underTest.process(
-                requestWith(null, new ResponseActions(List.of(), Map.of())), coordinates, runtimeData);
+                requestWith(null, new ResponseActions(List.of(), Map.of())), coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(result.status())
@@ -406,7 +412,7 @@ class RequestProcessorTest {
         when(requestHandler.performRequest(any())).thenThrow(new BratException("Connection refused"));
 
         // when
-        var result = underTest.process(requestWith(null, responseActions), coordinates, runtimeData);
+        var result = underTest.process(requestWith(null, responseActions), coordinates, runtimeData, requestHandler);
 
         // then
         verify(responseHandler, never()).handleResponse(any(), any());
@@ -416,7 +422,7 @@ class RequestProcessorTest {
     @Test
     void process_measuresElapsedMsOverTheWholeRequest() {
         // when
-        var result = underTest.process(requestWith(null, null), coordinates, runtimeData);
+        var result = underTest.process(requestWith(null, null), coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(result.elapsedMs()).isGreaterThanOrEqualTo(0);
@@ -435,10 +441,11 @@ class RequestProcessorTest {
                 realEvaluator,
                 responseHandler,
                 flowControlInterpolator,
-                new RequestExecutor(requestHandler, realEvaluator, attempt -> {}));
+                new RequestExecutor(realEvaluator, attempt -> {}));
 
         // when
-        var result = underTestWithRealInterpolator.process(requestWith(null, null), coordinates, runtimeData);
+        var result = underTestWithRealInterpolator.process(
+                requestWith(null, null), coordinates, runtimeData, requestHandler);
 
         // then - a request with no skip condition is the ordinary case, not an error
         assertThat(result.status()).isInstanceOf(RequestStatus.Completed.class);
@@ -451,7 +458,7 @@ class RequestProcessorTest {
         when(conditionInterpolator.interpolated(any(), any(), any())).thenThrow(new BratException("nope"));
 
         // when
-        underTest.process(requestWith(skipCondition, null), coordinates, runtimeData);
+        underTest.process(requestWith(skipCondition, null), coordinates, runtimeData, requestHandler);
 
         // then - an errored request has no response, so nothing may read the one before it
         assertThat(runtimeData.getResponseVars()).isEmpty();
@@ -464,7 +471,7 @@ class RequestProcessorTest {
                 .thenThrow(new BratException("The constant 'baseUrl' is not set."));
 
         // when
-        underTest.process(requestWith(null, null), coordinates, runtimeData);
+        underTest.process(requestWith(null, null), coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(runtimeData.getResponseVars()).isEmpty();
@@ -478,7 +485,7 @@ class RequestProcessorTest {
                 .thenThrow(new IllegalStateException("a plugin rule broke"));
 
         // when
-        var result = underTest.process(requestWith(skipCondition, null), coordinates, runtimeData);
+        var result = underTest.process(requestWith(skipCondition, null), coordinates, runtimeData, requestHandler);
 
         // then - it becomes data on this request rather than aborting the run
         assertThat(result.status())
@@ -495,7 +502,7 @@ class RequestProcessorTest {
                 .thenThrow(new IllegalStateException("a plugin rule broke"));
 
         // when
-        var result = underTest.process(requestWith(null, null), coordinates, runtimeData);
+        var result = underTest.process(requestWith(null, null), coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(result.status())
@@ -515,34 +522,45 @@ class RequestProcessorTest {
         });
 
         // when
-        var result = underTest.process(requestWith(skipCondition, null), coordinates, runtimeData);
+        var result = underTest.process(requestWith(skipCondition, null), coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(result.elapsedMs()).isPositive();
     }
 
     @Test
-    void process_throwsForANonHttpRequestDefinition() {
-        // given - every request is treated as HTTP until protocol selection exists
-        RequestDefinition ftp = new RequestDefinition() {};
-        var request = new Request("create an order", null, null, null, null, null, ftp, null, null);
+    void process_runsADefinitionOfAnyProtocolItIsGivenAHandlerFor() {
+        // given - this class no longer knows what HTTP is: the caller selected a handler, and a
+        // definition of any protocol with an interpolator for it runs like any other
+        RequestDefinition ftp = () -> "ftp";
+        var request = new Request("fetch the order", null, null, null, null, null, ftp, null, null);
+        when(requestDefinitionInterpolator.interpolated(any(), any(), any())).thenReturn(ftp);
 
-        // when / then - structural, so it is not converted to a result
-        assertThatThrownBy(() -> underTest.process(request, coordinates, runtimeData))
+        // when
+        var result = underTest.process(request, coordinates, runtimeData, requestHandler);
+
+        // then
+        assertThat(result.status()).isInstanceOf(RequestStatus.Completed.class);
+    }
+
+    @Test
+    void process_throwsForANullHandler() {
+        // when / then - structural: nothing can perform the request, which is not this request failing
+        assertThatThrownBy(() -> underTest.process(requestWith(null, null), coordinates, runtimeData, null))
                 .isInstanceOf(BratException.class);
     }
 
     @Test
     void process_throwsForANullRequest() {
         // when / then - structural, so it is not converted to a result
-        assertThatThrownBy(() -> underTest.process(null, coordinates, runtimeData))
+        assertThatThrownBy(() -> underTest.process(null, coordinates, runtimeData, requestHandler))
                 .isInstanceOf(BratException.class);
     }
 
     @Test
     void process_throwsForNullRuntimeData() {
         // when / then
-        assertThatThrownBy(() -> underTest.process(requestWith(null, null), coordinates, null))
+        assertThatThrownBy(() -> underTest.process(requestWith(null, null), coordinates, null, requestHandler))
                 .isInstanceOf(BratException.class);
     }
 
@@ -552,7 +570,7 @@ class RequestProcessorTest {
         var request = new Request("create an order", null, null, null, null, null, null, null, null);
 
         // when / then
-        assertThatThrownBy(() -> underTest.process(request, coordinates, runtimeData))
+        assertThatThrownBy(() -> underTest.process(request, coordinates, runtimeData, requestHandler))
                 .isInstanceOf(BratException.class);
     }
 }
