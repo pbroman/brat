@@ -5,10 +5,10 @@ description: asks the server to answer later than it is given
 
 requests:
   - name: wait for a slow answer
+    timeout: "${env.timeout}"
     requestDefinition:
       url: "${env.baseUrl}/slow?delayMs=${env.delayMs}"
       method: GET
-      timeout: "${env.timeout}"
     responseActions:
       assertions:
         - a: "${response.statusCode}"

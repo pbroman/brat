@@ -15,6 +15,7 @@ class RunResultTest {
         return new RequestResult(
                 new RequestCoordinates("/s/r", null, "r", 1),
                 null,
+                null,
                 new RequestStatus.Completed(java.util.Map.of(), 1, 5),
                 10,
                 new ResponseActionsResult(List.of(assertionResult), List.of()));

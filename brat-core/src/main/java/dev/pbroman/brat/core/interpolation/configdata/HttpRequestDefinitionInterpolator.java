@@ -3,17 +3,13 @@ package dev.pbroman.brat.core.interpolation.configdata;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.interpolation.RequestDefinitionInterpolator;
-import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 
-import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.asStringOrNull;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
-import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateIfPresent;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateMapWithOutcomes;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolatedBodyFile;
 import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
@@ -24,34 +20,22 @@ import static dev.pbroman.brat.core.util.Constants.FILE_BODY;
  */
 public final class HttpRequestDefinitionInterpolator implements RequestDefinitionInterpolator<HttpRequestDefinition> {
 
-    private final ConfigDataInterpolator<Auth> authInterpolation;
-
-    /**
-     * Constructs an interpolator delegating the nested {@link Auth}.
-     *
-     * @param authInterpolation the interpolator this delegates the nested {@link Auth} to
-     */
-    public HttpRequestDefinitionInterpolator(ConfigDataInterpolator<Auth> authInterpolation) {
-        this.authInterpolation = authInterpolation;
-    }
-
     @Override
     public Class<HttpRequestDefinition> definitionType() {
         return HttpRequestDefinition.class;
     }
 
     /**
-     * Interpolates the request's {@code url}, {@code method}, {@code timeout}, every {@code body} and
-     * {@code header} value, and the nested {@code auth} block.
+     * Interpolates the request's {@code url} and {@code method}, and every {@code body},
+     * {@code header} and {@code args} value.
      * <p>
-     * Outcome keys are {@code url}, {@code method}, {@code timeout}, then {@code body.<key>},
-     * {@code header.<name>}, {@code args.<key>} and {@code auth.<field>} — a nested block is flattened
-     * into this map with a prefix rather than nested, so a renderer sees one flat set of keys. Header names keep the
-     * author's own capitalisation, since that is what a report should echo.
+     * Outcome keys are {@code url}, {@code method}, then {@code body.<key>}, {@code header.<name>} and
+     * {@code args.<key>} — a map is flattened into this one with a prefix rather than nested, so a
+     * renderer sees one flat set of keys. Header names keep the author's own capitalisation, since that
+     * is what a report should echo.
      * <p>
      * {@code url} and {@code method} are always interpolated and always recorded; everything else is
-     * optional. A {@code null} {@code auth} is legal and yields no {@code auth.*} outcomes and a
-     * {@code null} on the copy.
+     * optional.
      * <p>
      * <strong>A {@code file} body is resolved here</strong>, after its path is interpolated: the file
      * is read, its content interpolated, and the result placed under {@code _bodyString} on the copy
@@ -84,8 +68,6 @@ public final class HttpRequestDefinitionInterpolator implements RequestDefinitio
         var methodOutcome = interpolation.outcome(target.getMethod(), runtimeData);
         outcomes.put("method", methodOutcome);
 
-        var timeoutOutcome = interpolateIfPresent(interpolation, runtimeData, outcomes, "timeout", target.getTimeout());
-
         var bodyOutcomes = interpolateMapWithOutcomes(interpolation, runtimeData, target.getBody());
         // A file body is resolved here, once its path has been interpolated above: the content lands
         // under _bodyString so that every handler reads one key and none of them reads a disk.
@@ -103,21 +85,11 @@ public final class HttpRequestDefinitionInterpolator implements RequestDefinitio
         var argOutcomes = interpolateMapWithOutcomes(interpolation, runtimeData, target.getArgs());
         putPrefixed(outcomes, "args.", argOutcomes);
 
-        // A null auth is legal — the constructor's Javadoc permits it — and yields no auth.* outcomes
-        // and a null on the copy, which is what every other optional field already does.
-        Auth interpolatedAuth = null;
-        if (target.getAuth() != null) {
-            interpolatedAuth = authInterpolation.interpolated(target.getAuth(), interpolation, runtimeData);
-            putPrefixed(outcomes, "auth.", interpolatedAuth.getOutcomes());
-        }
-
         return new HttpRequestDefinition(
                 urlOutcome.asString(),
                 methodOutcome.asString(),
-                asStringOrNull(timeoutOutcome),
                 resolveOrNull(target.getBody(), bodyOutcomes),
                 resolveOrNull(target.getHeaders(), headerOutcomes),
-                interpolatedAuth,
                 resolveOrNull(target.getArgs(), argOutcomes),
                 outcomes);
     }

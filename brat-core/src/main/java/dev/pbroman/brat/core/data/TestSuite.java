@@ -14,8 +14,8 @@ import java.util.Map;
  * {@link Request}: what it holds that interpolates is other types, interpolated per request rather
  * than per suite.
  * <p>
- * Several fields bind here and are read by nothing yet — {@code auth}, {@code requestHandlers},
- * {@code skipCondition} and {@code phase}. They are defined because the loader rejects unknown keys,
+ * Several fields bind here and are read by nothing yet — {@code setVars}, {@code auth},
+ * {@code timeout}, {@code skipCondition} and {@code phase}. They are defined because the loader rejects unknown keys,
  * so an author writing a legal key must find a field waiting for it; what is still missing is a
  * <em>reader</em>, not a field.
  *

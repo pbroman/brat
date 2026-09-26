@@ -198,7 +198,7 @@ class SuiteBindingTest {
         var suite = new TestSuite("s", null, null, null, null, null, null, null, null, requests, null);
 
         // when
-        requests.add(new Request("r", null, null, null, null, null, null, null, null));
+        requests.add(new Request("r", null, null, null, null, null, null, null, null, null));
 
         // then
         assertThat(suite.requests()).isEmpty();
@@ -236,13 +236,34 @@ class SuiteBindingTest {
     }
 
     @Test
+    void bind_aRequestDeclaringItsOwnTimeout() {
+        // given - timeout is orchestration metadata, so it sits on the request beside phase
+        var yaml = """
+                name: order api
+                requests:
+                  - name: slow report
+                    timeout: "${vars.reportTimeout}"
+                    requestDefinition:
+                      url: "${env.baseUrl}/report"
+                """;
+
+        // when
+        var suite = mapper.readValue(yaml, TestSuite.class);
+
+        // then
+        assertThat(suite.requests())
+                .singleElement()
+                .satisfies(request -> assertThat(request.timeout()).isEqualTo("${vars.reportTimeout}"));
+    }
+
+    @Test
     void constructor_keepsADeclaredPhaseAndHandlersOnARequest() {
         // given
         var handlers = new java.util.LinkedHashMap<String, String>();
         handlers.put("http", "mtls");
 
         // when
-        var request = new Request("r", null, null, null, Phase.TEARDOWN, handlers, null, null, null);
+        var request = new Request("r", null, null, null, null, Phase.TEARDOWN, handlers, null, null, null);
         handlers.put("ftp", "other");
 
         // then - declared values survive, and the map is copied
@@ -253,7 +274,7 @@ class SuiteBindingTest {
     @Test
     void constructor_defaultsPhaseOnARequestToo() {
         // when
-        var request = new Request("r", null, null, null, null, null, null, null, null);
+        var request = new Request("r", null, null, null, null, null, null, null, null, null);
 
         // then
         assertThat(request.phase()).isEqualTo(Phase.MAIN);

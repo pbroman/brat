@@ -28,6 +28,7 @@ import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.RepeatUntil;
 import dev.pbroman.brat.core.data.Request;
+import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.TestSuite;
 import dev.pbroman.brat.core.data.result.HttpResponse;
 import dev.pbroman.brat.core.data.result.RequestStatus;
@@ -52,7 +53,7 @@ class BratTest {
         }
 
         @Override
-        public HttpResponse performRequest(HttpRequestDefinition definition) {
+        public HttpResponse performRequest(HttpRequestDefinition definition, RequestOptions options) {
             return new HttpResponse(200, Map.of(), "{\"id\": \"7\"}");
         }
     };
@@ -67,7 +68,8 @@ class BratTest {
                 null,
                 null,
                 null,
-                new HttpRequestDefinition(url, "GET", null, null, null, null),
+                null,
+                new HttpRequestDefinition(url, "GET", null, null),
                 null,
                 null);
     }
@@ -96,8 +98,9 @@ class BratTest {
                 null,
                 null,
                 null,
+                null,
                 requestHandlers,
-                new HttpRequestDefinition("http://localhost:8080/x", "GET", null, null, null, null),
+                new HttpRequestDefinition("http://localhost:8080/x", "GET", null, null),
                 null,
                 null);
     }
@@ -111,6 +114,7 @@ class BratTest {
 
         private final String name;
         private int calls;
+        private RequestOptions lastOptions;
 
         private RecordingHandler(String name) {
             this.name = name;
@@ -122,8 +126,9 @@ class BratTest {
         }
 
         @Override
-        public HttpResponse performRequest(HttpRequestDefinition requestDefinition) {
+        public HttpResponse performRequest(HttpRequestDefinition requestDefinition, RequestOptions options) {
             calls++;
+            lastOptions = options;
             return new HttpResponse(200, Map.of(), "{}");
         }
     }
@@ -140,7 +145,7 @@ class BratTest {
         public HttpRequestDefinition interpolated(
                 HttpRequestDefinition target, Interpolation interpolation, RuntimeData runtimeData) {
             return new HttpRequestDefinition(
-                    "http://replaced/by-the-builder", target.getMethod(), null, null, null, null, null, Map.of());
+                    "http://replaced/by-the-builder", target.getMethod(), null, null, null, Map.of());
         }
     }
 
@@ -163,7 +168,7 @@ class BratTest {
         }
 
         @Override
-        public Object performRequest(RequestDefinition requestDefinition) {
+        public Object performRequest(RequestDefinition requestDefinition, RequestOptions options) {
             return null;
         }
 
@@ -249,6 +254,30 @@ class BratTest {
     }
 
     // ---------- selecting a handler ----------
+
+    @Test
+    void run_handsTheHandlerTheRequestsOwnTimeoutResolved() {
+        // given
+        var recording = recordingHandler("test");
+        var brat = Brat.builder().requestHandler(recording).build();
+        var request = new Request(
+                "r",
+                null,
+                null,
+                "${env.timeout}",
+                null,
+                null,
+                null,
+                new HttpRequestDefinition("http://localhost:8080/x", "GET", null, null),
+                null,
+                null);
+
+        // when
+        brat.run(suite(request), Environment.of(Map.of("timeout", "1500"), Map.of()));
+
+        // then
+        assertThat(recording.lastOptions.timeoutMs()).isEqualTo(1500L);
+    }
 
     @Test
     void run_usesTheHandlerTheRequestNames() {
@@ -547,10 +576,11 @@ class BratTest {
                 "r",
                 null,
                 null,
+                null,
                 new Condition("isAlwaysTrue", "a", null),
                 null,
                 null,
-                new HttpRequestDefinition("${env.baseUrl}/a", "GET", null, null, null, null),
+                new HttpRequestDefinition("${env.baseUrl}/a", "GET", null, null),
                 null,
                 null);
 
@@ -671,7 +701,8 @@ class BratTest {
                 null,
                 null,
                 null,
-                new HttpRequestDefinition("${env.baseUrl}/a", "GET", null, null, null, null),
+                null,
+                new HttpRequestDefinition("${env.baseUrl}/a", "GET", null, null),
                 null,
                 new FlowControl(
                         null,
@@ -827,9 +858,9 @@ class BratTest {
     @Test
     void run_failsAtLaunchWhenABodyFileIsNotThere() {
         // given - a token-free path is knowable before anything runs
-        var definition = new HttpRequestDefinition(
-                "http://url", "POST", null, Map.of("file", "file:/no/such/body.json"), null, null);
-        var request = new Request("create", null, null, null, null, null, definition, null, null);
+        var definition =
+                new HttpRequestDefinition("http://url", "POST", Map.of("file", "file:/no/such/body.json"), null);
+        var request = new Request("create", null, null, null, null, null, null, definition, null, null);
 
         // then - and it throws rather than reporting, because no run ever started
         assertThatThrownBy(() -> brat().run(suite(request), environment))

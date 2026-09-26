@@ -3,6 +3,7 @@ package dev.pbroman.brat.core.api.handler;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.data.RequestDefinition;
+import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.exception.BratException;
 
 /**
@@ -24,7 +25,7 @@ import dev.pbroman.brat.core.exception.BratException;
  * {@code default} methods — which is what stops two handlers for the same protocol spelling the
  * protocol differently, disagreeing about which definition class is theirs, or reporting a response
  * two ways. An individual handler then supplies only {@link #name()} and
- * {@link #performRequest(RequestDefinition)}.
+ * {@link #performRequest(RequestDefinition, RequestOptions)}.
  *
  * @param <T> the concrete {@link RequestDefinition} type this handler executes
  * @param <R> the response type this handler produces. It never travels past the handler — what
@@ -67,22 +68,30 @@ public interface RequestHandler<T extends RequestDefinition, R> {
     /**
      * Performs the request described by {@code requestDefinition} and returns the result.
      * <p>
+     * A handler receives two things: <em>what the author wrote about this request</em>, the
+     * protocol's own {@code requestDefinition}, and <em>what the run decided about it</em>, the
+     * {@code options} resolved from the suite tree. The first is the payload; the second is the same
+     * type for every protocol.
+     * <p>
      * <strong>Exactly one protocol call.</strong> A handler does not retry: retrying is the suite's,
      * declared as {@code repeatUntil}, which counts its attempts, waits the interval the author
      * chose and reports what it did. A retry in here is invisible to all of that, makes the recorded
      * attempt count wrong, puts its own waiting inside the measured round trip, and re-sends a write
      * the server may already have processed.
      * <p>
-     * <strong>The definition arrives interpolated</strong>, so every value on it is final text.
+     * <strong>Both arrive interpolated</strong>, so every value on them is final text, and
+     * {@link RequestOptions#timeoutMs()} is already defaulted and validated — a handler applies it and
+     * never re-derives it.
      *
      * @param requestDefinition the request to perform; never {@code null}
+     * @param options what the run resolved for this request, such as its timeout; never {@code null}
      * @return what the protocol answered; never {@code null}. An answer the caller did not want is
      *         still an answer — for HTTP, every status code including 4xx and 5xx is a response
      * @throws BratException if the request cannot be completed at all, which is the only case that
      *         throws: there is no result to return. The runner records this as an errored request
      *         and the run continues
      */
-    R performRequest(T requestDefinition);
+    R performRequest(T requestDefinition, RequestOptions options);
 
     /**
      * Flattens a response into the namespace a suite reads it through, so that
@@ -93,7 +102,7 @@ public interface RequestHandler<T extends RequestDefinition, R> {
      * {@code json}. The map <strong>replaces</strong> the namespace of the request before it rather
      * than merging into it, so a key this method omits is absent rather than stale.
      *
-     * @param response the response to flatten, as {@link #performRequest(RequestDefinition)}
+     * @param response the response to flatten, as {@link #performRequest(RequestDefinition, RequestOptions)}
      *        returned it
      * @return the namespace; never {@code null} — an empty map is how a protocol says it publishes
      *         nothing, and is the answer for a protocol whose responses have no readable parts

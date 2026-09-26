@@ -25,6 +25,7 @@ import dev.pbroman.brat.core.data.Assertion;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.Request;
+import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.TestSuite;
 import dev.pbroman.brat.core.data.result.RequestCoordinates;
 import dev.pbroman.brat.core.data.result.RequestResult;
@@ -38,13 +39,13 @@ import dev.pbroman.brat.core.interpolation.FunctionRegistry;
 import dev.pbroman.brat.core.interpolation.InterpolationRuleDispatcher;
 import dev.pbroman.brat.core.interpolation.InterpolationScanner;
 import dev.pbroman.brat.core.interpolation.configdata.AssertionInterpolator;
-import dev.pbroman.brat.core.interpolation.configdata.AuthInterpolator;
 import dev.pbroman.brat.core.interpolation.configdata.ChainedConditionInterpolator;
 import dev.pbroman.brat.core.interpolation.configdata.ConditionInterpolator;
 import dev.pbroman.brat.core.interpolation.configdata.FlowControlInterpolator;
 import dev.pbroman.brat.core.interpolation.configdata.HttpRequestDefinitionInterpolator;
 import dev.pbroman.brat.core.interpolation.configdata.RepeatUntilInterpolator;
 import dev.pbroman.brat.core.interpolation.configdata.RequestDefinitionInterpolators;
+import dev.pbroman.brat.core.interpolation.configdata.RequestOptionsInterpolator;
 import dev.pbroman.brat.core.interpolation.functions.StandardFunctions;
 import dev.pbroman.brat.core.interpolation.rules.ConstantsInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.EnvInterpolationRule;
@@ -188,7 +189,7 @@ public final class Brat {
      */
     private static ProtocolRegistry protocolRegistryOf(Builder builder) {
         var interpolators = new ArrayList<RequestDefinitionInterpolator<?>>();
-        interpolators.add(new HttpRequestDefinitionInterpolator(new AuthInterpolator()));
+        interpolators.add(new HttpRequestDefinitionInterpolator());
         interpolators.addAll(builder.requestDefinitionInterpolators);
         for (RequestDefinitionInterpolator<?> discovered :
                 PluginDiscovery.discover(RequestDefinitionInterpolator.class, builder.classLoader)) {
@@ -422,6 +423,7 @@ public final class Brat {
                 conditionEvaluator,
                 responseHandler,
                 flowControlInterpolator,
+                new RequestOptionsInterpolator(),
                 new RequestExecutor(conditionEvaluator, attemptListener));
 
         var requestNo = 0;
@@ -437,7 +439,9 @@ public final class Brat {
             // a node that never ends.
             var handler = protocolRegistry.resolve(request.requestDefinition(), effectiveHandlerNames(suite, request));
             emit(listeners, new RunEvent.RequestStarted(coordinates));
-            var result = processor.process(request, coordinates, runtimeData, handler);
+            // A request's own values only; the cascade from its ancestors arrives with the suite tree.
+            var options = new RequestOptions(request.timeout());
+            var result = processor.process(request, options, coordinates, runtimeData, handler);
             results.add(result);
             emit(listeners, new RunEvent.RequestFinished(result));
         }

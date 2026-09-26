@@ -6,8 +6,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
+import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.result.HttpResponse;
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.AfterEach;
@@ -23,6 +23,8 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ApacheHttpRequestHandlerTest {
+
+    private static final RequestOptions OPTIONS = new RequestOptions(null, Map.of());
 
     private StubHttpServer stub;
     private ApacheHttpRequestHandler underTest;
@@ -47,7 +49,7 @@ class ApacheHttpRequestHandlerTest {
         stub.respond(200, "{\"id\": \"1\"}", "Content-Type", "application/json");
 
         // when
-        var response = underTest.performRequest(get("/orders"));
+        var response = underTest.performRequest(get("/orders"), OPTIONS);
 
         // then
         assertThat(response.statusCode()).isEqualTo(200);
@@ -58,10 +60,10 @@ class ApacheHttpRequestHandlerTest {
     @Test
     void performRequest_sendsTheMethodAndPath() {
         // given
-        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "DELETE", null, null, null, null);
+        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "DELETE", null, null);
 
         // when
-        underTest.performRequest(definition);
+        underTest.performRequest(definition, OPTIONS);
 
         // then
         assertThat(stub.lastRequest().method()).isEqualTo("DELETE");
@@ -72,10 +74,10 @@ class ApacheHttpRequestHandlerTest {
     void performRequest_upperCasesTheMethod() {
         // given - a spelling, not a different method; HTTP methods are case-sensitive tokens and
         // every standard one is upper case
-        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "post", null, null, null, null);
+        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "post", null, null);
 
         // when
-        underTest.performRequest(definition);
+        underTest.performRequest(definition, OPTIONS);
 
         // then
         assertThat(stub.lastRequest().method()).isEqualTo("POST");
@@ -84,10 +86,10 @@ class ApacheHttpRequestHandlerTest {
     @Test
     void performRequest_defaultsToGet() {
         // given - the definition applies the default, so the handler must not override it
-        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", null, null, null, null, null);
+        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", null, null, null);
 
         // when
-        underTest.performRequest(definition);
+        underTest.performRequest(definition, OPTIONS);
 
         // then
         assertThat(stub.lastRequest().method()).isEqualTo("GET");
@@ -96,11 +98,10 @@ class ApacheHttpRequestHandlerTest {
     @Test
     void performRequest_sendsTheDeclaredHeaders() {
         // given
-        var definition = new HttpRequestDefinition(
-                stub.baseUrl() + "/orders", "GET", null, null, Map.of("X-Trace", "abc"), null);
+        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "GET", null, Map.of("X-Trace", "abc"));
 
         // when
-        underTest.performRequest(definition);
+        underTest.performRequest(definition, OPTIONS);
 
         // then
         assertThat(stub.lastRequest().headers()).containsKey("X-trace");
@@ -112,7 +113,7 @@ class ApacheHttpRequestHandlerTest {
         stub.respond(200, null, "Set-Cookie", "a=1", "Set-Cookie", "b=2");
 
         // when
-        var response = underTest.performRequest(get("/orders"));
+        var response = underTest.performRequest(get("/orders"), OPTIONS);
 
         // then
         assertThat(response.headers().get("Set-Cookie")).containsExactly("a=1", "b=2");
@@ -124,7 +125,7 @@ class ApacheHttpRequestHandlerTest {
         stub.respond(204, null);
 
         // when
-        var response = underTest.performRequest(get("/orders"));
+        var response = underTest.performRequest(get("/orders"), OPTIONS);
 
         // then
         assertThat(response.body()).isNull();
@@ -138,7 +139,7 @@ class ApacheHttpRequestHandlerTest {
         stub.respond(404, "not found");
 
         // when
-        var response = underTest.performRequest(get("/orders"));
+        var response = underTest.performRequest(get("/orders"), OPTIONS);
 
         // then - a suite asserting on a 404 is an ordinary suite
         assertThat(response.statusCode()).isEqualTo(404);
@@ -152,7 +153,7 @@ class ApacheHttpRequestHandlerTest {
         stub.respond(502, "upstream is down");
 
         // when
-        var response = underTest.performRequest(get("/orders"));
+        var response = underTest.performRequest(get("/orders"), OPTIONS);
 
         // then
         assertThat(response.statusCode()).isEqualTo(502);
@@ -165,7 +166,8 @@ class ApacheHttpRequestHandlerTest {
         stub.respond(503, "maintenance");
 
         // when / then
-        assertThat(underTest.performRequest(get("/orders")).statusCode()).isEqualTo(503);
+        assertThat(underTest.performRequest(get("/orders"), OPTIONS).statusCode())
+                .isEqualTo(503);
     }
 
     // ---------- bodies ----------
@@ -173,11 +175,11 @@ class ApacheHttpRequestHandlerTest {
     @Test
     void performRequest_sendsARawBody() {
         // given
-        var definition = new HttpRequestDefinition(
-                stub.baseUrl() + "/orders", "POST", null, Map.of(RAW_BODY, "{\"a\": 1}"), null, null);
+        var definition =
+                new HttpRequestDefinition(stub.baseUrl() + "/orders", "POST", Map.of(RAW_BODY, "{\"a\": 1}"), null);
 
         // when
-        underTest.performRequest(definition);
+        underTest.performRequest(definition, OPTIONS);
 
         // then
         assertThat(stub.lastRequest().body()).isEqualTo("{\"a\": 1}");
@@ -187,10 +189,10 @@ class ApacheHttpRequestHandlerTest {
     void performRequest_sendsABodyOnAnyMethodThatDeclaresOne() {
         // given - restricting bodies to POST/PUT/PATCH would silently drop what an author wrote
         var definition = new HttpRequestDefinition(
-                stub.baseUrl() + "/orders", "DELETE", null, Map.of(RAW_BODY, "reason=cleanup"), null, null);
+                stub.baseUrl() + "/orders", "DELETE", Map.of(RAW_BODY, "reason=cleanup"), null);
 
         // when
-        underTest.performRequest(definition);
+        underTest.performRequest(definition, OPTIONS);
 
         // then
         assertThat(stub.lastRequest().body()).isEqualTo("reason=cleanup");
@@ -205,10 +207,10 @@ class ApacheHttpRequestHandlerTest {
         var body = new LinkedHashMap<String, String>();
         body.put(FILE_BODY, "file:" + file);
         body.put(BODY_STRING, "{\"from\": \"the interpolator\"}");
-        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "POST", null, body, null, null);
+        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "POST", body, null);
 
         // when
-        underTest.performRequest(definition);
+        underTest.performRequest(definition, OPTIONS);
 
         // then
         assertThat(stub.lastRequest().body()).isEqualTo("{\"from\": \"the interpolator\"}");
@@ -221,11 +223,11 @@ class ApacheHttpRequestHandlerTest {
         // from disk would succeed here, so this fails until the read leaves the handler.
         var file = dir.resolve("payload.json");
         Files.writeString(file, "{\"from\": \"the file on disk\"}");
-        var definition = new HttpRequestDefinition(
-                stub.baseUrl() + "/orders", "POST", null, Map.of(FILE_BODY, "file:" + file), null, null);
+        var definition =
+                new HttpRequestDefinition(stub.baseUrl() + "/orders", "POST", Map.of(FILE_BODY, "file:" + file), null);
 
         // then
-        assertThatThrownBy(() -> underTest.performRequest(definition)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.performRequest(definition, OPTIONS)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -236,15 +238,10 @@ class ApacheHttpRequestHandlerTest {
         body.put("field", "value");
         body.put("other", "second");
         var definition = new HttpRequestDefinition(
-                stub.baseUrl() + "/orders",
-                "POST",
-                null,
-                body,
-                Map.of("Content-Type", "application/x-www-form-urlencoded"),
-                null);
+                stub.baseUrl() + "/orders", "POST", body, Map.of("Content-Type", "application/x-www-form-urlencoded"));
 
         // when
-        underTest.performRequest(definition);
+        underTest.performRequest(definition, OPTIONS);
 
         // then - the one path where the payload is neither authored nor read from a file
         assertThat(stub.lastRequest().body()).isEqualTo("field=value&other=second");
@@ -255,11 +252,10 @@ class ApacheHttpRequestHandlerTest {
     @Test
     void performRequest_throwsWhenABodyHoldsNothingToSend() {
         // given - form fields with no form Content-Type to join them under, so nothing was derived
-        var definition = new HttpRequestDefinition(
-                stub.baseUrl() + "/orders", "POST", null, Map.of("field", "value"), null, null);
+        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "POST", Map.of("field", "value"), null);
 
         // then - sending an empty body would let a broken request pass green
-        assertThatThrownBy(() -> underTest.performRequest(definition)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.performRequest(definition, OPTIONS)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -269,13 +265,11 @@ class ApacheHttpRequestHandlerTest {
         var definition = new HttpRequestDefinition(
                 stub.baseUrl() + "/orders",
                 "POST",
-                null,
                 Map.of(RAW_BODY, "{\"a\": 1}"),
-                Map.of("Content-Type", "application/json"),
-                null);
+                Map.of("Content-Type", "application/json"));
 
         // when
-        underTest.performRequest(definition);
+        underTest.performRequest(definition, OPTIONS);
 
         // then - exactly one, and the author's value; the JDK server normalises the name's case
         assertThat(stub.lastRequest().headers().get("Content-type")).containsExactly("application/json");
@@ -284,11 +278,10 @@ class ApacheHttpRequestHandlerTest {
     @Test
     void performRequest_sendsABodyWithNoContentTypeWhenNoneWasDeclared() {
         // given - nothing is invented on the author's behalf
-        var definition = new HttpRequestDefinition(
-                stub.baseUrl() + "/orders", "POST", null, Map.of(RAW_BODY, "plain"), null, null);
+        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "POST", Map.of(RAW_BODY, "plain"), null);
 
         // when
-        underTest.performRequest(definition);
+        underTest.performRequest(definition, OPTIONS);
 
         // then
         assertThat(stub.lastRequest().headers()).doesNotContainKey("Content-type");
@@ -300,13 +293,11 @@ class ApacheHttpRequestHandlerTest {
         var definition = new HttpRequestDefinition(
                 stub.baseUrl() + "/orders",
                 "POST",
-                null,
                 Map.of(RAW_BODY, "x"),
-                Map.of("Content-Type", "text/plain; charset=NOPE"),
-                null);
+                Map.of("Content-Type", "text/plain; charset=NOPE"));
 
         // then
-        assertThatThrownBy(() -> underTest.performRequest(definition))
+        assertThatThrownBy(() -> underTest.performRequest(definition, OPTIONS))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("charset");
     }
@@ -314,7 +305,7 @@ class ApacheHttpRequestHandlerTest {
     @Test
     void performRequest_sendsNoBodyWhenNoneIsDeclared() {
         // when
-        underTest.performRequest(get("/orders"));
+        underTest.performRequest(get("/orders"), OPTIONS);
 
         // then
         assertThat(stub.lastRequest().body()).isEmpty();
@@ -323,40 +314,15 @@ class ApacheHttpRequestHandlerTest {
     // ---------- timeout ----------
 
     @Test
-    void performRequest_throwsWhenTheTimeoutIsNotANumber() {
-        // given - a typo, or an interpolated value that resolved to nonsense
-        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "GET", "abc", null, null, null);
-
-        // then - proceeding without it would blame the server for a hang the suite caused
-        assertThatThrownBy(() -> underTest.performRequest(definition))
-                .isInstanceOf(BratException.class)
-                .hasMessageContaining("timeout");
-    }
-
-    @Test
-    void performRequest_throwsWhenTheTimeoutIsNotPositive() {
-        // given - HttpClient5 reads zero as infinite, so accepting it would invert what was asked for
-        // and turn a tight ceiling into no ceiling at all
-        for (var timeout : new String[] {"0", "-1"}) {
-            var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "GET", timeout, null, null, null);
-
-            // then
-            assertThatThrownBy(() -> underTest.performRequest(definition))
-                    .as("timeout %s", timeout)
-                    .isInstanceOf(BratException.class)
-                    .hasMessageContaining("positive");
-        }
-    }
-
-    @Test
     void performRequest_throwsWhenTheTimeoutElapses() {
         // given - our timeout, which unlike their 504 produces no response at all
         stub.respond(200, "too late");
         stub.respondSlowly(2000);
-        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "GET", "200", null, null, null);
+        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "GET", null, null);
+        var options = new RequestOptions("200", Map.of());
 
         // then
-        assertThatThrownBy(() -> underTest.performRequest(definition)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.performRequest(definition, options)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -365,7 +331,7 @@ class ApacheHttpRequestHandlerTest {
         stub.respond(200, "ok");
 
         // then - a fast response is unaffected by it
-        assertThatCode(() -> underTest.performRequest(get("/orders"))).doesNotThrowAnyException();
+        assertThatCode(() -> underTest.performRequest(get("/orders"), OPTIONS)).doesNotThrowAnyException();
     }
 
     // ---------- transport failure ----------
@@ -373,19 +339,19 @@ class ApacheHttpRequestHandlerTest {
     @Test
     void performRequest_throwsWhenTheHostRefusesTheConnection() {
         // given - nothing is listening here; there is no response to record
-        var definition = new HttpRequestDefinition("http://localhost:1/orders", "GET", null, null, null, null);
+        var definition = new HttpRequestDefinition("http://localhost:1/orders", "GET", null, null);
 
         // then
-        assertThatThrownBy(() -> underTest.performRequest(definition)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.performRequest(definition, OPTIONS)).isInstanceOf(BratException.class);
     }
 
     @Test
     void performRequest_throwsForAMalformedUrl() {
         // given
-        var definition = new HttpRequestDefinition("not a url", "GET", null, null, null, null);
+        var definition = new HttpRequestDefinition("not a url", "GET", null, null);
 
         // then
-        assertThatThrownBy(() -> underTest.performRequest(definition)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.performRequest(definition, OPTIONS)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -393,10 +359,10 @@ class ApacheHttpRequestHandlerTest {
         // given - the likelier authoring mistake of the two: an unset ${env.baseUrl} resolving to
         // nothing. Without this, new URI("") yields a relative URI that fails deep inside the client
         for (var url : new String[] {null, "", "   "}) {
-            var definition = new HttpRequestDefinition(url, "GET", null, null, null, null);
+            var definition = new HttpRequestDefinition(url, "GET", null, null);
 
             // then
-            assertThatThrownBy(() -> underTest.performRequest(definition))
+            assertThatThrownBy(() -> underTest.performRequest(definition, OPTIONS))
                     .as("url %s", url == null ? "<null>" : "'" + url + "'")
                     .isInstanceOf(BratException.class)
                     .hasMessageContaining("url");
@@ -405,24 +371,15 @@ class ApacheHttpRequestHandlerTest {
 
     @Test
     void performRequest_throwsForANullDefinition() {
-        assertThatThrownBy(() -> underTest.performRequest(null)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.performRequest(null, OPTIONS)).isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void performRequest_throwsForNullOptions() {
+        assertThatThrownBy(() -> underTest.performRequest(get("/orders"), null)).isInstanceOf(BratException.class);
     }
 
     // ---------- what this handler does not do yet ----------
-
-    @Test
-    void performRequest_ignoresDeclaredAuth() {
-        // given - auth binds and interpolates and is inert; pinned so the day it stops being
-        // inert is a failing test rather than a surprise
-        var auth = new Auth("basic", "u", "p");
-        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "GET", null, null, null, auth);
-
-        // when
-        underTest.performRequest(definition);
-
-        // then
-        assertThat(stub.lastRequest().headers()).doesNotContainKey("Authorization");
-    }
 
     @Test
     void performRequest_sendsOneRequestWhenTheServerAnswers503() {
@@ -431,7 +388,7 @@ class ApacheHttpRequestHandlerTest {
         stub.respond(503, "unavailable");
 
         // when
-        var response = underTest.performRequest(get("/orders"));
+        var response = underTest.performRequest(get("/orders"), OPTIONS);
 
         // then
         assertThat(response.statusCode()).isEqualTo(503);
@@ -445,7 +402,7 @@ class ApacheHttpRequestHandlerTest {
         stub.respond(429, "slow down");
 
         // when
-        var response = underTest.performRequest(get("/orders"));
+        var response = underTest.performRequest(get("/orders"), OPTIONS);
 
         // then
         assertThat(response.statusCode()).isEqualTo(429);
@@ -457,10 +414,10 @@ class ApacheHttpRequestHandlerTest {
         // given - the client would manage cookies by default, in a store belonging to the client and
         // therefore to the process, so a session would outlive the run that established it
         stub.respond(200, "ok", "Set-Cookie", "session=abc123; Path=/");
-        underTest.performRequest(get("/login"));
+        underTest.performRequest(get("/login"), OPTIONS);
 
         // when
-        underTest.performRequest(get("/orders"));
+        underTest.performRequest(get("/orders"), OPTIONS);
 
         // then
         assertThat(stub.lastRequest().headers()).doesNotContainKey("Cookie");
@@ -472,7 +429,7 @@ class ApacheHttpRequestHandlerTest {
         stub.respond(200, "ok", "Set-Cookie", "session=abc123; Path=/", "Set-Cookie", "theme=dark");
 
         // when
-        var response = underTest.performRequest(get("/login"));
+        var response = underTest.performRequest(get("/login"), OPTIONS);
 
         // then
         assertThat(response.headers().get("set-cookie")).containsExactly("session=abc123; Path=/", "theme=dark");
@@ -518,10 +475,10 @@ class ApacheHttpRequestHandlerTest {
         // given - this handler understands none, and ignoring them would run the request without the
         // settings the author asked some other handler for
         var definition = new HttpRequestDefinition(
-                stub.baseUrl() + "/orders", "GET", null, null, null, null, Map.of("certAlias", "client-a"));
+                stub.baseUrl() + "/orders", "GET", null, null, Map.of("certAlias", "client-a"));
 
         // when / then - before anything is sent, so the request is errored rather than half-made
-        assertThatThrownBy(() -> underTest.performRequest(definition))
+        assertThatThrownBy(() -> underTest.performRequest(definition, OPTIONS))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("certAlias")
                 .hasMessageContaining("httpclient5");
@@ -545,7 +502,8 @@ class ApacheHttpRequestHandlerTest {
             stub.respond(200, "ok");
 
             // then
-            assertThat(handler.performRequest(get("/orders")).statusCode()).isEqualTo(200);
+            assertThat(handler.performRequest(get("/orders"), OPTIONS).statusCode())
+                    .isEqualTo(200);
         }
     }
 
@@ -560,6 +518,6 @@ class ApacheHttpRequestHandlerTest {
     }
 
     private HttpRequestDefinition get(String path) {
-        return new HttpRequestDefinition(stub.baseUrl() + path, "GET", null, null, null, null);
+        return new HttpRequestDefinition(stub.baseUrl() + path, "GET", null, null);
     }
 }

@@ -24,12 +24,12 @@ class RequestDefinitionInterpolatorsTest {
     private final RuntimeData runtimeData = mock(RuntimeData.class);
 
     private final RequestDefinitionInterpolators underTest =
-            new RequestDefinitionInterpolators(List.of(new HttpRequestDefinitionInterpolator(new AuthInterpolator())));
+            new RequestDefinitionInterpolators(List.of(new HttpRequestDefinitionInterpolator()));
 
     @Test
     void interpolated_usesTheInterpolatorRegisteredForTheDefinitionsClass() {
         // given
-        var definition = new HttpRequestDefinition("http://url", "GET", null, null, null, null);
+        var definition = new HttpRequestDefinition("http://url", "GET", null, null);
 
         // when
         var interpolated = underTest.interpolated(definition, interpolation, runtimeData);
@@ -83,12 +83,12 @@ class RequestDefinitionInterpolatorsTest {
         var replacement = new ReplacementHttpInterpolator();
 
         // when
-        var registry = new RequestDefinitionInterpolators(
-                List.of(new HttpRequestDefinitionInterpolator(new AuthInterpolator()), replacement));
+        var registry =
+                new RequestDefinitionInterpolators(List.of(new HttpRequestDefinitionInterpolator(), replacement));
 
         // then
         var interpolated = registry.interpolated(
-                new HttpRequestDefinition("http://url", "GET", null, null, null, null), interpolation, runtimeData);
+                new HttpRequestDefinition("http://url", "GET", null, null), interpolation, runtimeData);
         assertThat(((HttpRequestDefinition) interpolated).getUrl()).isEqualTo("replaced");
     }
 
@@ -153,7 +153,7 @@ class RequestDefinitionInterpolatorsTest {
         @Override
         public HttpRequestDefinition interpolated(
                 HttpRequestDefinition target, Interpolation interpolation, RuntimeData runtimeData) {
-            return new HttpRequestDefinition("replaced", "GET", null, null, null, null, Map.of());
+            return new HttpRequestDefinition("replaced", "GET", null, null, Map.of());
         }
     }
 }

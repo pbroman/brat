@@ -113,8 +113,6 @@ class ConfigDataBindingTest {
                   Content-Type: application/json
                 body:
                   raw: '{"item": "widget"}'
-                auth:
-                  type: none
                 """;
 
         // when
@@ -124,7 +122,6 @@ class ConfigDataBindingTest {
         assertThat(definition.getUrl()).isEqualTo("${env.baseUrl}/orders");
         assertThat(definition.getMethod()).isEqualTo("POST");
         assertThat(definition.getHeaders()).containsEntry("Content-Type", "application/json");
-        assertThat(definition.getAuth()).isNotNull();
     }
 
     @Test

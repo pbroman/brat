@@ -24,8 +24,8 @@ class BodyFileChecksTest {
     Path dir;
 
     private static Request requestWithBody(String name, Map<String, String> body) {
-        var definition = new HttpRequestDefinition("http://url", "GET", null, body, null, null);
-        return new Request(name, null, null, null, null, null, definition, null, null);
+        var definition = new HttpRequestDefinition("http://url", "GET", body, null);
+        return new Request(name, null, null, null, null, null, null, definition, null, null);
     }
 
     private static TestSuite suite(List<Request> requests, List<TestSuite> subSuites) {
@@ -101,7 +101,7 @@ class BodyFileChecksTest {
                 List.of(
                         requestWithBody("raw", Map.of(RAW_BODY, "{}")),
                         requestWithBody("none", null),
-                        new Request("no definition", null, null, null, null, null, null, null, null)),
+                        new Request("no definition", null, null, null, null, null, null, null, null, null)),
                 null);
 
         // when / then

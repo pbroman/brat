@@ -6,6 +6,7 @@ import java.util.function.Consumer;
 import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.handler.RequestHandler;
 import dev.pbroman.brat.core.api.listener.AttemptFinished;
+import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.result.RequestCoordinates;
 import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
@@ -66,6 +67,8 @@ class RequestExecutor {
      * spending the whole budget with waits in between cannot make it start working.
      *
      * @param definition the interpolated request to perform; never {@code null}
+     * @param options the interpolated options it is performed with, handed to the handler on every
+     *        attempt; never {@code null}
      * @param handler the handler that performs it, already selected for this request; never
      *        {@code null}
      * @param <T> the definition's own type, which the handler executes
@@ -80,25 +83,27 @@ class RequestExecutor {
      */
     <T extends RequestDefinition, R> RequestStatus execute(
             T definition,
+            RequestOptions options,
             RequestHandler<T, R> handler,
             Optional<PollBounds> bounds,
             RequestCoordinates coordinates,
             RuntimeData runtimeData) {
         if (bounds.isEmpty()) {
-            return attempt(definition, handler, runtimeData, 1);
+            return attempt(definition, options, handler, runtimeData, 1);
         }
-        return poll(definition, handler, bounds.get(), coordinates, runtimeData);
+        return poll(definition, options, handler, bounds.get(), coordinates, runtimeData);
     }
 
     private <T extends RequestDefinition, R> RequestStatus poll(
             T definition,
+            RequestOptions options,
             RequestHandler<T, R> handler,
             PollBounds bounds,
             RequestCoordinates coordinates,
             RuntimeData runtimeData) {
         RequestStatus lastStatus = null;
         for (int attemptNo = 1; attemptNo <= bounds.maxAttempts(); attemptNo++) {
-            lastStatus = attempt(definition, handler, runtimeData, attemptNo);
+            lastStatus = attempt(definition, options, handler, runtimeData, attemptNo);
             if (lastStatus instanceof RequestStatus.Completed) {
                 boolean conditionMet;
                 try {
@@ -129,10 +134,14 @@ class RequestExecutor {
      * can read it.
      */
     private <T extends RequestDefinition, R> RequestStatus attempt(
-            T definition, RequestHandler<T, R> handler, RuntimeData runtimeData, int attemptNo) {
+            T definition,
+            RequestOptions options,
+            RequestHandler<T, R> handler,
+            RuntimeData runtimeData,
+            int attemptNo) {
         try {
             long start = System.currentTimeMillis();
-            var response = handler.performRequest(definition);
+            var response = handler.performRequest(definition, options);
             long roundTripTimeMs = System.currentTimeMillis() - start;
             var responseVars = handler.responseVars(response);
             runtimeData.setResponseVars(responseVars);

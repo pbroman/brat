@@ -8,7 +8,6 @@ import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
-import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
@@ -25,7 +24,7 @@ class HttpRequestDefinitionInterpolatorTest {
 
     Interpolation interpolation = (input, runtimeData) -> new InterpolationOutcome(input + "-i", input + "-i");
     RuntimeData runtimeData = mock(RuntimeData.class);
-    HttpRequestDefinitionInterpolator underTest = new HttpRequestDefinitionInterpolator(new AuthInterpolator());
+    HttpRequestDefinitionInterpolator underTest = new HttpRequestDefinitionInterpolator();
 
     HttpRequestDefinition validRequest;
 
@@ -36,21 +35,7 @@ class HttpRequestDefinitionInterpolatorTest {
         var headers = new LinkedHashMap<String, String>();
         headers.put(CONTENT_TYPE, "application/json");
         headers.put("Authorization", "Bearer token");
-        var auth = new Auth("bearer", "token");
-        validRequest = new HttpRequestDefinition("http://url", "GET", "30", body, headers, auth);
-    }
-
-    @Test
-    void interpolated_handlesARequestWithoutAnAuthBlock() {
-        // given - the constructor's Javadoc explicitly permits a null auth
-        var request = new HttpRequestDefinition("http://url", "GET", null, null, null, null);
-
-        // when
-        var interpolated = underTest.interpolated(request, interpolation, runtimeData);
-
-        // then - no auth.* outcomes, and a null auth on the copy
-        assertThat(interpolated.getAuth()).isNull();
-        assertThat(interpolated.getOutcomes()).doesNotContainKey("auth.type");
+        validRequest = new HttpRequestDefinition("http://url", "GET", body, headers);
     }
 
     @Test
@@ -61,18 +46,14 @@ class HttpRequestDefinitionInterpolatorTest {
         // then
         assertThat(interpolated.getUrl()).isEqualTo("http://url-i");
         assertThat(interpolated.getMethod()).isEqualTo("GET-i");
-        assertThat(interpolated.getTimeout()).isEqualTo("30-i");
         assertThat(interpolated.getOutcomes().keySet())
                 .containsExactly(
                         "url",
                         "method",
-                        "timeout",
                         "body.raw",
                         "body._bodyString",
                         "header." + CONTENT_TYPE,
-                        "header.Authorization",
-                        "auth.type",
-                        "auth.token");
+                        "header.Authorization");
         assertThat(interpolated.getHeaders()).containsKey(CONTENT_TYPE);
     }
 
@@ -87,16 +68,14 @@ class HttpRequestDefinitionInterpolatorTest {
     }
 
     @Test
-    void interpolated_skipsNullTimeoutAndHandlesNullBodyAndHeaders() {
+    void interpolated_handlesNullBodyAndHeaders() {
         // given
-        var request = new HttpRequestDefinition("http://url", "GET", null, null, null, new Auth());
+        var request = new HttpRequestDefinition("http://url", "GET", null, null);
 
         // when
         var interpolated = underTest.interpolated(request, interpolation, runtimeData);
 
         // then
-        assertThat(interpolated.getTimeout()).isNull();
-        assertThat(interpolated.getOutcomes()).doesNotContainKey("timeout");
         assertThat(interpolated.getBody()).isNull();
         assertThat(interpolated.getHeaders()).isNull();
     }
@@ -117,7 +96,7 @@ class HttpRequestDefinitionInterpolatorTest {
         // given - a handler must receive a payload it never has to read from disk
         var file = bodyDir.resolve("order.json");
         Files.writeString(file, "{\"id\": 1}");
-        var request = new HttpRequestDefinition("http://url", "POST", null, Map.of("file", "file:" + file), null, null);
+        var request = new HttpRequestDefinition("http://url", "POST", Map.of("file", "file:" + file), null);
         var data = new RuntimeData(Map.of(), Map.of(), new LinkedHashMap<>(), Map.of(), null);
 
         // when
@@ -133,7 +112,7 @@ class HttpRequestDefinitionInterpolatorTest {
         // given
         var file = bodyDir.resolve("secret.json");
         Files.writeString(file, "{\"password\": \"hunter2\"}");
-        var request = new HttpRequestDefinition("http://url", "POST", null, Map.of("file", "file:" + file), null, null);
+        var request = new HttpRequestDefinition("http://url", "POST", Map.of("file", "file:" + file), null);
         var data = new RuntimeData(Map.of(), Map.of(), new LinkedHashMap<>(), Map.of(), null);
 
         // when
@@ -150,7 +129,7 @@ class HttpRequestDefinitionInterpolatorTest {
         // given
         var file = bodyDir.resolve("order.json");
         Files.writeString(file, "{}");
-        var request = new HttpRequestDefinition("http://url", "POST", null, Map.of("file", "order.json"), null, null);
+        var request = new HttpRequestDefinition("http://url", "POST", Map.of("file", "order.json"), null);
         var data = new RuntimeData(
                 Map.of(), Map.of(), new LinkedHashMap<>(), Map.of(), "file:" + bodyDir.resolve("orders.yaml"));
 
@@ -165,7 +144,7 @@ class HttpRequestDefinitionInterpolatorTest {
     void interpolated_throwsWhenAFileBodyCannotBeRead() {
         // given
         var request = new HttpRequestDefinition(
-                "http://url", "POST", null, Map.of("file", "file:" + bodyDir.resolve("absent.json")), null, null);
+                "http://url", "POST", Map.of("file", "file:" + bodyDir.resolve("absent.json")), null);
         var data = new RuntimeData(Map.of(), Map.of(), new LinkedHashMap<>(), Map.of(), null);
 
         // then
@@ -180,7 +159,7 @@ class HttpRequestDefinitionInterpolatorTest {
         // that happens after it can find the file at all
         Files.writeString(bodyDir.resolve("payload.json-i"), "{}");
         var request = new HttpRequestDefinition(
-                "http://url", "POST", null, Map.of("file", "file:" + bodyDir.resolve("payload.json")), null, null);
+                "http://url", "POST", Map.of("file", "file:" + bodyDir.resolve("payload.json")), null);
         var data = new RuntimeData(Map.of(), Map.of(), new LinkedHashMap<>(), Map.of(), null);
 
         // when
@@ -201,7 +180,7 @@ class HttpRequestDefinitionInterpolatorTest {
         // given - args interpolate like headers, so ${secrets.…} inside one resolves and is masked
         var args = new LinkedHashMap<String, String>();
         args.put("certAlias", "${vars.alias}");
-        var definition = new HttpRequestDefinition("http://url", "GET", null, null, null, null, args);
+        var definition = new HttpRequestDefinition("http://url", "GET", null, null, args);
 
         // when
         var interpolated = underTest.interpolated(definition, interpolation, runtimeData);
@@ -214,7 +193,7 @@ class HttpRequestDefinitionInterpolatorTest {
     @Test
     void interpolated_leavesArgsEmptyWhenTheRequestDeclaresNone() {
         // given
-        var definition = new HttpRequestDefinition("http://url", "GET", null, null, null, null);
+        var definition = new HttpRequestDefinition("http://url", "GET", null, null);
 
         // when
         var interpolated = underTest.interpolated(definition, interpolation, runtimeData);

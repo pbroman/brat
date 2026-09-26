@@ -11,6 +11,7 @@ import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.RepeatUntil;
+import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.result.HttpResponse;
 import dev.pbroman.brat.core.data.result.RequestCoordinates;
 import dev.pbroman.brat.core.data.result.RequestStatus;
@@ -24,6 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -31,6 +33,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class RequestExecutorTest {
+
+    private static final RequestOptions OPTIONS = new RequestOptions(null, Map.of());
 
     private HttpRequestHandler requestHandler;
     private ConditionEvaluator conditionEvaluator;
@@ -40,7 +44,7 @@ class RequestExecutorTest {
 
     private final Condition pollCondition = new Condition("isEqualTo", "${response.statusCode}", "200");
     private final HttpRequestDefinition definition =
-            new HttpRequestDefinition("http://x/jobs/1", "GET", null, null, null, null, Map.of());
+            new HttpRequestDefinition("http://x/jobs/1", "GET", null, null, Map.of());
     private final RequestCoordinates coordinates = new RequestCoordinates("s/poll", null, "poll", 1);
 
     @BeforeEach
@@ -79,14 +83,14 @@ class RequestExecutorTest {
     @Test
     void execute_performsOneAttemptWhenThereAreNoBounds() {
         // given
-        when(requestHandler.performRequest(any())).thenReturn(response(200));
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(200));
 
         // when
-        var status = underTest.execute(definition, requestHandler, Optional.empty(), coordinates, runtimeData);
+        var status = underTest.execute(definition, OPTIONS, requestHandler, Optional.empty(), coordinates, runtimeData);
 
         // then - no loop, so no condition is consulted and no progress is reported within one
         assertThat(status).isInstanceOf(RequestStatus.Completed.class);
-        verify(requestHandler, times(1)).performRequest(any());
+        verify(requestHandler, times(1)).performRequest(any(), any());
         verify(conditionEvaluator, never()).evaluate(any(), any());
         assertThat(attempts).isEmpty();
     }
@@ -94,10 +98,10 @@ class RequestExecutorTest {
     @Test
     void execute_erroresWhenAnUnpolledRequestCannotReachTheServer() {
         // given
-        when(requestHandler.performRequest(any())).thenThrow(new BratException("Connection refused"));
+        when(requestHandler.performRequest(any(), any())).thenThrow(new BratException("Connection refused"));
 
         // when
-        var status = underTest.execute(definition, requestHandler, Optional.empty(), coordinates, runtimeData);
+        var status = underTest.execute(definition, OPTIONS, requestHandler, Optional.empty(), coordinates, runtimeData);
 
         // then
         assertThat(status)
@@ -110,10 +114,10 @@ class RequestExecutorTest {
     @Test
     void execute_publishesTheResponseSoLaterStepsCanReadIt() {
         // given
-        when(requestHandler.performRequest(any())).thenReturn(response(201));
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(201));
 
         // when
-        underTest.execute(definition, requestHandler, Optional.empty(), coordinates, runtimeData);
+        underTest.execute(definition, OPTIONS, requestHandler, Optional.empty(), coordinates, runtimeData);
 
         // then - the assertions and captures read the response through the namespace
         assertThat(runtimeData.getResponseVars()).containsEntry("statusCode", 201);
@@ -124,30 +128,32 @@ class RequestExecutorTest {
     @Test
     void execute_stopsAsSoonAsTheConditionHolds() {
         // given - the third attempt is the one that matches
-        when(requestHandler.performRequest(any())).thenReturn(response(202), response(202), response(200));
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202), response(202), response(200));
         conditionHolds(false, false, true);
 
         // when
-        var status = underTest.execute(definition, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
+        var status = underTest.execute(
+                definition, OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
 
         // then
         assertThat(status)
                 .asInstanceOf(type(RequestStatus.Completed.class))
                 .extracting(RequestStatus.Completed::numAttempts)
                 .isEqualTo(3);
-        verify(requestHandler, times(3)).performRequest(any());
+        verify(requestHandler, times(3)).performRequest(any(), any());
     }
 
     @Test
     void execute_completesWhenTheConditionHoldsAfterEarlierAttemptsErrored() {
         // given - the archetypal poll: nothing is listening yet, then it comes up
-        when(requestHandler.performRequest(any()))
+        when(requestHandler.performRequest(any(), any()))
                 .thenThrow(new BratException("Connection refused"))
                 .thenReturn(response(200));
         conditionHolds(true);
 
         // when
-        var status = underTest.execute(definition, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
+        var status = underTest.execute(
+                definition, OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
 
         // then - an errored attempt is a retry, so earlier failures do not decide the outcome
         assertThat(status).isInstanceOf(RequestStatus.Completed.class);
@@ -156,12 +162,12 @@ class RequestExecutorTest {
     @Test
     void execute_givesUpWhenTheAttemptsAreExhaustedWithResponses() {
         // given
-        when(requestHandler.performRequest(any())).thenReturn(response(202));
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202));
         conditionHolds(false);
 
         // when
         var status = underTest.execute(
-                definition, requestHandler, bounds("3", "0", "still processing"), coordinates, runtimeData);
+                definition, OPTIONS, requestHandler, bounds("3", "0", "still processing"), coordinates, runtimeData);
 
         // then - never reaching the condition is a failure, not a pass
         assertThat(status).asInstanceOf(type(RequestStatus.GaveUp.class)).satisfies(gaveUp -> {
@@ -174,14 +180,14 @@ class RequestExecutorTest {
     @Test
     void execute_erroresWhenTheAttemptsAreExhaustedAndTheLastAttemptErrored() {
         // given - responses early, a connection failure at the end
-        when(requestHandler.performRequest(any()))
+        when(requestHandler.performRequest(any(), any()))
                 .thenReturn(response(202))
                 .thenThrow(new BratException("Connection refused"));
         conditionHolds(false);
 
         // when
         var status = underTest.execute(
-                definition, requestHandler, bounds("2", "0", "still processing"), coordinates, runtimeData);
+                definition, OPTIONS, requestHandler, bounds("2", "0", "still processing"), coordinates, runtimeData);
 
         // then - messageOnFail describes a condition that never came true, not a connection failure
         assertThat(status)
@@ -193,24 +199,37 @@ class RequestExecutorTest {
     }
 
     @Test
-    void execute_countsAnErroredAttemptAgainstTheBudget() {
-        // given - every attempt fails to reach the server
-        when(requestHandler.performRequest(any())).thenThrow(new BratException("Connection refused"));
+    void execute_handsTheOptionsToTheHandlerOnEveryAttempt() {
+        // given
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202), response(202), response(200));
+        conditionHolds(false, false, true);
 
         // when
-        underTest.execute(definition, requestHandler, bounds("3", "0", null), coordinates, runtimeData);
+        underTest.execute(definition, OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
+
+        // then
+        verify(requestHandler, times(3)).performRequest(same(definition), same(OPTIONS));
+    }
+
+    @Test
+    void execute_countsAnErroredAttemptAgainstTheBudget() {
+        // given - every attempt fails to reach the server
+        when(requestHandler.performRequest(any(), any())).thenThrow(new BratException("Connection refused"));
+
+        // when
+        underTest.execute(definition, OPTIONS, requestHandler, bounds("3", "0", null), coordinates, runtimeData);
 
         // then - the budget bounds errored attempts too, or a dead host loops forever
-        verify(requestHandler, times(3)).performRequest(any());
+        verify(requestHandler, times(3)).performRequest(any(), any());
     }
 
     @Test
     void execute_doesNotEvaluateTheConditionAfterAnErroredAttempt() {
         // given
-        when(requestHandler.performRequest(any())).thenThrow(new BratException("Connection refused"));
+        when(requestHandler.performRequest(any(), any())).thenThrow(new BratException("Connection refused"));
 
         // when
-        underTest.execute(definition, requestHandler, bounds("2", "0", null), coordinates, runtimeData);
+        underTest.execute(definition, OPTIONS, requestHandler, bounds("2", "0", null), coordinates, runtimeData);
 
         // then - there is no response, so ${response.*} has nothing to resolve against
         verify(conditionEvaluator, never()).evaluate(any(), any());
@@ -219,15 +238,16 @@ class RequestExecutorTest {
     @Test
     void execute_erroresImmediatelyWhenTheConditionCannotBeEvaluated() {
         // given - a typo'd func is an authoring error, not a transient one
-        when(requestHandler.performRequest(any())).thenReturn(response(202));
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202));
         when(conditionEvaluator.evaluate(any(), any())).thenThrow(new BratException("No rule recognizes 'isEqaulTo'"));
 
         // when
-        var status = underTest.execute(definition, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
+        var status = underTest.execute(
+                definition, OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
 
         // then - retrying it five times with waits cannot make it start working
         assertThat(status).isInstanceOf(RequestStatus.Errored.class);
-        verify(requestHandler, times(1)).performRequest(any());
+        verify(requestHandler, times(1)).performRequest(any(), any());
     }
 
     // ---------- waiting ----------
@@ -235,12 +255,12 @@ class RequestExecutorTest {
     @Test
     void execute_waitsBetweenAttempts() {
         // given
-        when(requestHandler.performRequest(any())).thenReturn(response(202));
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202));
         conditionHolds(false);
 
         // when - three attempts means two waits
         long start = System.currentTimeMillis();
-        underTest.execute(definition, requestHandler, bounds("3", "20", null), coordinates, runtimeData);
+        underTest.execute(definition, OPTIONS, requestHandler, bounds("3", "20", null), coordinates, runtimeData);
 
         // then - a lower bound only. An upper bound cannot distinguish two waits from three here:
         // measured, a cold JVM adds ~330ms to this test, far more than any wait worth using.
@@ -252,15 +272,15 @@ class RequestExecutorTest {
         // given - a one-attempt poll that will give up. The interrupt flag is a deterministic probe
         // for "did it sleep at all": a sleep that happens throws immediately, one that never happens
         // is silent - which wall-clock timing cannot tell apart at this scale
-        when(requestHandler.performRequest(any())).thenReturn(response(202));
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202));
         conditionHolds(false);
 
         try {
             Thread.currentThread().interrupt();
 
             // when
-            var status =
-                    underTest.execute(definition, requestHandler, bounds("1", "100", null), coordinates, runtimeData);
+            var status = underTest.execute(
+                    definition, OPTIONS, requestHandler, bounds("1", "100", null), coordinates, runtimeData);
 
             // then - it reached the give-up without ever waiting; pausing after the final attempt
             // would only delay a give-up that has already been decided
@@ -273,7 +293,7 @@ class RequestExecutorTest {
     @Test
     void execute_propagatesAnInterruptRatherThanRecordingIt() {
         // given - an interrupt is cancellation of the run, not a failure of this request
-        when(requestHandler.performRequest(any())).thenReturn(response(202));
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202));
         conditionHolds(false);
         var pollBounds = bounds("3", "1000", null);
 
@@ -281,8 +301,8 @@ class RequestExecutorTest {
             Thread.currentThread().interrupt();
 
             // when / then
-            assertThatThrownBy(
-                            () -> underTest.execute(definition, requestHandler, pollBounds, coordinates, runtimeData))
+            assertThatThrownBy(() -> underTest.execute(
+                            definition, OPTIONS, requestHandler, pollBounds, coordinates, runtimeData))
                     .isInstanceOf(BratException.class)
                     .hasMessageContaining("Interrupted");
 
@@ -298,11 +318,11 @@ class RequestExecutorTest {
     @Test
     void execute_emitsOneAttemptFinishedPerAttempt() {
         // given
-        when(requestHandler.performRequest(any())).thenReturn(response(202), response(202), response(200));
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202), response(202), response(200));
         conditionHolds(false, false, true);
 
         // when
-        underTest.execute(definition, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
+        underTest.execute(definition, OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
 
         // then - a poll must be visible while it runs, not only when it ends
         assertThat(attempts).hasSize(3);
@@ -316,11 +336,11 @@ class RequestExecutorTest {
     @Test
     void execute_marksOnlyTheFinalAttemptAsConditionMet() {
         // given
-        when(requestHandler.performRequest(any())).thenReturn(response(202), response(200));
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202), response(200));
         conditionHolds(false, true);
 
         // when
-        underTest.execute(definition, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
+        underTest.execute(definition, OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
 
         // then
         assertThat(attempts).extracting(AttemptFinished::conditionMet).containsExactly(false, true);
@@ -329,13 +349,13 @@ class RequestExecutorTest {
     @Test
     void execute_carriesTheCauseOnAnErroredAttemptFinished() {
         // given
-        when(requestHandler.performRequest(any()))
+        when(requestHandler.performRequest(any(), any()))
                 .thenThrow(new BratException("Connection refused"))
                 .thenReturn(response(200));
         conditionHolds(true);
 
         // when
-        underTest.execute(definition, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
+        underTest.execute(definition, OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
 
         // then - thirty identical failures must look different from silence
         assertThat(attempts.getFirst().error()).contains("Connection refused");
@@ -346,12 +366,13 @@ class RequestExecutorTest {
     @Test
     void execute_reportsTheFinalAttemptsRoundTripTimeNotTheWholePoll() {
         // given
-        when(requestHandler.performRequest(any())).thenReturn(response(202), response(200));
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202), response(200));
         conditionHolds(false, true);
 
         // when
         long start = System.currentTimeMillis();
-        var status = underTest.execute(definition, requestHandler, bounds("5", "50", null), coordinates, runtimeData);
+        var status = underTest.execute(
+                definition, OPTIONS, requestHandler, bounds("5", "50", null), coordinates, runtimeData);
 
         // then - an aggregate over response times must not pick up the waits between attempts
         var completed = (RequestStatus.Completed) status;

@@ -9,6 +9,7 @@ import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.Request;
+import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.result.RequestCoordinates;
 import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.data.result.RequestStatus;
@@ -45,6 +46,7 @@ public class RequestProcessor {
     private final ConditionEvaluator conditionEvaluator;
     private final ResponseHandler responseHandler;
     private final ConfigDataInterpolator<FlowControl> flowControlInterpolator;
+    private final ConfigDataInterpolator<RequestOptions> requestOptionsInterpolator;
     private final RequestExecutor requestExecutor;
 
     /**
@@ -58,6 +60,8 @@ public class RequestProcessor {
      * @param flowControlInterpolator produces the interpolated copy of the flow control, whose
      *        {@code maxAttempts} and {@code waitBetweenAttempts} may themselves be tokens; it leaves
      *        the loop condition authored, for the executor to resolve per attempt
+     * @param requestOptionsInterpolator produces the interpolated, validated copy of the request's
+     *        options
      * @param requestExecutor performs the request's attempts and says how they ended
      */
     public RequestProcessor(
@@ -66,12 +70,14 @@ public class RequestProcessor {
             ConditionEvaluator conditionEvaluator,
             ResponseHandler responseHandler,
             ConfigDataInterpolator<FlowControl> flowControlInterpolator,
+            ConfigDataInterpolator<RequestOptions> requestOptionsInterpolator,
             RequestExecutor requestExecutor) {
         this.interpolation = interpolation;
         this.requestDefinitionInterpolators = requestDefinitionInterpolators;
         this.conditionEvaluator = conditionEvaluator;
         this.responseHandler = responseHandler;
         this.flowControlInterpolator = flowControlInterpolator;
+        this.requestOptionsInterpolator = requestOptionsInterpolator;
         this.requestExecutor = requestExecutor;
     }
 
@@ -89,7 +95,7 @@ public class RequestProcessor {
      *       <strong>A skip condition that cannot be evaluated</strong> — it fails to interpolate, or
      *       names a func nothing resolves — is {@link RequestStatus.Errored}, and the message says
      *       the skip condition is what failed, so a reader is not sent looking at the URL. The
-     *       request carries its <em>authored</em> definition, since the definition was never reached.
+     *       request carries its <em>authored</em> definition and options, since neither was reached.
      *       <p>
      *       This is the one condition whose failure modes are not symmetric, which is why it errors
      *       rather than defaulting either way. A skip condition is a <strong>guard</strong>: running
@@ -100,6 +106,10 @@ public class RequestProcessor {
      *       {@link RequestStatus.Errored}, and the result carries the <em>authored</em> definition,
      *       since no interpolated copy exists — {@code ConfigData.isInterpolated()} is how a reader
      *       tells which one arrived.</li>
+     *   <li><strong>The options are interpolated</strong>, which also validates them: a timeout that
+     *       is not a positive whole number of milliseconds fails here, as
+     *       {@link RequestStatus.Errored}, and never reaches an attempt. The result carries the
+     *       interpolated definition and the <em>authored</em> options.</li>
      *   <li><strong>The flow control's bounds are interpolated</strong>, when the request declares
      *       one, since {@code maxAttempts} and {@code waitBetweenAttempts} may be tokens. Failing
      *       here is {@link RequestStatus.Errored}: the loop's bounds are not knowable, and guessing
@@ -150,6 +160,9 @@ public class RequestProcessor {
      * survive: they are the mechanism for keeping something.
      *
      * @param request the request to run; never {@code null}
+     * @param options what the run resolved for this request, as authored — not yet interpolated;
+     *        never {@code null}. The caller assembles it, since only the walk knows what the ancestors
+     *        declared
      * @param coordinates where this request sits, which the caller computes — the path is built from
      *        the names from the root down, and only the walk knows the ancestors. Passed rather than
      *        read off {@code runtimeData} so that it cannot be forgotten
@@ -160,18 +173,21 @@ public class RequestProcessor {
      *        {@code null}
      * @return what happened; never {@code null}. Ask {@link RequestResult#failed()} for the verdict,
      *         which the status alone does not give
-     * @throws BratException if {@code request}, {@code coordinates}, {@code runtimeData} or
-     *         {@code handler} is {@code null}, if the request declares no {@code requestDefinition},
-     *         or if no interpolator is registered for that definition's type. These are structural — a
-     *         suite that could not be run rather than a request that failed. A failure belonging to
-     *         <em>this</em> request never throws: it is {@link RequestStatus.Errored} on the result
+     * @throws BratException if {@code request}, {@code options}, {@code coordinates},
+     *         {@code runtimeData} or {@code handler} is {@code null}, if the request declares no
+     *         {@code requestDefinition}, or if no interpolator is registered for that definition's
+     *         type. These are structural — a suite that could not be run rather than a request that
+     *         failed. A failure belonging to <em>this</em> request never throws: it is
+     *         {@link RequestStatus.Errored} on the result
      */
     public RequestResult process(
             Request request,
+            RequestOptions options,
             RequestCoordinates coordinates,
             RuntimeData runtimeData,
             RequestHandler<RequestDefinition, Object> handler) {
         Require.nonNull(request, "The request must not be null");
+        Require.nonNull(options, "The request options must not be null");
         Require.nonNull(coordinates, "The coordinates must not be null");
         Require.nonNull(runtimeData, "The runtimeData must not be null");
         Require.nonNull(handler, "The request handler must not be null");
@@ -189,13 +205,14 @@ public class RequestProcessor {
                     return new RequestResult(
                             coordinates,
                             requestDef,
+                            options,
                             new RequestStatus.Skipped("Skipped due to condition " + evaluation.condition()),
                             elapsedMs(methodStart),
                             null);
                 }
             } catch (Exception e) {
                 var message = FailureMessages.causeOf(e, "A condition");
-                return errored(coordinates, requestDef, "The skip condition failed: " + message, methodStart);
+                return errored(coordinates, requestDef, options, "The skip condition failed: " + message, methodStart);
             }
         }
 
@@ -205,7 +222,15 @@ public class RequestProcessor {
                     requestDefinitionInterpolators.interpolated(requestDef, interpolation, runtimeData);
         } catch (Exception e) {
             var message = FailureMessages.causeOf(e, "Request definition interpolation");
-            return errored(coordinates, requestDef, message, methodStart);
+            return errored(coordinates, requestDef, options, message, methodStart);
+        }
+
+        RequestOptions interpolatedOptions;
+        try {
+            interpolatedOptions = requestOptionsInterpolator.interpolated(options, interpolation, runtimeData);
+        } catch (Exception e) {
+            var message = FailureMessages.causeOf(e, "Request options interpolation");
+            return errored(coordinates, interpolatedRequestDef, options, message, methodStart);
         }
 
         Optional<PollBounds> pollBounds;
@@ -216,22 +241,28 @@ public class RequestProcessor {
                             flowControlInterpolator.interpolated(request.flowControl(), interpolation, runtimeData));
         } catch (Exception e) {
             var message = FailureMessages.causeOf(e, "Flow control");
-            return errored(coordinates, interpolatedRequestDef, message, methodStart);
+            return errored(coordinates, interpolatedRequestDef, interpolatedOptions, message, methodStart);
         }
 
         try {
-            var status = requestExecutor.execute(interpolatedRequestDef, handler, pollBounds, coordinates, runtimeData);
+            var status = requestExecutor.execute(
+                    interpolatedRequestDef, interpolatedOptions, handler, pollBounds, coordinates, runtimeData);
             ResponseActionsResult responseActionsResult = null;
             if (carriesAResponse(status) && request.responseActions() != null) {
                 try {
                     responseActionsResult = responseHandler.handleResponse(request.responseActions(), runtimeData);
                 } catch (Exception e) {
                     var message = FailureMessages.causeOf(e, "The response actions");
-                    return errored(coordinates, interpolatedRequestDef, message, methodStart);
+                    return errored(coordinates, interpolatedRequestDef, interpolatedOptions, message, methodStart);
                 }
             }
             return new RequestResult(
-                    coordinates, interpolatedRequestDef, status, elapsedMs(methodStart), responseActionsResult);
+                    coordinates,
+                    interpolatedRequestDef,
+                    interpolatedOptions,
+                    status,
+                    elapsedMs(methodStart),
+                    responseActionsResult);
         } finally {
             // The response belongs to this request and dies with it, on every path including a
             // structural throw. This is the whole lifecycle: nothing else clears, nothing else must
@@ -253,24 +284,29 @@ public class RequestProcessor {
     }
 
     /**
-     * An errored result for {@code definition}, timed from {@code methodStart}.
+     * An errored result for {@code definition} and {@code options}, timed from {@code methodStart}.
      * <p>
-     * Every failure site builds the same five-argument result, and the only thing that varies is
-     * <em>which</em> definition it carries — the authored one before interpolation has run, the
-     * interpolated copy after. Passing that as an argument here rather than repeating the whole
+     * Every failure site builds the same result, and the only thing that varies is <em>which</em>
+     * definition and options it carries — the authored ones before interpolation has run, the
+     * interpolated copies after. Passing them as arguments here rather than repeating the whole
      * construction is what keeps the two from being confused, which they were.
      *
      * @param coordinates where this request sits
      * @param definition the definition to report: authored where interpolation had not yet run or
      *        was itself what failed, the interpolated copy otherwise
+     * @param options the options to report, on the same terms as {@code definition}
      * @param message why it failed
      * @param methodStart when the request started, for {@code elapsedMs}
      * @return the errored result
      */
     private static RequestResult errored(
-            RequestCoordinates coordinates, RequestDefinition definition, String message, long methodStart) {
+            RequestCoordinates coordinates,
+            RequestDefinition definition,
+            RequestOptions options,
+            String message,
+            long methodStart) {
         return new RequestResult(
-                coordinates, definition, new RequestStatus.Errored(message), elapsedMs(methodStart), null);
+                coordinates, definition, options, new RequestStatus.Errored(message), elapsedMs(methodStart), null);
     }
 
     private static long elapsedMs(long start) {

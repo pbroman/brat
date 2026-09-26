@@ -313,6 +313,82 @@ class SuiteLoaderTest {
     }
 
     @Test
+    void load_rejectsATimeoutInsideTheRequestDefinition() {
+        // given - where timeout lived before it moved to the request; loading it would leave it read
+        // by nothing, and the request would run on the default
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      url: http://x
+                      timeout: "5000"
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("timeout");
+    }
+
+    @Test
+    void load_rejectsAuthInsideTheRequestDefinition() {
+        // given
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      url: http://x
+                      auth:
+                        type: none
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("auth");
+    }
+
+    @Test
+    void load_rejectsAuthOnARequest() {
+        // given - nothing reads a request's auth yet, so rejecting it beats binding it inert
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    auth:
+                      type: none
+                    requestDefinition:
+                      url: http://x
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("auth");
+    }
+
+    @Test
+    void load_bindsATimeoutOnTheRequest() {
+        // given
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    timeout: "${vars.t}"
+                    requestDefinition:
+                      url: http://x
+                """;
+
+        // when
+        var suite = underTest.load(yaml);
+
+        // then
+        assertThat(suite.requests().getFirst().timeout()).isEqualTo("${vars.t}");
+    }
+
+    @Test
     void load_rejectsAValueOfTheWrongShape() {
         // given - a sequence where a single value belongs; the shape is the loader's business, the
         // value is not

@@ -2,6 +2,7 @@ package dev.pbroman.brat.core.data.result;
 
 import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.data.AssertionSeverity;
+import dev.pbroman.brat.core.data.RequestOptions;
 
 /**
  * The full record of one request execution: where it sat, what was sent, how it ended, what it cost,
@@ -12,6 +13,10 @@ import dev.pbroman.brat.core.data.AssertionSeverity;
  *        the authored one where interpolation is what failed. Ask
  *        {@link dev.pbroman.brat.core.data.ConfigData#isInterpolated()} which one arrived; the type
  *        answers the question itself rather than carrying a second field for it
+ * @param requestOptions what the run resolved for the request, on the same terms: the interpolated
+ *        copy where interpolation reached and passed it, the authored one otherwise. Never {@code null}
+ *        on a result the request processor produced; a directly constructed instance may hold
+ *        {@code null}, which this type does not substitute for
  * @param status how the protocol call ended. <strong>Not the verdict</strong> — see {@link #failed()}
  * @param elapsedMs wall clock from the request starting to it finishing, in milliseconds: every
  *        attempt, the waits between them, interpolation and assertion evaluation. Excludes
@@ -24,6 +29,7 @@ import dev.pbroman.brat.core.data.AssertionSeverity;
 public record RequestResult(
         RequestCoordinates coordinates,
         RequestDefinition requestDefinition,
+        RequestOptions requestOptions,
         RequestStatus status,
         long elapsedMs,
         ResponseActionsResult responseActionsResult) {
