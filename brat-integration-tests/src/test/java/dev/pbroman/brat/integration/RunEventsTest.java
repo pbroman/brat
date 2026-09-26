@@ -32,10 +32,12 @@ class RunEventsTest extends EndToEndTestBase {
                 .extracting(event -> event.getClass().getSimpleName())
                 .containsExactly(
                         "RunStarted",
+                        "SuiteEntered",
                         "RequestStarted",
                         "RequestFinished",
                         "RequestStarted",
                         "RequestFinished",
+                        "SuiteExited",
                         "RunFinished");
     }
 

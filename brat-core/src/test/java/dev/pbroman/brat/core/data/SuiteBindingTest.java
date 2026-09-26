@@ -13,12 +13,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Pins that the suite tree binds from YAML with the shape step 1 gave it.
+ * Pins that the suite tree binds from YAML with the shape its types declare.
  * <p>
- * The {@code RequestDefinition} → {@code HttpRequestDefinition} mapping below is the thin slice of
- * step 2 this test needs: {@code Request.requestDefinition} is typed to the interface deliberately,
- * so something has to say which implementation an authored block becomes. Step 2 replaces this module
- * with the two-step protocol lookup — the mapping moves, the field type does not.
+ * The {@code RequestDefinition} → {@code HttpRequestDefinition} mapping below stands in for the
+ * loader's protocol lookup: {@code Request.requestDefinition} is typed to the interface, so something
+ * has to say which implementation an authored block becomes. {@code SuiteLoaderTest} covers the real
+ * lookup.
  */
 class SuiteBindingTest {
 

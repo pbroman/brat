@@ -24,10 +24,7 @@ import dev.pbroman.brat.core.api.secrets.SecretsProviderFactory;
 import dev.pbroman.brat.core.data.Assertion;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.FlowControl;
-import dev.pbroman.brat.core.data.Request;
-import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.TestSuite;
-import dev.pbroman.brat.core.data.result.RequestCoordinates;
 import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.data.result.RunResult;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
@@ -72,7 +69,6 @@ import dev.pbroman.brat.core.util.Require;
 import lombok.extern.slf4j.Slf4j;
 
 import static dev.pbroman.brat.core.util.Constants.HTTP;
-import static dev.pbroman.brat.core.util.Constants.PATH_DELIMITER;
 import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
@@ -222,27 +218,6 @@ public final class Brat {
     }
 
     /**
-     * Which handler each protocol should use for {@code request}, by what the suite tree declares.
-     * <p>
-     * <strong>Merged per key, not replaced wholesale</strong>: a request overriding {@code http}
-     * must not drop an {@code ftp} entry it inherited, which is also why this is a map rather than a
-     * single name. The request's own entries win over the suite's.
-     * <p>
-     * One level today, because this runner walks a list. The tree walk generalises the same merge
-     * over every ancestor, and nothing below this method has to change when it does — which is why
-     * selection is resolved out here rather than inside the request processor.
-     *
-     * @param suite the suite being run
-     * @param request the request about to run
-     * @return the effective protocol-to-handler-name map; never {@code null}, possibly empty
-     */
-    private static Map<String, String> effectiveHandlerNames(TestSuite suite, Request request) {
-        var names = new HashMap<>(suite.requestHandlers());
-        names.putAll(request.requestHandlers());
-        return names;
-    }
-
-    /**
      * Returns a builder for a runner.
      *
      * @return a new builder, carrying the core defaults and no plugins yet
@@ -267,30 +242,27 @@ public final class Brat {
     }
 
     /**
-     * Runs every top-level request of {@code suite} in order, and returns what happened.
+     * Runs {@code suite} and every subSuite beneath it, and returns what happened.
      * <p>
      * <strong>What happens, in order:</strong> the run's {@code RuntimeData} is assembled from the
      * suite's {@code constants} and the environment's {@code env} and {@code params}; the secrets
      * chain is built from the environment's configuration against those namespaces; the interpolation
-     * layer is composed around it; then each request runs through a {@code RequestProcessor}.
-     * <p>
-     * <strong>A list, not a tree.</strong> A suite declaring {@code subSuites} is rejected rather than
-     * half-run: running the top level of a tree whose requests expect cascaded {@code auth} and
-     * defaults would report a green suite that never tested what the author wrote.
+     * layer is composed around it; then the tree is walked, each request running through a
+     * {@code RequestProcessor}. The order of the walk — setup, main and teardown at every level — is
+     * {@code TestSuiteRunner}'s, and is what the suite-author documentation describes.
      * <p>
      * Nothing about a request escapes as an exception: a definition that cannot be interpolated, a
      * failed assertion and a failed capture all become data on that request's result. What throws is
      * structural — a suite that cannot be walked, a handler that is missing.
      *
-     * @param suite the suite whose top-level requests to run; never {@code null}
+     * @param suite the suite to run; never {@code null}
      * @param environment the launch namespaces and secrets configuration for this run; never
      *        {@code null}
      * @return the run's record, holding one {@link dev.pbroman.brat.core.data.result.RequestResult}
      *         per request that ran, in execution order
-     * @throws BratException if either argument is {@code null}, if {@code suite} declares
-     *         {@code subSuites}, if a body file the suite names with a token-free path does not
-     *         exist, or if the run cannot be assembled — a secrets source naming an unregistered
-     *         provider type, say
+     * @throws BratException if either argument is {@code null}, if a body file the suite names with a
+     *         token-free path does not exist, or if the run cannot be assembled — a secrets source
+     *         naming an unregistered provider type, say
      */
     public RunResult run(TestSuite suite, Environment environment) {
         return run(suite, environment, List.of(), new NoOpRunControl());
@@ -304,13 +276,15 @@ public final class Brat {
      * file handle always has a point at which to flush and close. A listener that throws is logged at
      * WARN and the run continues; a reporting bug must not turn a green suite red.
      * <p>
-     * Cancellation is checked <strong>between requests</strong>, so an in-flight request finishes.
+     * Cancellation is checked <strong>before every suite and every request</strong>, so an in-flight
+     * request finishes and nothing starts after it — teardown included. Every suite already entered
+     * then reports {@code SuiteExited(Cancelled)}.
      * <p>
      * Every {@code RequestStarted} is followed by a {@code RequestFinished}: a request whose handler
      * cannot be resolved aborts the run <em>before</em> it is announced, so no listener is left holding
      * a request that never ends.
      *
-     * @param suite the suite whose top-level requests to run; never {@code null}
+     * @param suite the suite to run; never {@code null}
      * @param environment the launch namespaces and secrets configuration for this run; never
      *        {@code null}
      * @param listeners the listeners to deliver events to, in the order they are called; never
@@ -325,10 +299,6 @@ public final class Brat {
         nonNull(environment, "The environment to run against must not be null");
         nonNull(listeners, "The listeners must not be null");
         nonNull(runControl, "The run control must not be null");
-        if (!suite.subSuites().isEmpty()) {
-            throw new BratException("The suite '" + suite.name()
-                    + "' declares subSuites, which this runner cannot walk. Run a suite with requests only.");
-        }
         // Before the first event: a body file that is not there is a launch failure, not a run that
         // started and then went wrong.
         BodyFileChecks.check(suite, environment.suiteLocation());
@@ -387,12 +357,12 @@ public final class Brat {
         // per run and must not outlive it, and this is the form that suppresses a close failure when
         // the run itself threw, instead of replacing the failure the caller needs to see.
         try (var secretsProvider = secretsBootstrap.build(environment.secretsConfig(), runtimeData)) {
-            runRequests(suite, listeners, runControl, results, runtimeData, secretsProvider);
+            walk(suite, listeners, runControl, results, runtimeData, secretsProvider);
         }
     }
 
     /**
-     * Composes the per-run collaborators around the run's secrets chain and walks the suite's requests.
+     * Composes the per-run collaborators around the run's secrets chain and walks the suite tree.
      *
      * @param suite the suite to run
      * @param listeners the listeners to emit to
@@ -401,7 +371,7 @@ public final class Brat {
      * @param runtimeData the run's namespaces
      * @param secretsProvider the chain {@code ${secrets.…}} resolves through
      */
-    private void runRequests(
+    private void walk(
             TestSuite suite,
             List<RunListener> listeners,
             RunControl runControl,
@@ -426,25 +396,8 @@ public final class Brat {
                 new RequestOptionsInterpolator(),
                 new RequestExecutor(conditionEvaluator, attemptListener));
 
-        var requestNo = 0;
-        for (var request : suite.requests()) {
-            if (runControl.isCancelled()) {
-                return;
-            }
-            requestNo++;
-            var coordinates = new RequestCoordinates(
-                    suite.name() + PATH_DELIMITER + request.name(), request.id(), request.name(), requestNo);
-            // Resolved before the request is announced: a handler this wiring lacks aborts the run,
-            // and a RequestStarted with no RequestFinished would leave a listener's test tree holding
-            // a node that never ends.
-            var handler = protocolRegistry.resolve(request.requestDefinition(), effectiveHandlerNames(suite, request));
-            emit(listeners, new RunEvent.RequestStarted(coordinates));
-            // A request's own values only; the cascade from its ancestors arrives with the suite tree.
-            var options = new RequestOptions(request.timeout());
-            var result = processor.process(request, options, coordinates, runtimeData, handler);
-            results.add(result);
-            emit(listeners, new RunEvent.RequestFinished(result));
-        }
+        new TestSuiteRunner(processor, protocolRegistry, event -> emit(listeners, event), results::add, runControl)
+                .walk(suite, runtimeData);
     }
 
     /**

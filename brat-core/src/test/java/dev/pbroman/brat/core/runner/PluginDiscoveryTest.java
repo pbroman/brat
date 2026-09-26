@@ -45,7 +45,7 @@ class PluginDiscoveryTest {
 
     /**
      * Declared in the interpolator fixture, so a builder test can prove that a definition
-     * interpolator arrives by discovery too — the second collected point 8a-2 added.
+     * interpolator arrives by discovery too, as a request handler does.
      */
     public static final class DiscoverableInterpolator implements RequestDefinitionInterpolator<HttpRequestDefinition> {
 

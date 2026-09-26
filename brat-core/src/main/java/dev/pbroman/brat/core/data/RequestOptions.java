@@ -25,7 +25,7 @@ import static dev.pbroman.brat.core.util.Constants.DEFAULT_TIMEOUT_MS;
 @Getter
 public final class RequestOptions extends ConfigData {
 
-    // Gains `auth` in 8d, when AuthHandler exists to consume it.
+    // Gains `auth` once an AuthHandler exists to consume it.
     /**
      * How long to wait for the request, in milliseconds and in text form, or {@code null} for
      * {@link dev.pbroman.brat.core.util.Constants#DEFAULT_TIMEOUT_MS}. Text rather than a number

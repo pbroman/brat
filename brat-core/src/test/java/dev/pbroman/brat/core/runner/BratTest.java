@@ -607,15 +607,45 @@ class BratTest {
     }
 
     @Test
-    void run_rejectsASuiteDeclaringSubSuites() {
-        // given — the tree walk and its inheritance are a later phase
-        var nested =
-                new TestSuite("outer", null, null, null, null, null, null, null, null, List.of(), List.of(suite()));
+    void run_walksASuiteDeclaringSubSuites() {
+        // given - the walk's order is TestSuiteRunner's to pin; this pins only that Brat hands it the tree
+        var inner = new TestSuite(
+                "inner",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of(request("nested", "${env.baseUrl}/b")),
+                null);
+        var outer = new TestSuite(
+                "outer",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of(request("top", "${env.baseUrl}/a")),
+                List.of(inner));
+        var events = new ArrayList<RunEvent>();
 
-        // when / then — rejected rather than half-run
-        assertThatThrownBy(() -> brat().run(nested, environment))
-                .isInstanceOf(BratException.class)
-                .hasMessageContaining("subSuites");
+        // when
+        var result = brat().run(outer, environment, List.of(events::add), new StubRunControl());
+
+        // then
+        assertThat(result.requestResults())
+                .extracting(requestResult -> requestResult.coordinates().path())
+                .containsExactly("outer/top", "outer/inner/nested");
+        assertThat(events)
+                .filteredOn(RunEvent.SuiteExited.class::isInstance)
+                .extracting(event -> ((RunEvent.SuiteExited) event).path())
+                .containsExactly("outer/inner", "outer");
     }
 
     @Test

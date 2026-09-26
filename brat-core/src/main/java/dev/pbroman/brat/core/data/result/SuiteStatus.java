@@ -31,4 +31,11 @@ public sealed interface SuiteStatus {
      * @param reason what went wrong, naming the cause; never {@code null}
      */
     record Aborted(String reason) implements SuiteStatus {}
+
+    /**
+     * The run was cancelled while this suite was being walked, so it stopped before finishing. Nothing
+     * it had left to run was started, its teardown included. Says nothing about the suite itself — the
+     * stop came from outside it.
+     */
+    record Cancelled() implements SuiteStatus {}
 }
