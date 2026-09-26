@@ -100,6 +100,21 @@ class RequestOptionsInterpolatorTest {
     }
 
     @Test
+    void interpolated_acceptsATimeoutResolvingToDefault() {
+        // given
+        when(interpolation.outcome(anyString(), any()))
+                .thenAnswer(i -> new InterpolationOutcome("Default", "r:" + i.getArgument(0)));
+        var options = new RequestOptions("${vars.timeout}");
+
+        // when
+        var result = interpolator.interpolated(options, interpolation, runtimeData);
+
+        // then
+        assertThat(result.getTimeout()).isEqualTo("Default");
+        assertThat(result.timeoutMs()).isEqualTo(30000L);
+    }
+
+    @Test
     void interpolated_throwsIfTheTimeoutResolvesToZeroOrLess() {
         // given
         when(interpolation.outcome(anyString(), any()))

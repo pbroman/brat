@@ -1,7 +1,5 @@
 package dev.pbroman.brat.core.runner;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -84,11 +82,20 @@ final class TestSuiteRunner {
      * like one declaring {@code MAIN}, and a WARN says the marker has no effect.
      * <p>
      * <strong>At every request</strong>: its handler is resolved, then {@code RequestStarted} is
-     * emitted, the request is processed with {@link RequestOptions} built
-     * from its own {@code timeout}, the result is handed to the results consumer, and
-     * {@code RequestFinished} is emitted. The handler is selected by the request's
-     * {@code requestHandlers} merged per key over those of the suite that declares it, the request's
-     * entries winning; a suite's entries do not reach requests in its subSuites.
+     * emitted, the request is processed with its {@link RequestOptions}, the result is handed to the
+     * results consumer, and {@code RequestFinished} is emitted.
+     * <p>
+     * <strong>Inheritance.</strong> What a suite declares for its requests reaches every request
+     * beneath it, at any depth, and nothing outside it — not its parent, not its siblings:
+     * <ul>
+     *   <li>{@code timeout}: the request's own if it declares one, otherwise the nearest enclosing
+     *       suite's; with none declared anywhere, the default applies.</li>
+     *   <li>{@code requestHandlers}: merged per protocol from the root down to the request, the nearer
+     *       declaration winning where two name the same protocol, and a protocol only an outer suite
+     *       names still reaching the request.</li>
+     * </ul>
+     * Only a {@code null} is "not declared": a {@code timeout} of {@code default} (or blank) is a
+     * declaration, overriding what would have been inherited and reading as the default.
      * <p>
      * <strong>Addressing.</strong> The root suite's path is its name; a subSuite's is its parent's path,
      * {@code /}, and its name; a request's is its suite's path, {@code /}, and its name. Requests are
@@ -120,7 +127,7 @@ final class TestSuiteRunner {
                     suite.name(),
                     suite.phase());
         }
-        walkInternal(suite, runtimeData, suite.name(), new AtomicInteger());
+        walkInternal(suite, runtimeData, suite.name(), InheritedDefaults.NONE, new AtomicInteger());
     }
 
     /**
@@ -129,25 +136,32 @@ final class TestSuiteRunner {
      * @param suite the suite to walk
      * @param runtimeData the run's namespaces
      * @param path the suite's own path
+     * @param inherited what the enclosing suites declared, not yet including this one
      * @param requestNo the walk's request counter, shared by every node of this walk
      * @return {@code true} if the walk reached the end of this suite; {@code false} if a cancellation
      *         check stopped it here or beneath it — including the check before entering it, in which
      *         case nothing was emitted. {@code false} means cancellation and nothing else
      */
-    private boolean walkInternal(TestSuite suite, RuntimeData runtimeData, String path, AtomicInteger requestNo) {
+    private boolean walkInternal(
+            TestSuite suite,
+            RuntimeData runtimeData,
+            String path,
+            InheritedDefaults inherited,
+            AtomicInteger requestNo) {
         if (runControl.isCancelled()) {
             return false;
         }
 
         var startTime = System.currentTimeMillis();
         eventConsumer.accept(new RunEvent.SuiteEntered(path, suite.name()));
+        var defaults = inherited.with(suite);
 
-        var suiteCompleted = performRequests(suite, runtimeData, SETUP, path, requestNo)
-                && executeSubSuites(suite, runtimeData, SETUP, path, requestNo)
-                && performRequests(suite, runtimeData, MAIN, path, requestNo)
-                && executeSubSuites(suite, runtimeData, MAIN, path, requestNo)
-                && executeSubSuites(suite, runtimeData, TEARDOWN, path, requestNo)
-                && performRequests(suite, runtimeData, TEARDOWN, path, requestNo);
+        var suiteCompleted = performRequests(suite, runtimeData, SETUP, path, defaults, requestNo)
+                && executeSubSuites(suite, runtimeData, SETUP, path, defaults, requestNo)
+                && performRequests(suite, runtimeData, MAIN, path, defaults, requestNo)
+                && executeSubSuites(suite, runtimeData, MAIN, path, defaults, requestNo)
+                && executeSubSuites(suite, runtimeData, TEARDOWN, path, defaults, requestNo)
+                && performRequests(suite, runtimeData, TEARDOWN, path, defaults, requestNo);
 
         exitSuite(startTime, path, suiteCompleted);
         return suiteCompleted;
@@ -173,17 +187,23 @@ final class TestSuiteRunner {
      * @param runtimeData the run's namespaces
      * @param phase the step being run
      * @param path the parent's path
+     * @param defaults what the parent and its ancestors declared
      * @param requestNo the walk's request counter
      * @return {@code true} if every one of them was walked to its end; {@code false} as soon as one
      *         reports that a cancellation check stopped it, leaving the rest unentered
      */
     private boolean executeSubSuites(
-            TestSuite suite, RuntimeData runtimeData, Phase phase, String path, AtomicInteger requestNo) {
+            TestSuite suite,
+            RuntimeData runtimeData,
+            Phase phase,
+            String path,
+            InheritedDefaults defaults,
+            AtomicInteger requestNo) {
         for (TestSuite subSuite : suite.subSuites()) {
             if (subSuite.phase() != phase) {
                 continue;
             }
-            if (!walkInternal(subSuite, runtimeData, childPath(path, subSuite.name()), requestNo)) {
+            if (!walkInternal(subSuite, runtimeData, childPath(path, subSuite.name()), defaults, requestNo)) {
                 return false;
             }
         }
@@ -201,12 +221,18 @@ final class TestSuiteRunner {
      * @param runtimeData the run's namespaces
      * @param phase the step being run
      * @param path the suite's path
+     * @param defaults what the suite and its ancestors declared
      * @param requestNo the walk's request counter, advanced once per request started
      * @return {@code true} if every one of them ran; {@code false} if the cancellation check before one
      *         of them stopped the walk, leaving it and the rest unstarted
      */
     private boolean performRequests(
-            TestSuite suite, RuntimeData runtimeData, Phase phase, String path, AtomicInteger requestNo) {
+            TestSuite suite,
+            RuntimeData runtimeData,
+            Phase phase,
+            String path,
+            InheritedDefaults defaults,
+            AtomicInteger requestNo) {
         for (Request request : suite.requests()) {
             if (request.phase() != phase) {
                 continue;
@@ -219,30 +245,13 @@ final class TestSuiteRunner {
             // Resolved before the request is announced: a handler this wiring lacks aborts the run,
             // and a RequestStarted with no RequestFinished would leave a listener's test tree holding
             // a node that never ends.
-            var handler = protocolRegistry.resolve(request.requestDefinition(), effectiveHandlerNames(suite, request));
+            var handler = protocolRegistry.resolve(request.requestDefinition(), defaults.handlerNames(request));
             eventConsumer.accept(new RunEvent.RequestStarted(coordinates));
 
-            var options = new RequestOptions(request.timeout());
-            var result = processor.process(request, options, coordinates, runtimeData, handler);
+            var result = processor.process(request, defaults.options(request), coordinates, runtimeData, handler);
             resultConsumer.accept(result);
             eventConsumer.accept(new RunEvent.RequestFinished(result));
         }
         return true;
-    }
-
-    /**
-     * The handler names in effect for {@code request}.
-     * <p>
-     * Merged per key rather than replaced wholesale: a request overriding {@code http} must not drop
-     * an {@code ftp} entry it inherited. The request's own entries win over its suite's.
-     *
-     * @param suite the suite that declares the request
-     * @param request the request about to run
-     * @return the effective protocol-to-handler-name map; never {@code null}, possibly empty
-     */
-    private static Map<String, String> effectiveHandlerNames(TestSuite suite, Request request) {
-        var names = new HashMap<>(suite.requestHandlers());
-        names.putAll(request.requestHandlers());
-        return names;
     }
 }

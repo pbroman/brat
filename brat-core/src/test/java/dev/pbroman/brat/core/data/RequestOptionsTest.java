@@ -42,6 +42,26 @@ class RequestOptionsTest {
     }
 
     @Test
+    void timeoutMs_defaultsWhenTheTimeoutAsksForTheDefaultInAnyCase() {
+        for (var spelling : new String[] {"default", "Default", "DEFAULT", " default "}) {
+            // when
+            var millis = new RequestOptions(spelling).timeoutMs();
+
+            // then
+            assertThat(millis).as("timeout '%s'", spelling).isEqualTo(30000L);
+        }
+    }
+
+    @Test
+    void timeoutMs_rejectsAWordThatIsNotDefault() {
+        // given
+        var options = new RequestOptions("defaults");
+
+        // when / then
+        assertThatThrownBy(options::timeoutMs).isInstanceOf(BratException.class).hasMessageContaining("defaults");
+    }
+
+    @Test
     void timeoutMs_toleratesSurroundingWhitespace() {
         // when
         var millis = new RequestOptions(" 750 ").timeoutMs();

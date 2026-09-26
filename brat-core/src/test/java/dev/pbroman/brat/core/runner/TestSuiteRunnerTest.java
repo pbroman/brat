@@ -27,10 +27,10 @@ import org.mockito.ArgumentCaptor;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -337,18 +337,132 @@ class TestSuiteRunnerTest {
         verify(protocolRegistry).resolve(any(), eq(Map.of("http", "mtls", "ftp", "passive")));
     }
 
+    // ---------- inheritance ----------
+
     @Test
-    void walk_doesNotPassASuitesHandlerNamesToRequestsInItsSubSuites() {
+    void walk_givesEveryRequestTheNearestDeclaredTimeout() {
         // given
-        var nested = suite("child", Phase.MAIN, List.of(request("r", Phase.MAIN)), List.of());
-        var suite = new TestSuite(
-                "s", null, null, null, null, null, null, null, Map.of("http", "plain"), null, List.of(nested));
+        var child = new TestSuite(
+                "child",
+                null,
+                null,
+                null,
+                null,
+                "2000",
+                null,
+                null,
+                null,
+                List.of(request("inherits", Phase.MAIN), timedRequest("own", "3000")),
+                null);
+        var root = new TestSuite(
+                "root",
+                null,
+                null,
+                null,
+                null,
+                "1000",
+                null,
+                null,
+                null,
+                List.of(request("top", Phase.MAIN)),
+                List.of(child));
 
         // when
-        underTest.walk(suite, runtimeData);
+        underTest.walk(root, runtimeData);
 
         // then
-        verify(protocolRegistry).resolve(any(), argThat(Map::isEmpty));
+        assertThat(timeoutsByRequest())
+                .containsExactlyInAnyOrderEntriesOf(Map.of("top", "1000", "inherits", "2000", "own", "3000"));
+    }
+
+    @Test
+    void walk_passesASuitesHandlerNamesToRequestsAtAnyDepth() {
+        // given
+        var grandchild = suite("grandchild", Phase.MAIN, List.of(request("r", Phase.MAIN)), List.of());
+        var child = suite("child", Phase.MAIN, List.of(), List.of(grandchild));
+        var root = new TestSuite(
+                "root", null, null, null, null, null, null, null, Map.of("http", "plain"), null, List.of(child));
+
+        // when
+        underTest.walk(root, runtimeData);
+
+        // then
+        verify(protocolRegistry).resolve(any(), eq(Map.of("http", "plain")));
+    }
+
+    @Test
+    void walk_letsANearerSuiteOverrideOneProtocolAndKeepTheRest() {
+        // given
+        var child = new TestSuite(
+                "child",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                Map.of("http", "mtls"),
+                List.of(request("r", Phase.MAIN)),
+                null);
+        var root = new TestSuite(
+                "root",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                Map.of("http", "plain", "ftp", "passive"),
+                null,
+                List.of(child));
+
+        // when
+        underTest.walk(root, runtimeData);
+
+        // then
+        verify(protocolRegistry).resolve(any(), eq(Map.of("http", "mtls", "ftp", "passive")));
+    }
+
+    @Test
+    void walk_keepsASubSuitesDeclarationsFromItsSiblingsAndItsParent() {
+        // given - "declaring" sets both fields; its sibling and the parent's teardown run after it
+        var declaring = new TestSuite(
+                "declaring",
+                null,
+                null,
+                null,
+                null,
+                "111",
+                null,
+                null,
+                Map.of("http", "mtls"),
+                List.of(request("inside", Phase.MAIN)),
+                null);
+        var sibling = suite("sibling", Phase.MAIN, List.of(request("next", Phase.MAIN)), List.of());
+        var root = new TestSuite(
+                "root",
+                null,
+                null,
+                null,
+                null,
+                "1000",
+                null,
+                null,
+                null,
+                List.of(request("cleanUp", Phase.TEARDOWN)),
+                List.of(declaring, sibling));
+        var names = ArgumentCaptor.forClass(Map.class);
+
+        // when
+        underTest.walk(root, runtimeData);
+
+        // then
+        assertThat(timeoutsByRequest())
+                .containsExactlyInAnyOrderEntriesOf(Map.of("inside", "111", "next", "1000", "cleanUp", "1000"));
+        verify(protocolRegistry, times(3)).resolve(any(), names.capture());
+        assertThat(names.getAllValues()).containsExactly(Map.of("http", "mtls"), Map.of(), Map.of());
     }
 
     // ---------- elapsed time ----------
@@ -577,6 +691,19 @@ class TestSuiteRunnerTest {
 
     private static TestSuite suite(String name, Phase phase, List<Request> requests, List<TestSuite> subSuites) {
         return new TestSuite(name, null, null, null, null, null, null, phase, null, requests, subSuites);
+    }
+
+    private static Request timedRequest(String name, String timeout) {
+        return new Request(name, null, null, timeout, null, null, null, definition(), null, null);
+    }
+
+    /** Each request's name mapped to the timeout it was processed with. */
+    private Map<String, String> timeoutsByRequest() {
+        var timeouts = new java.util.LinkedHashMap<String, String>();
+        for (var result : results) {
+            timeouts.put(result.coordinates().name(), result.requestOptions().getTimeout());
+        }
+        return timeouts;
     }
 
     /** The events as short lines, so an order is readable in a failure message. */

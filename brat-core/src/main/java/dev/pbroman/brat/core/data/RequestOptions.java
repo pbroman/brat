@@ -25,10 +25,14 @@ import static dev.pbroman.brat.core.util.Constants.DEFAULT_TIMEOUT_MS;
 @Getter
 public final class RequestOptions extends ConfigData {
 
+    /** The word a suite writes to ask for the default timeout explicitly, matched ignoring case. */
+    public static final String DEFAULT_TIMEOUT_KEYWORD = "default";
+
     // Gains `auth` once an AuthHandler exists to consume it.
     /**
-     * How long to wait for the request, in milliseconds and in text form, or {@code null} for
-     * {@link dev.pbroman.brat.core.util.Constants#DEFAULT_TIMEOUT_MS}. Text rather than a number
+     * How long to wait for the request, in milliseconds and in text form; {@value #DEFAULT_TIMEOUT_KEYWORD} or
+     * blank for {@link dev.pbroman.brat.core.util.Constants#DEFAULT_TIMEOUT_MS}; or {@code null} when
+     * nothing declared one, which reads as the default too. Text rather than a number
      * because it may hold {@code ${...}} tokens until this block is interpolated; read it through
      * {@link #timeoutMs()} to get the defaulted, validated value.
      */
@@ -61,19 +65,20 @@ public final class RequestOptions extends ConfigData {
     /**
      * The timeout as a positive number of milliseconds, defaulted when none was declared.
      * <p>
-     * A {@code null} or blank {@code timeout} yields
-     * {@link dev.pbroman.brat.core.util.Constants#DEFAULT_TIMEOUT_MS}, and surrounding whitespace is
-     * ignored. On an interpolated copy this never throws, since interpolation has already validated
+     * A {@code null} or blank {@code timeout}, or {@value #DEFAULT_TIMEOUT_KEYWORD} in any case, yields
+     * {@link dev.pbroman.brat.core.util.Constants#DEFAULT_TIMEOUT_MS}; surrounding whitespace is
+     * ignored throughout. On an interpolated copy this never throws, since interpolation has already validated
      * the value; on an as-assembled instance whose {@code timeout} still holds a {@code ${...}} token
      * it throws, because the token is not a number.
      *
      * @return the timeout in milliseconds; always positive
-     * @throws BratException if {@code timeout} is neither blank nor a whole number, quoting the value
+     * @throws BratException if {@code timeout} is neither blank, {@value #DEFAULT_TIMEOUT_KEYWORD} nor a whole
+     *         number, quoting the value
      * @throws BratException if {@code timeout} is zero or negative, which would describe a request
      *         that cannot succeed
      */
     public long timeoutMs() {
-        if (StringUtils.isBlank(timeout)) {
+        if (StringUtils.isBlank(timeout) || DEFAULT_TIMEOUT_KEYWORD.equalsIgnoreCase(timeout.trim())) {
             return Long.parseLong(DEFAULT_TIMEOUT_MS);
         }
         try {
