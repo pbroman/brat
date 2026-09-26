@@ -17,9 +17,6 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  * {@code META-INF/services/<interface>} and BRAT finds them with no configuration and no BRAT-specific
  * manifest. Discovery happens once, when the runner is built.
  */
-// Never ServiceLoader.load(Class): that uses the thread-context loader, which is ambient, mutable
-// and may be null, so the same build() would discover different plugins depending on the calling
-// thread - the shape of a defect that reproduces in CI and not locally.
 final class PluginDiscovery {
 
     private PluginDiscovery() {
@@ -53,6 +50,9 @@ final class PluginDiscovery {
         // Provider handle exists to name it. Its own message names the offending class either way.
         try {
             var found = new ArrayList<T>();
+            // Never ServiceLoader.load(Class): that uses the thread-context loader, which is ambient,
+            // mutable and may be null, so the same build() would discover different plugins depending
+            // on the calling thread - the shape of a defect that reproduces in CI and not locally.
             for (T implementation : ServiceLoader.load(service, classLoader)) {
                 found.add(implementation);
             }
