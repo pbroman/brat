@@ -1,0 +1,19 @@
+# A timeout declared on the root reaches a request two levels down; a subtree opts back out of it.
+name: timeout
+description: a suite timeout inherited through the tree
+timeout: "${env.timeout}"
+
+subSuites:
+  - name: outer
+    subSuites:
+      - name: inherits
+        requests:
+          - name: too slow
+            requestDefinition:
+              url: "${env.baseUrl}/slow?delayMs=${env.delayMs}"
+  - name: opted out
+    timeout: default
+    requests:
+      - name: slow but allowed
+        requestDefinition:
+          url: "${env.baseUrl}/slow?delayMs=${env.delayMs}"

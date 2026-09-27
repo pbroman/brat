@@ -1,0 +1,123 @@
+# A fully green tree: two independent scenarios, each creating and deleting its own user, under a root
+# that resets the server first and checks it is empty last. Every assertion must run and pass.
+name: order
+description: setup, main, subSuites and teardown, at two levels
+
+setVars:
+  tag: "${env.tag}"                          # computed once, on entering the root
+
+requests:
+  - name: check it is empty
+    requestDefinition:
+      url: "${env.baseUrl}/all"
+    responseActions:
+      assertions:
+        - a: "${response.json.$}"
+          func: hasSize
+          b: 0
+          message: nothing exists before the scenarios run
+
+  - name: reset
+    phase: setup                             # declared second, runs first
+    requestDefinition:
+      url: "${env.baseUrl}/clear"
+      method: DELETE
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isOneOf
+          b: [200, 204]
+    flowControl:
+      waitAfter: 50
+
+  - name: check it is empty again
+    phase: teardown                          # runs after both scenarios cleaned up after themselves
+    requestDefinition:
+      url: "${env.baseUrl}/all"
+    responseActions:
+      assertions:
+        - a: "${response.json.$}"
+          func: hasSize
+          b: 0
+          message: every scenario deleted what it created
+
+subSuites:
+  - name: alice
+    requests:
+      - name: read alice                     # declared first, runs after the setup below
+        requestDefinition:
+          url: "${env.baseUrl}/user/${vars.aliceId}"
+        responseActions:
+          assertions:
+            - a: "${response.json.$.username}"
+              func: isEqualTo
+              b: "alice-${vars.tag}"
+
+      - name: create alice
+        phase: setup
+        requestDefinition:
+          url: "${env.baseUrl}/create"
+          method: POST
+          headers:
+            Content-Type: application/json
+          body:
+            raw: |
+              {"username": "alice-${vars.tag}", "age": 30}
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 201
+          setVars:
+            aliceId: "${response.json.$.id}"
+
+      - name: delete alice
+        phase: teardown
+        requestDefinition:
+          url: "${env.baseUrl}/delete/${vars.aliceId}"
+          method: DELETE
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 204
+
+  - name: bob
+    requests:
+      - name: create bob
+        phase: setup
+        requestDefinition:
+          url: "${env.baseUrl}/create"
+          method: POST
+          headers:
+            Content-Type: application/json
+          body:
+            raw: |
+              {"username": "bob-${vars.tag}", "age": 40}
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 201
+          setVars:
+            bobId: "${response.json.$.id}"
+
+      - name: read bob
+        requestDefinition:
+          url: "${env.baseUrl}/user/${vars.bobId}"
+        responseActions:
+          assertions:
+            - a: "${response.json.$.age}"
+              func: isOneOf
+              b: [40, 41]
+
+      - name: delete bob
+        phase: teardown
+        requestDefinition:
+          url: "${env.baseUrl}/delete/${vars.bobId}"
+          method: DELETE
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 204
