@@ -54,6 +54,9 @@ class TestSuiteRunnerTest {
     private SuiteEntryEvaluator entryEvaluator;
     private RequestHandler<RequestDefinition, Object> handler;
 
+    /** The waitAfterMs each request's result reports, by request name; absent means none. */
+    private final Map<String, Long> pauses = new java.util.HashMap<>();
+
     /** The names of the requests whose result fails. */
     private Predicate<String> failing = name -> false;
 
@@ -78,7 +81,13 @@ class TestSuiteRunnerTest {
                     ? new RequestStatus.Errored("boom")
                     : new RequestStatus.Completed(Map.of(), 1, 1);
             return new RequestResult(
-                    call.getArgument(2), request.requestDefinition(), call.getArgument(1), status, 1, null);
+                    call.getArgument(2),
+                    request.requestDefinition(),
+                    call.getArgument(1),
+                    status,
+                    1,
+                    pauses.getOrDefault(request.name(), 0L),
+                    null);
         });
         underTest = new TestSuiteRunner(
                 processor,
@@ -658,6 +667,7 @@ class TestSuiteRunnerTest {
                             call.getArgument(1),
                             new RequestStatus.Completed(Map.of(), 1, 1),
                             30,
+                            0,
                             null);
                 })
                 .when(processor)
@@ -807,6 +817,100 @@ class TestSuiteRunnerTest {
                         "exit s Cancelled");
     }
 
+    // ---------- pacing ----------
+
+    @Test
+    void walk_pausesAfterARequestBeforeStartingTheNext() {
+        // given
+        pauses.put("a", 200L);
+        var startedAt = new java.util.HashMap<String, Long>();
+        cancelOn = event -> {
+            if (event instanceof RunEvent.RequestStarted started) {
+                startedAt.put(started.coordinates().name(), System.nanoTime());
+            }
+            return false;
+        };
+        var suite = suite("s", List.of(request("a", Phase.MAIN), request("b", Phase.MAIN)), List.of());
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then
+        assertThat((startedAt.get("b") - startedAt.get("a")) / 1_000_000).isGreaterThanOrEqualTo(200L);
+    }
+
+    @Test
+    void walk_pausesAfterASuitesLastRequestBeforeLeavingIt() {
+        // given - waitAfter means "after this request", whatever follows it
+        pauses.put("last", 200L);
+
+        // when
+        underTest.walk(suite("s", List.of(request("last", Phase.MAIN)), List.of()), runtimeData);
+
+        // then - the pause is part of the suite's elapsed time
+        assertThat(exits())
+                .singleElement()
+                .extracting(RunEvent.SuiteExited::elapsedMs)
+                .satisfies(ms -> assertThat(ms).isGreaterThanOrEqualTo(200L));
+    }
+
+    @Test
+    void walk_doesNotBeginAPauseWhenTheRunIsAlreadyCancelled() {
+        // given - cancelled as the request finishes, before its long pause would start
+        pauses.put("a", 10_000L);
+        cancelOn = event -> event instanceof RunEvent.RequestFinished;
+        var started = System.nanoTime();
+
+        // when
+        underTest.walk(suite("s", List.of(request("a", Phase.MAIN), request("b", Phase.MAIN)), List.of()), runtimeData);
+
+        // then
+        assertThat((System.nanoTime() - started) / 1_000_000).isLessThan(2_000L);
+        assertThat(nodeOrder()).containsExactly("s", "s/a");
+    }
+
+    @Test
+    void walk_endsAPauseEarlyWhenTheRunIsCancelledDuringIt() throws InterruptedException {
+        // given - a stop pressed ten seconds before the pause would end
+        pauses.put("a", 10_000L);
+        var canceller = new Thread(() -> {
+            try {
+                Thread.sleep(150);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            runControl.cancel();
+        });
+        var started = System.nanoTime();
+        canceller.start();
+
+        // when
+        underTest.walk(suite("s", List.of(request("a", Phase.MAIN), request("b", Phase.MAIN)), List.of()), runtimeData);
+        canceller.join();
+
+        // then - promptly, and nothing further started
+        assertThat((System.nanoTime() - started) / 1_000_000).isLessThan(2_000L);
+        assertThat(nodeOrder()).containsExactly("s", "s/a");
+        assertThat(trace()).endsWith("exit s Cancelled");
+    }
+
+    @Test
+    void walk_throwsAndRestoresTheFlagWhenInterruptedWhilePausing() {
+        // given
+        pauses.put("a", 5_000L);
+        Thread.currentThread().interrupt();
+
+        // when / then
+        try {
+            assertThatThrownBy(() ->
+                            underTest.walk(suite("s", List.of(request("a", Phase.MAIN)), List.of()), runtimeData))
+                    .isInstanceOf(BratException.class);
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
     // ---------- structural failure ----------
 
     @Test
@@ -890,7 +994,7 @@ class TestSuiteRunnerTest {
     /** A run control a test can flip, as a listener or the caller would. */
     private static final class FlagRunControl implements RunControl {
 
-        private boolean cancelled;
+        private volatile boolean cancelled;
 
         @Override
         public void cancel() {

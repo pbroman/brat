@@ -4,6 +4,8 @@ import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.util.DurationUtils;
 import lombok.Getter;
 
 /**
@@ -46,5 +48,20 @@ public final class FlowControl extends ConfigData {
     @JsonCreator
     public FlowControl(String waitAfter, RepeatUntil repeatUntil) {
         this(waitAfter, repeatUntil, null);
+    }
+
+    /**
+     * The pause after this request, in milliseconds.
+     * <p>
+     * On an interpolated copy this reads the resolved value. On an as-authored instance whose
+     * {@code waitAfter} still holds a {@code ${...}} token it throws, because the token is not a number.
+     *
+     * @return the pause; {@code 0} when no {@code waitAfter} was declared, and never negative
+     * @throws BratException if {@code waitAfter} is not a whole number of milliseconds, blank included,
+     *         quoting the value
+     * @throws BratException if {@code waitAfter} is negative
+     */
+    public long waitAfterMs() {
+        return DurationUtils.nonNegativeMillis(waitAfter, "waitAfter");
     }
 }

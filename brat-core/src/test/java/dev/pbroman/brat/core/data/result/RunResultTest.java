@@ -20,6 +20,7 @@ class RunResultTest {
                 null,
                 new RequestStatus.Completed(java.util.Map.of(), 1, 5),
                 10,
+                0,
                 new ResponseActionsResult(List.of(assertionResult), List.of()));
     }
 

@@ -1,6 +1,8 @@
 package dev.pbroman.brat.core.runner;
 
+import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -36,6 +38,9 @@ import static dev.pbroman.brat.core.util.Constants.PATH_DELIMITER;
  * comes from what it observed while walking that suite.
  */
 final class TestSuiteRunner {
+
+    /** How long the walk sleeps between cancellation checks during a pause. */
+    private static final Duration PAUSE_SLICE = Duration.ofMillis(100);
 
     private final RequestProcessor processor;
     private final ProtocolRegistry protocolRegistry;
@@ -106,7 +111,11 @@ final class TestSuiteRunner {
      * <p>
      * <strong>At every request</strong>: its handler is resolved, then {@code RequestStarted} is
      * emitted, the request is processed with its {@link RequestOptions}, the result is handed to the
-     * results consumer, and {@code RequestFinished} is emitted.
+     * results consumer, and {@code RequestFinished} is emitted. Then the walk <strong>pauses</strong> for the result's
+     * {@link RequestResult#waitAfterMs() waitAfterMs} before starting anything else — the next request,
+     * a subSuite, or leaving the suite — so a suite's elapsed time includes its pacing. A pause is not
+     * begun when the run is already cancelled, and one under way ends within a fraction of a second
+     * of a cancellation; either way nothing further starts.
      * <p>
      * <strong>Inheritance.</strong> What a suite declares for its requests reaches every request
      * beneath it, at any depth, and nothing outside it — not its parent, not its siblings:
@@ -145,6 +154,7 @@ final class TestSuiteRunner {
      * @throws BratException if a request's handler cannot be resolved. This is structural and ends the
      *         walk where it stands: the request is not announced, and the suites still open emit no
      *         {@code SuiteExited} — the run's own terminal event is what closes them
+     * @throws BratException if the thread is interrupted during a pause, ending the walk the same way
      */
     void walk(TestSuite suite, RuntimeData runtimeData) {
         walkSuite(suite, runtimeData, suite.name(), InheritedDefaults.NONE, new AtomicInteger());
@@ -304,10 +314,33 @@ final class TestSuiteRunner {
             var result = processor.process(request, defaults.options(request), coordinates, runtimeData, handler);
             resultConsumer.accept(result);
             eventConsumer.accept(new RunEvent.RequestFinished(result));
+            pause(result.waitAfterMs());
             if (phase == SETUP && result.failed()) {
                 return Optional.of(new SuiteStatus.Aborted("The setup request '" + request.name() + "' failed"));
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * Pauses the walk after a request, ending early when the run is cancelled.
+     *
+     * @param millis how long to pause; {@code 0} or less pauses not at all
+     * @throws BratException if the thread is interrupted while pausing; the interrupt flag is restored
+     */
+    private void pause(long millis) {
+        var deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(millis);
+        while (!runControl.isCancelled()) {
+            var remaining = deadline - System.nanoTime();
+            if (remaining <= 0) {
+                return;
+            }
+            try {
+                Thread.sleep(Duration.ofNanos(Math.min(remaining, PAUSE_SLICE.toNanos())));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new BratException("Interrupted while pausing after a request", e);
+            }
+        }
     }
 }

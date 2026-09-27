@@ -74,6 +74,7 @@ class RequestResultTest {
                 null,
                 new RequestStatus.Errored("connection refused"),
                 12,
+                0,
                 ResponseActionsResult.NONE);
 
         // then
@@ -90,6 +91,7 @@ class RequestResultTest {
                 null,
                 new RequestStatus.GaveUp(lastAttempt, "still processing after 3 attempts"),
                 4000,
+                0,
                 ResponseActionsResult.NONE);
 
         // then
@@ -105,6 +107,7 @@ class RequestResultTest {
                 null,
                 new RequestStatus.Skipped("skipCondition held"),
                 0,
+                0,
                 ResponseActionsResult.NONE);
 
         // then
@@ -114,7 +117,7 @@ class RequestResultTest {
     @Test
     void constructor_defaultsResponseActionsResultToNone() {
         // when
-        var result = new RequestResult(COORDINATES, null, null, completed(), 5, null);
+        var result = new RequestResult(COORDINATES, null, null, completed(), 5, 0, null);
 
         // then
         assertThat(result.responseActionsResult()).isEqualTo(ResponseActionsResult.NONE);
@@ -152,7 +155,8 @@ class RequestResultTest {
 
     private static RequestResult result(
             RequestStatus status, List<AssertionResult> assertions, List<CaptureFailure> captures) {
-        return new RequestResult(COORDINATES, null, null, status, 100, new ResponseActionsResult(assertions, captures));
+        return new RequestResult(
+                COORDINATES, null, null, status, 100, 0, new ResponseActionsResult(assertions, captures));
     }
 
     private static AssertionResult assertionResult(boolean passed, AssertionSeverity severity) {

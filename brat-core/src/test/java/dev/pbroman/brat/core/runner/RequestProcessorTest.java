@@ -579,6 +579,96 @@ class RequestProcessorTest {
         assertThat(result.status()).isInstanceOf(RequestStatus.Completed.class);
     }
 
+    // ---------- waitAfter ----------
+
+    private Request requestWithFlowControl(Condition skipCondition) {
+        return new Request(
+                "create an order",
+                null,
+                "create-order",
+                null,
+                skipCondition,
+                null,
+                null,
+                authored,
+                null,
+                new FlowControl("${vars.pause}", null));
+    }
+
+    @Test
+    void process_carriesTheResolvedWaitAfterWithoutWaitingIt() {
+        // given
+        when(flowControlInterpolator.interpolated(any(), any(), any()))
+                .thenReturn(new FlowControl("5000", null, Map.of()));
+
+        // when
+        var result = underTest.process(requestWithFlowControl(null), OPTIONS, coordinates, runtimeData, requestHandler);
+
+        // then - the pause is the caller's to take; this method returned without it
+        assertThat(result.waitAfterMs()).isEqualTo(5000L);
+        assertThat(result.elapsedMs()).isLessThan(5000L);
+    }
+
+    @Test
+    void process_hasNoPauseForARequestDeclaringNoFlowControl() {
+        // when
+        var result = underTest.process(requestWith(null, null), OPTIONS, coordinates, runtimeData, requestHandler);
+
+        // then
+        assertThat(result.waitAfterMs()).isZero();
+    }
+
+    @Test
+    void process_hasNoPauseForASkippedRequest() {
+        // given - a skipped request never reaches its flow control
+        var skipCondition = new Condition("isTrue", "${vars.skip}");
+        when(conditionInterpolator.interpolated(any(), any(), any())).thenReturn(skipCondition);
+        when(conditionResolver.resolve(any())).thenReturn(true);
+
+        // when
+        var result = underTest.process(
+                requestWithFlowControl(skipCondition), OPTIONS, coordinates, runtimeData, requestHandler);
+
+        // then
+        assertThat(result.status()).isInstanceOf(RequestStatus.Skipped.class);
+        assertThat(result.waitAfterMs()).isZero();
+        verify(flowControlInterpolator, never()).interpolated(any(), any(), any());
+    }
+
+    @Test
+    void process_erroresWithNoPauseWhenWaitAfterIsNotANumber() {
+        // given
+        when(flowControlInterpolator.interpolated(any(), any(), any()))
+                .thenReturn(new FlowControl("soon", null, Map.of()));
+
+        // when
+        var result = underTest.process(requestWithFlowControl(null), OPTIONS, coordinates, runtimeData, requestHandler);
+
+        // then
+        assertThat(result.status())
+                .asInstanceOf(type(RequestStatus.Errored.class))
+                .extracting(RequestStatus.Errored::message)
+                .asString()
+                .contains("waitAfter", "soon");
+        assertThat(result.waitAfterMs()).isZero();
+        verify(requestHandler, never()).performRequest(any(), any());
+    }
+
+    @Test
+    void process_keepsThePauseWhenTheCallFailsAfterFlowControlWasResolved() {
+        // given - pacing still applies to a request that ran and failed
+        when(flowControlInterpolator.interpolated(any(), any(), any()))
+                .thenReturn(new FlowControl("300", null, Map.of()));
+        when(requestHandler.performRequest(any(), any())).thenThrow(new BratException("Connection refused"));
+
+        // when
+        var result = underTest.process(requestWithFlowControl(null), OPTIONS, coordinates, runtimeData, requestHandler);
+
+        // then
+        assertThat(result.status()).isInstanceOf(RequestStatus.Errored.class);
+        assertThat(result.waitAfterMs()).isEqualTo(300L);
+    }
+
     // ---------- request options ----------
 
     @Test

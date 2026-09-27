@@ -110,10 +110,11 @@ public class RequestProcessor {
      *       is not a positive whole number of milliseconds fails here, as
      *       {@link RequestStatus.Errored}, and never reaches an attempt. The result carries the
      *       interpolated definition and the <em>authored</em> options.</li>
-     *   <li><strong>The flow control's bounds are interpolated</strong>, when the request declares
-     *       one, since {@code maxAttempts} and {@code waitBetweenAttempts} may be tokens. Failing
-     *       here is {@link RequestStatus.Errored}: the loop's bounds are not knowable, and guessing
-     *       them is how a suite spins. <strong>The loop condition is not interpolated here</strong> —
+     *   <li><strong>The flow control is interpolated</strong>, when the request declares one, since
+     *       {@code waitAfter}, {@code maxAttempts} and {@code waitBetweenAttempts} may be tokens.
+     *       Failing here — a value that does not interpolate, or is not a valid number — is
+     *       {@link RequestStatus.Errored}: the loop's bounds are not knowable, and guessing them is
+     *       how a suite spins. <strong>The loop condition is not interpolated here</strong> —
      *       it reads the response the loop is waiting for, so it is resolved per attempt.</li>
      *   <li><strong>The request is performed, once or repeatedly.</strong> With no
      *       {@code repeatUntil} it runs exactly once. With one, it runs until the condition holds or
@@ -148,7 +149,9 @@ public class RequestProcessor {
      * final attempt's — which is why an aggregate over response times reads that one and not
      * {@code elapsedMs}: a five-attempt poll has a round trip of milliseconds and an elapsed of
      * seconds. {@code numAttempts} is how many attempts were spent, {@code 1} for a request that does
-     * not poll.
+     * not poll. {@code waitAfterMs} is the resolved {@code waitAfter}, which this method does
+     * <em>not</em> wait — pausing after a request is the caller's — and is {@code 0} unless the
+     * request got as far as its flow control.
      * <p>
      * <strong>What it mutates.</strong>
      * {@code runtimeData} only. Its {@code currentPath} is set from {@code coordinates} first, which is
@@ -206,11 +209,13 @@ public class RequestProcessor {
                             options,
                             new RequestStatus.Skipped("Skipped due to condition " + evaluation.condition()),
                             elapsedMs(methodStart),
+                            0,
                             null);
                 }
             } catch (Exception e) {
                 var message = FailureMessages.causeOf(e, "A condition");
-                return errored(coordinates, requestDef, options, "The skip condition failed: " + message, methodStart);
+                return errored(
+                        coordinates, requestDef, options, "The skip condition failed: " + message, methodStart, 0);
             }
         }
 
@@ -220,7 +225,7 @@ public class RequestProcessor {
                     requestDefinitionInterpolators.interpolated(requestDef, interpolation, runtimeData);
         } catch (Exception e) {
             var message = FailureMessages.causeOf(e, "Request definition interpolation");
-            return errored(coordinates, requestDef, options, message, methodStart);
+            return errored(coordinates, requestDef, options, message, methodStart, 0);
         }
 
         RequestOptions interpolatedOptions;
@@ -228,18 +233,20 @@ public class RequestProcessor {
             interpolatedOptions = requestOptionsInterpolator.interpolated(options, interpolation, runtimeData);
         } catch (Exception e) {
             var message = FailureMessages.causeOf(e, "Request options interpolation");
-            return errored(coordinates, interpolatedRequestDef, options, message, methodStart);
+            return errored(coordinates, interpolatedRequestDef, options, message, methodStart, 0);
         }
 
         Optional<PollBounds> pollBounds;
+        long waitAfterMs;
         try {
-            pollBounds = request.flowControl() == null
-                    ? Optional.empty()
-                    : PollBounds.of(
-                            flowControlInterpolator.interpolated(request.flowControl(), interpolation, runtimeData));
+            var flowControl = request.flowControl() == null
+                    ? null
+                    : flowControlInterpolator.interpolated(request.flowControl(), interpolation, runtimeData);
+            pollBounds = PollBounds.of(flowControl);
+            waitAfterMs = flowControl == null ? 0 : flowControl.waitAfterMs();
         } catch (Exception e) {
             var message = FailureMessages.causeOf(e, "Flow control");
-            return errored(coordinates, interpolatedRequestDef, interpolatedOptions, message, methodStart);
+            return errored(coordinates, interpolatedRequestDef, interpolatedOptions, message, methodStart, 0);
         }
 
         try {
@@ -251,7 +258,13 @@ public class RequestProcessor {
                     responseActionsResult = responseHandler.handleResponse(request.responseActions(), runtimeData);
                 } catch (Exception e) {
                     var message = FailureMessages.causeOf(e, "The response actions");
-                    return errored(coordinates, interpolatedRequestDef, interpolatedOptions, message, methodStart);
+                    return errored(
+                            coordinates,
+                            interpolatedRequestDef,
+                            interpolatedOptions,
+                            message,
+                            methodStart,
+                            waitAfterMs);
                 }
             }
             return new RequestResult(
@@ -260,6 +273,7 @@ public class RequestProcessor {
                     interpolatedOptions,
                     status,
                     elapsedMs(methodStart),
+                    waitAfterMs,
                     responseActionsResult);
         } finally {
             // The response belongs to this request and dies with it, on every path including a
@@ -295,6 +309,7 @@ public class RequestProcessor {
      * @param options the options to report, on the same terms as {@code definition}
      * @param message why it failed
      * @param methodStart when the request started, for {@code elapsedMs}
+     * @param waitAfterMs the resolved pause, or {@code 0} where flow control was not reached
      * @return the errored result
      */
     private static RequestResult errored(
@@ -302,9 +317,16 @@ public class RequestProcessor {
             RequestDefinition definition,
             RequestOptions options,
             String message,
-            long methodStart) {
+            long methodStart,
+            long waitAfterMs) {
         return new RequestResult(
-                coordinates, definition, options, new RequestStatus.Errored(message), elapsedMs(methodStart), null);
+                coordinates,
+                definition,
+                options,
+                new RequestStatus.Errored(message),
+                elapsedMs(methodStart),
+                waitAfterMs,
+                null);
     }
 
     private static long elapsedMs(long start) {

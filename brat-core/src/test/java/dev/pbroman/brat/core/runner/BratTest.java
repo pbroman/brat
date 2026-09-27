@@ -31,6 +31,7 @@ import dev.pbroman.brat.core.data.Request;
 import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.TestSuite;
 import dev.pbroman.brat.core.data.result.HttpResponse;
+import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
@@ -702,6 +703,34 @@ class BratTest {
                         .extracting(dev.pbroman.brat.core.data.result.RequestStatus.Errored::message)
                         .asString()
                         .contains("token", "root/admin"));
+    }
+
+    @Test
+    void run_resolvesAWaitAfterAndPausesForIt() {
+        // given
+        var request = new Request(
+                "r",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new HttpRequestDefinition("${env.baseUrl}/x", "GET", null, null),
+                null,
+                new FlowControl("${env.pause}", null));
+        var environment = Environment.of(Map.of("baseUrl", "http://localhost:8080", "pause", "150"), Map.of());
+
+        // when
+        var result = brat().run(suite(request), environment);
+
+        // then - the resolved pause is on the result, and the run's time includes it. The run is timed on
+        // the wall clock and the pause on the monotonic one, so a few milliseconds between them is allowed
+        assertThat(result.requestResults())
+                .singleElement()
+                .extracting(RequestResult::waitAfterMs)
+                .isEqualTo(150L);
+        assertThat(result.elapsedMs()).isGreaterThanOrEqualTo(140L);
     }
 
     @Test

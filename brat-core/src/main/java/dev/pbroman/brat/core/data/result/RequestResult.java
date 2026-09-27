@@ -23,6 +23,10 @@ import dev.pbroman.brat.core.data.RequestOptions;
  *        {@code waitAfter}, which is the suite's pacing rather than this request's cost. What a test
  *        report shows, and for a polled request it is dominated by the waits between attempts rather
  *        than by any single round trip
+ * @param waitAfterMs the pause the walk takes after this request, in milliseconds — its resolved
+ *        {@code waitAfter}. {@code 0} where none was declared, and {@code 0} whenever the request
+ *        stopped before its flow control was resolved: a skipped request, or one whose definition,
+ *        options or flow control failed. Not part of {@code elapsedMs}
  * @param responseActionsResult what the assertions and captures produced; never {@code null}, and
  *        {@link ResponseActionsResult#NONE} for a request whose response actions never ran
  */
@@ -32,6 +36,7 @@ public record RequestResult(
         RequestOptions requestOptions,
         RequestStatus status,
         long elapsedMs,
+        long waitAfterMs,
         ResponseActionsResult responseActionsResult) {
 
     /**
