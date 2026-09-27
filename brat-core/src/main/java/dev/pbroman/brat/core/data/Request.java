@@ -24,7 +24,7 @@ import dev.pbroman.brat.core.api.data.RequestDefinition;
  *        holding {@code ${...}} tokens; or {@code null} to use the default. Resolved into the
  *        {@link RequestOptions} the handler receives, which is where it is validated
  * @param skipCondition skip this request when it holds, or {@code null} to always run it
- * @param phase when this request runs relative to its siblings; never {@code null}, defaulting to
+ * @param phase when this request runs relative to everything else under its suite; never {@code null}, defaulting to
  *        {@link Phase#MAIN}
  * @param requestHandlers which handler executes this request, keyed by protocol; never {@code null}.
  *        Merges per key with what it inherits, rather than replacing wholesale

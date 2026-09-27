@@ -29,7 +29,7 @@ class BodyFileChecksTest {
     }
 
     private static TestSuite suite(List<Request> requests, List<TestSuite> subSuites) {
-        return new TestSuite("suite", null, null, null, null, null, null, null, null, requests, subSuites);
+        return new TestSuite("suite", null, null, null, null, null, null, null, requests, subSuites);
     }
 
     @Test

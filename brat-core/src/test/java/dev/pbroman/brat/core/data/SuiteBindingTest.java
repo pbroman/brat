@@ -63,7 +63,6 @@ class SuiteBindingTest {
                       waitAfter: "500"
                 subSuites:
                   - name: log in
-                    phase: setup
                 """;
 
         // when
@@ -83,7 +82,7 @@ class SuiteBindingTest {
         });
         assertThat(suite.subSuites())
                 .singleElement()
-                .satisfies(sub -> assertThat(sub.phase()).isEqualTo(Phase.SETUP));
+                .satisfies(sub -> assertThat(sub.name()).isEqualTo("log in"));
     }
 
     @Test
@@ -112,15 +111,6 @@ class SuiteBindingTest {
     }
 
     @Test
-    void bind_defaultsPhaseToMain() {
-        // when
-        var suite = mapper.readValue("name: smoke\n", TestSuite.class);
-
-        // then
-        assertThat(suite.phase()).isEqualTo(Phase.MAIN);
-    }
-
-    @Test
     void bind_defaultsEveryCollectionToEmpty() {
         // when
         var suite = mapper.readValue("name: smoke\n", TestSuite.class);
@@ -134,19 +124,33 @@ class SuiteBindingTest {
     }
 
     @Test
-    void bind_acceptsPhaseInAnyCase() {
+    void bind_acceptsARequestPhaseInAnyCase() {
         // given — the docs write `phase: setup`, the severity docs write `severity: WARN`
-        var lower = mapper.readValue("name: s\nphase: teardown\n", TestSuite.class);
-        var upper = mapper.readValue("name: s\nphase: TEARDOWN\n", TestSuite.class);
+        var lower = mapper.readValue("name: s\nrequests:\n  - name: r\n    phase: teardown\n", TestSuite.class);
+        var upper = mapper.readValue("name: s\nrequests:\n  - name: r\n    phase: TEARDOWN\n", TestSuite.class);
 
         // then
-        assertThat(lower.phase()).isEqualTo(Phase.TEARDOWN);
-        assertThat(upper.phase()).isEqualTo(Phase.TEARDOWN);
+        assertThat(lower.requests().getFirst().phase()).isEqualTo(Phase.TEARDOWN);
+        assertThat(upper.requests().getFirst().phase()).isEqualTo(Phase.TEARDOWN);
     }
 
     @Test
-    void bind_bindsFieldsNothingReadsYet() {
-        // given — auth, requestHandlers and skipCondition are read by nothing yet; all must still bind
+    void bind_rejectsAPhaseOnASuite() {
+        // given - only requests take a phase; a suite runs where it is declared
+        var yaml = """
+                name: s
+                subSuites:
+                  - name: log in
+                    phase: setup
+                """;
+
+        // then
+        assertThatThrownBy(() -> mapper.readValue(yaml, TestSuite.class)).hasMessageContaining("phase");
+    }
+
+    @Test
+    void bind_bindsASuitesSkipConditionAndHandlerNames() {
+        // given
         var yaml = """
                 name: order api
                 skipCondition:
@@ -195,7 +199,7 @@ class SuiteBindingTest {
     void constructor_copiesTheCollectionsItWasGiven() {
         // given
         var requests = new java.util.ArrayList<Request>();
-        var suite = new TestSuite("s", null, null, null, null, null, null, null, null, requests, null);
+        var suite = new TestSuite("s", null, null, null, null, null, null, null, requests, null);
 
         // when
         requests.add(new Request("r", null, null, null, null, null, null, null, null, null));
@@ -207,7 +211,7 @@ class SuiteBindingTest {
     @Test
     void constructor_handsOutUnmodifiableCollections() {
         // given
-        var suite = new TestSuite("s", null, null, null, null, null, null, null, null, List.of(), null);
+        var suite = new TestSuite("s", null, null, null, null, null, null, null, List.of(), null);
 
         // then
         assertThatThrownBy(() -> suite.constants().put("k", "v")).isInstanceOf(UnsupportedOperationException.class);

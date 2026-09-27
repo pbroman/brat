@@ -1,5 +1,6 @@
 package dev.pbroman.brat.core.runner;
 
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -11,10 +12,10 @@ import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.TestSuite;
 import dev.pbroman.brat.core.data.result.RequestCoordinates;
 import dev.pbroman.brat.core.data.result.RequestResult;
+import dev.pbroman.brat.core.data.result.SuiteError;
 import dev.pbroman.brat.core.data.result.SuiteStatus;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import lombok.extern.slf4j.Slf4j;
 
 import static dev.pbroman.brat.core.data.Phase.MAIN;
 import static dev.pbroman.brat.core.data.Phase.SETUP;
@@ -29,17 +30,19 @@ import static dev.pbroman.brat.core.util.Constants.PATH_DELIMITER;
  * {@link RequestProcessor} owns everything that happens to one request, and learns nothing about the
  * tree.
  * <p>
- * <strong>Results are handed on as they are produced</strong>, one per request that ran, to the
- * consumer given at construction. The walk keeps no list of its own and never reads back a result it
- * handed on: whatever it reports about a suite comes from what it observed while walking that suite.
+ * <strong>Results and errors are handed on as they are produced</strong> — one result per request that
+ * ran, one error per suite that was aborted — to the consumers given at construction. The walk keeps
+ * no list of its own and never reads back anything it handed on: whatever it reports about a suite
+ * comes from what it observed while walking that suite.
  */
-@Slf4j
 final class TestSuiteRunner {
 
     private final RequestProcessor processor;
     private final ProtocolRegistry protocolRegistry;
+    private final SuiteEntryEvaluator entryEvaluator;
     private final Consumer<RunEvent> eventConsumer;
     private final Consumer<RequestResult> resultConsumer;
+    private final Consumer<SuiteError> errorConsumer;
     private final RunControl runControl;
 
     /**
@@ -47,39 +50,59 @@ final class TestSuiteRunner {
      *
      * @param processor runs one request and returns its result
      * @param protocolRegistry selects the handler that performs a request
+     * @param entryEvaluator evaluates each suite's {@code setVars} and {@code skipCondition} on entry
      * @param eventConsumer receives every suite and request event, in the order they happen
      * @param resultConsumer receives one result per request that ran, in execution order
+     * @param errorConsumer receives one error per suite that was aborted, in the order they are left
      * @param runControl the cancellation channel, checked before every node
      */
     TestSuiteRunner(
             RequestProcessor processor,
             ProtocolRegistry protocolRegistry,
+            SuiteEntryEvaluator entryEvaluator,
             Consumer<RunEvent> eventConsumer,
             Consumer<RequestResult> resultConsumer,
+            Consumer<SuiteError> errorConsumer,
             RunControl runControl) {
         this.processor = processor;
         this.protocolRegistry = protocolRegistry;
+        this.entryEvaluator = entryEvaluator;
         this.eventConsumer = eventConsumer;
         this.resultConsumer = resultConsumer;
+        this.errorConsumer = errorConsumer;
         this.runControl = runControl;
     }
 
     /**
      * Walks {@code suite} and everything beneath it.
      * <p>
-     * <strong>At every suite</strong>, {@code SuiteEntered} is emitted first, then its children run in
-     * five steps, then {@code SuiteExited}:
+     * <strong>At every suite</strong>, {@code SuiteEntered} is emitted first and {@code runtimeData}'s
+     * current path set to the suite's path. Then its entry is evaluated — its {@code setVars}, then its
+     * {@code skipCondition} (see {@link SuiteEntryEvaluator#enter}) — and, unless that skips or aborts
+     * it, what it contains runs in four steps, then {@code SuiteExited}:
      * <ol>
-     *   <li>its {@code phase: setup} requests, in declaration order;</li>
-     *   <li>its {@code phase: setup} subSuites, in declaration order, each walked the same way;</li>
-     *   <li>its {@code MAIN} requests, in declaration order;</li>
-     *   <li>its {@code MAIN} subSuites, in declaration order, each walked the same way;</li>
-     *   <li>its {@code phase: teardown} subSuites, then its {@code phase: teardown} requests — each list
-     *       in declaration order.</li>
+     *   <li>its {@code phase: setup} requests;</li>
+     *   <li>its other requests;</li>
+     *   <li>its subSuites, each walked the same way;</li>
+     *   <li>its {@code phase: teardown} requests.</li>
      * </ol>
-     * A child's {@code phase} places it within its parent's steps. The root suite has no parent, so its
-     * own {@code phase} places it nowhere: a root declaring anything but {@code MAIN} is walked exactly
-     * like one declaring {@code MAIN}, and a WARN says the marker has no effect.
+     * Each step keeps declaration order. Only requests carry a phase; a subSuite runs in step 3.
+     * <p>
+     * <strong>A suite that does not run.</strong> If its entry says <em>skip</em>, it exits
+     * {@code Skipped} with nothing beneath it walked. If its entry says <em>abort</em>, it exits
+     * {@code Aborted} with nothing beneath it walked and <strong>no teardown</strong> — nothing under it
+     * acted, so there is nothing to undo.
+     * <p>
+     * <strong>A failed setup request aborts the suite declaring it.</strong> A setup request fails when
+     * its result {@link RequestResult#failed() failed}. The suite's remaining setup requests, its other
+     * requests and its subSuites are then not run, its <strong>teardown requests still run</strong> — an
+     * earlier setup request may have acted — and it exits {@code Aborted}, the reason naming the setup
+     * request that failed. A failure anywhere else is the request's own and aborts nothing, and an
+     * aborted suite never aborts its parent.
+     * <p>
+     * <strong>Every abort is reported twice, from one value</strong>: a {@link SuiteError} with the
+     * suite's path and the abort reason is handed to the error consumer, and then
+     * {@code SuiteExited(Aborted)} is emitted with the same reason.
      * <p>
      * <strong>At every request</strong>: its handler is resolved, then {@code RequestStarted} is
      * emitted, the request is processed with its {@link RequestOptions}, the result is handed to the
@@ -104,30 +127,27 @@ final class TestSuiteRunner {
      * <strong>Events.</strong> Every suite that is entered emits {@code SuiteEntered} and later
      * {@code SuiteExited} with the same path, and every event for a node beneath it falls between the
      * two. {@code SuiteExited} carries the milliseconds from entering the suite to leaving it and a
-     * status: {@code Completed} when every child ran, {@code Cancelled} when the walk stopped inside
-     * it.
+     * status: {@code Completed} when every step ran — whatever the requests in them did —
+     * {@code Skipped} or {@code Aborted} as above, and {@code Cancelled} when the walk stopped inside it
+     * for a cancellation. A suite that is skipped, aborted or cancelled leaves its siblings unaffected;
+     * only a cancellation stops them too, by stopping the walk.
      * <p>
      * <strong>Cancellation</strong> is checked before entering each suite and before running each
      * request — teardown steps included. A request already running finishes. Once a check finds the
      * run cancelled, nothing further starts, and every suite still open emits
      * {@code SuiteExited(Cancelled)}, innermost first. A suite whose last child finished before the
-     * cancellation was observed exits {@code Completed}. A walk started on a cancelled run emits
-     * nothing at all.
+     * cancellation was observed exits {@code Completed}, and one already aborted stays {@code Aborted}
+     * when a cancellation cuts its teardown short. A walk started on a cancelled run emits nothing at
+     * all.
      *
-     * @param suite the root of the tree to walk; never {@code null}
-     * @param runtimeData the run's namespaces, passed to every request; never {@code null}
+     * @param suite the root of the tree to walk; must not be {@code null}
+     * @param runtimeData the run's namespaces, passed to every request; must not be {@code null}
      * @throws BratException if a request's handler cannot be resolved. This is structural and ends the
      *         walk where it stands: the request is not announced, and the suites still open emit no
      *         {@code SuiteExited} — the run's own terminal event is what closes them
      */
     void walk(TestSuite suite, RuntimeData runtimeData) {
-        if (suite.phase() != MAIN) {
-            log.warn(
-                    "The root suite '{}' declares phase {}, which has no effect on a root: it is walked as MAIN",
-                    suite.name(),
-                    suite.phase());
-        }
-        walkInternal(suite, runtimeData, suite.name(), InheritedDefaults.NONE, new AtomicInteger());
+        walkSuite(suite, runtimeData, suite.name(), InheritedDefaults.NONE, new AtomicInteger());
     }
 
     /**
@@ -138,11 +158,11 @@ final class TestSuiteRunner {
      * @param path the suite's own path
      * @param inherited what the enclosing suites declared, not yet including this one
      * @param requestNo the walk's request counter, shared by every node of this walk
-     * @return {@code true} if the walk reached the end of this suite; {@code false} if a cancellation
-     *         check stopped it here or beneath it — including the check before entering it, in which
-     *         case nothing was emitted. {@code false} means cancellation and nothing else
+     * @return {@code false} if a cancellation stopped the walk here or beneath it — including the check
+     *         before entering it, in which case nothing was emitted — and {@code true} otherwise, however
+     *         the suite itself ended
      */
-    private boolean walkInternal(
+    private boolean walkSuite(
             TestSuite suite,
             RuntimeData runtimeData,
             String path,
@@ -151,63 +171,96 @@ final class TestSuiteRunner {
         if (runControl.isCancelled()) {
             return false;
         }
-
         var startTime = System.currentTimeMillis();
         eventConsumer.accept(new RunEvent.SuiteEntered(path, suite.name()));
-        var defaults = inherited.with(suite);
+        runtimeData.setCurrentPath(path);
 
-        var suiteCompleted = performRequests(suite, runtimeData, SETUP, path, defaults, requestNo)
-                && executeSubSuites(suite, runtimeData, SETUP, path, defaults, requestNo)
-                && performRequests(suite, runtimeData, MAIN, path, defaults, requestNo)
-                && executeSubSuites(suite, runtimeData, MAIN, path, defaults, requestNo)
-                && executeSubSuites(suite, runtimeData, TEARDOWN, path, defaults, requestNo)
-                && performRequests(suite, runtimeData, TEARDOWN, path, defaults, requestNo);
+        var entry = entryEvaluator.enter(suite, runtimeData);
+        if (entry.isPresent()) {
+            exitSuite(path, startTime, entry.get());
+            return true;
+        }
 
-        exitSuite(startTime, path, suiteCompleted);
-        return suiteCompleted;
+        var status = runSteps(suite, runtimeData, path, inherited.with(suite), requestNo);
+        exitSuite(path, startTime, status);
+        return !(status instanceof SuiteStatus.Cancelled);
     }
 
     /**
-     * Emits the suite's {@code SuiteExited}.
+     * Runs a suite's four steps in order, stopping at the first that does not complete.
      *
-     * @param startTime when the suite was entered, in milliseconds
+     * @param suite the suite being walked
+     * @param runtimeData the run's namespaces
      * @param path the suite's path
-     * @param suiteCompleted whether the walk reached the end of the suite; {@code false} exits it
-     *        {@code Cancelled}
+     * @param defaults what the suite and its ancestors declared
+     * @param requestNo the walk's request counter
+     * @return how the suite ended: {@code Completed} if every step ran, {@code Aborted} if a setup
+     *         request failed (its teardown having run), {@code Cancelled} if a cancellation stopped it
      */
-    private void exitSuite(long startTime, String path, boolean suiteCompleted) {
-        var status = suiteCompleted ? new SuiteStatus.Completed() : new SuiteStatus.Cancelled();
+    private SuiteStatus runSteps(
+            TestSuite suite,
+            RuntimeData runtimeData,
+            String path,
+            InheritedDefaults defaults,
+            AtomicInteger requestNo) {
+        var stopped = runRequests(suite, runtimeData, SETUP, path, defaults, requestNo);
+        if (stopped.isPresent()) {
+            if (stopped.get() instanceof SuiteStatus.Aborted) {
+                // An earlier setup request may have acted, so the teardown still unwinds it. A
+                // cancellation cutting it short does not change why the suite ended.
+                runRequests(suite, runtimeData, TEARDOWN, path, defaults, requestNo);
+            }
+            return stopped.get();
+        }
+        stopped = runRequests(suite, runtimeData, MAIN, path, defaults, requestNo);
+        if (stopped.isPresent()) {
+            return stopped.get();
+        }
+        stopped = walkSubSuites(suite, runtimeData, path, defaults, requestNo);
+        if (stopped.isPresent()) {
+            return stopped.get();
+        }
+        return runRequests(suite, runtimeData, TEARDOWN, path, defaults, requestNo)
+                .orElse(new SuiteStatus.Completed());
+    }
+
+    /**
+     * Reports how a suite ended: an abort first as a {@link SuiteError}, then the {@code SuiteExited}.
+     *
+     * @param path the suite's path
+     * @param startTime when the suite was entered, in milliseconds
+     * @param status how it ended
+     */
+    private void exitSuite(String path, long startTime, SuiteStatus status) {
+        if (status instanceof SuiteStatus.Aborted aborted) {
+            errorConsumer.accept(new SuiteError(path, aborted.reason()));
+        }
         eventConsumer.accept(new RunEvent.SuiteExited(path, status, System.currentTimeMillis() - startTime));
     }
 
     /**
-     * Walks the subSuites of {@code suite} that declare {@code phase}, in declaration order.
+     * Walks the subSuites of {@code suite}, in declaration order.
      *
      * @param suite the parent suite
      * @param runtimeData the run's namespaces
-     * @param phase the step being run
      * @param path the parent's path
      * @param defaults what the parent and its ancestors declared
      * @param requestNo the walk's request counter
-     * @return {@code true} if every one of them was walked to its end; {@code false} as soon as one
-     *         reports that a cancellation check stopped it, leaving the rest unentered
+     * @return {@link SuiteStatus.Cancelled} as soon as a cancellation stops the walk, leaving the rest
+     *         unentered; empty otherwise, whatever the subSuites themselves ended as
      */
-    private boolean executeSubSuites(
+    private Optional<SuiteStatus> walkSubSuites(
             TestSuite suite,
             RuntimeData runtimeData,
-            Phase phase,
             String path,
             InheritedDefaults defaults,
             AtomicInteger requestNo) {
         for (TestSuite subSuite : suite.subSuites()) {
-            if (subSuite.phase() != phase) {
-                continue;
-            }
-            if (!walkInternal(subSuite, runtimeData, childPath(path, subSuite.name()), defaults, requestNo)) {
-                return false;
+            if (!walkSuite(subSuite, runtimeData, childPath(path, subSuite.name()), defaults, requestNo)) {
+                return Optional.of(new SuiteStatus.Cancelled());
             }
         }
-        return true;
+        return Optional.empty();
     }
 
     private static String childPath(String parentPath, String name) {
@@ -223,10 +276,11 @@ final class TestSuiteRunner {
      * @param path the suite's path
      * @param defaults what the suite and its ancestors declared
      * @param requestNo the walk's request counter, advanced once per request started
-     * @return {@code true} if every one of them ran; {@code false} if the cancellation check before one
-     *         of them stopped the walk, leaving it and the rest unstarted
+     * @return empty if every one of them ran; {@link SuiteStatus.Cancelled} if the cancellation check
+     *         before one stopped the walk; {@link SuiteStatus.Aborted} if {@code phase} is
+     *         {@code SETUP} and one of them failed. Either way the rest are left unstarted
      */
-    private boolean performRequests(
+    private Optional<SuiteStatus> runRequests(
             TestSuite suite,
             RuntimeData runtimeData,
             Phase phase,
@@ -238,7 +292,7 @@ final class TestSuiteRunner {
                 continue;
             }
             if (runControl.isCancelled()) {
-                return false;
+                return Optional.of(new SuiteStatus.Cancelled());
             }
             var coordinates = new RequestCoordinates(
                     childPath(path, request.name()), request.id(), request.name(), requestNo.incrementAndGet());
@@ -247,11 +301,13 @@ final class TestSuiteRunner {
             // a node that never ends.
             var handler = protocolRegistry.resolve(request.requestDefinition(), defaults.handlerNames(request));
             eventConsumer.accept(new RunEvent.RequestStarted(coordinates));
-
             var result = processor.process(request, defaults.options(request), coordinates, runtimeData, handler);
             resultConsumer.accept(result);
             eventConsumer.accept(new RunEvent.RequestFinished(result));
+            if (phase == SETUP && result.failed()) {
+                return Optional.of(new SuiteStatus.Aborted("The setup request '" + request.name() + "' failed"));
+            }
         }
-        return true;
+        return Optional.empty();
     }
 }

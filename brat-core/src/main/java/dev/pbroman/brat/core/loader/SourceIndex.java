@@ -27,7 +27,7 @@ final class SourceIndex {
     /**
      * Constructs an index over the positions gathered during conversion.
      *
-     * @param positions position by JSON Pointer; copied, and never {@code null}
+     * @param positions position by JSON Pointer; must not be {@code null}; copied
      */
     public SourceIndex(Map<String, SourcePosition> positions) {
         this.positions = positions == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(positions));

@@ -28,15 +28,12 @@ public class RuntimeData {
     @Setter
     private String currentPath;
 
-    @Setter
-    private int currentRequestNo;
-
     /**
-     * Keyed by variable name; see {@link #captureFailed(String, String)}. No generated accessor: the
+     * Keyed by variable name; see {@link #setVarFailed(String, String)}. No generated accessor: the
      * map is reached through {@link #getTombstone(String)}, so nothing outside can add one.
      */
     @Getter(AccessLevel.NONE)
-    private final Map<String, CaptureTombstone> tombstones = new HashMap<>();
+    private final Map<String, VarTombstone> tombstones = new HashMap<>();
 
     /**
      * Where the suite being run was loaded from, prefix and all, or {@code null} when it came from no
@@ -204,56 +201,57 @@ public class RuntimeData {
     }
 
     /**
-     * Records a successful {@code setVars} capture, clearing any tombstone the key carried.
+     * Records a successful {@code setVars} entry — captured from a response or computed at suite
+     * entry — clearing any tombstone the key carried.
      * <p>
      * The pairing is the reason this exists rather than callers writing to {@link #getVars()}
-     * directly: a capture that finally succeeds — on a retry, or on a later request setting the same
+     * directly: an entry that finally succeeds — on a retry, or on a later node setting the same
      * key — must leave an ordinary variable behind rather than a poisoned one, and a caller that
      * remembers the {@code put} and forgets the clear leaves a variable that reads as failed.
      *
      * @param name the variable to set
-     * @param value the captured value
+     * @param value the value to set
      * @throws dev.pbroman.brat.core.exception.BratException if {@code name} is {@code null}
      */
-    public void captureVar(String name, Object value) {
+    public void setVar(String name, Object value) {
         Require.nonNull(name, "The var name must not be null");
         getData(VARS).put(name, value);
         tombstones.remove(name);
     }
 
     /**
-     * Records that a {@code setVars} capture failed, leaving a {@link CaptureTombstone} on the key.
+     * Records that a {@code setVars} entry failed, leaving a {@link VarTombstone} on the key.
      * <p>
      * <strong>Any existing value for {@code name} is removed.</strong> A stale value from an earlier
      * request would otherwise be found first and the tombstone never reached, which is the
      * misattribution this whole mechanism exists to prevent — the reader would get a plausible value
      * belonging to a different request rather than a message naming the failure.
      * <p>
-     * The tombstone records {@link #getCurrentPath()} as it stands now — the request whose capture
-     * failed, frozen here because whoever reads it later is standing at a different request.
+     * The tombstone records {@link #getCurrentPath()} as it stands now — the request or suite whose
+     * entry failed, frozen here because whoever reads it later is standing somewhere else.
      * <strong>It is only meaningful if the path is being kept current</strong>, which is the job of
-     * whatever drives requests; a run that never sets it leaves tombstones with no location, which
+     * whatever drives requests and suites; a run that never sets it leaves tombstones with no location, which
      * the message reporting one renders as {@code unknown}.
      *
-     * @param name the variable the capture would have set
-     * @param message why the capture failed
+     * @param name the variable the entry would have set
+     * @param message why the entry failed
      * @throws dev.pbroman.brat.core.exception.BratException if {@code name} is {@code null}
      */
-    public void captureFailed(String name, String message) {
+    public void setVarFailed(String name, String message) {
         Require.nonNull(name, "The var name must not be null");
         getData(VARS).remove(name);
-        tombstones.put(name, new CaptureTombstone(message, currentPath));
+        tombstones.put(name, new VarTombstone(message, currentPath));
     }
 
     /**
-     * Returns the tombstone left by a failed capture of {@code name}, if there is one.
+     * Returns the tombstone left by a failed {@code setVars} entry for {@code name}, if there is one.
      *
      * @param name the variable to ask about, or {@code null}
      * @return the tombstone, or {@code null} if {@code name} was never captured, was captured
      *         successfully, or is {@code null}. Never throws — a caller asking about an arbitrary key
      *         needs no guard
      */
-    public CaptureTombstone getTombstone(String name) {
+    public VarTombstone getTombstone(String name) {
         return tombstones.get(name);
     }
 }

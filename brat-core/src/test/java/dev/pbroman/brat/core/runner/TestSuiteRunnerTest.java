@@ -3,6 +3,7 @@ package dev.pbroman.brat.core.runner;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Predicate;
 
 import dev.pbroman.brat.core.api.data.RequestDefinition;
@@ -17,6 +18,7 @@ import dev.pbroman.brat.core.data.TestSuite;
 import dev.pbroman.brat.core.data.result.RequestCoordinates;
 import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.data.result.RequestStatus;
+import dev.pbroman.brat.core.data.result.SuiteError;
 import dev.pbroman.brat.core.data.result.SuiteStatus;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
@@ -39,11 +41,21 @@ class TestSuiteRunnerTest {
     private final RuntimeData runtimeData = new RuntimeData(Map.of(), Map.of());
     private final List<RunEvent> events = new ArrayList<>();
     private final List<RequestResult> results = new ArrayList<>();
+    private final List<SuiteError> errors = new ArrayList<>();
+    /** Events and errors together, in the order the walk handed them on. */
+    private final List<Object> journal = new ArrayList<>();
+
     private final FlagRunControl runControl = new FlagRunControl();
+    /** What the entry evaluator answers, by suite name; a suite not in it is walked into. */
+    private final Map<String, SuiteStatus> entryVerdicts = new java.util.HashMap<>();
 
     private RequestProcessor processor;
     private ProtocolRegistry protocolRegistry;
+    private SuiteEntryEvaluator entryEvaluator;
     private RequestHandler<RequestDefinition, Object> handler;
+
+    /** The names of the requests whose result fails. */
+    private Predicate<String> failing = name -> false;
 
     /** Cancels the run when an event matching it is emitted, the way a listener would. */
     private Predicate<RunEvent> cancelOn = event -> false;
@@ -55,26 +67,35 @@ class TestSuiteRunnerTest {
     void setUp() {
         processor = mock(RequestProcessor.class);
         protocolRegistry = mock(ProtocolRegistry.class);
+        entryEvaluator = mock(SuiteEntryEvaluator.class);
         handler = mock(RequestHandler.class);
         when(protocolRegistry.resolve(any(), any())).thenReturn(handler);
-        when(processor.process(any(), any(), any(), any(), any()))
-                .thenAnswer(call -> new RequestResult(
-                        call.getArgument(2),
-                        ((Request) call.getArgument(0)).requestDefinition(),
-                        call.getArgument(1),
-                        new RequestStatus.Completed(Map.of(), 1, 1),
-                        1,
-                        null));
+        when(entryEvaluator.enter(any(), any()))
+                .thenAnswer(call -> Optional.ofNullable(entryVerdicts.get(((TestSuite) call.getArgument(0)).name())));
+        when(processor.process(any(), any(), any(), any(), any())).thenAnswer(call -> {
+            var request = (Request) call.getArgument(0);
+            RequestStatus status = failing.test(request.name())
+                    ? new RequestStatus.Errored("boom")
+                    : new RequestStatus.Completed(Map.of(), 1, 1);
+            return new RequestResult(
+                    call.getArgument(2), request.requestDefinition(), call.getArgument(1), status, 1, null);
+        });
         underTest = new TestSuiteRunner(
                 processor,
                 protocolRegistry,
+                entryEvaluator,
                 event -> {
                     events.add(event);
+                    journal.add(event);
                     if (cancelOn.test(event)) {
                         runControl.cancel();
                     }
                 },
                 results::add,
+                error -> {
+                    errors.add(error);
+                    journal.add(error);
+                },
                 runControl);
     }
 
@@ -83,7 +104,7 @@ class TestSuiteRunnerTest {
     @Test
     void walk_bracketsASuiteWithItsEnteredAndExitedEvents() {
         // given
-        var suite = suite("s", Phase.MAIN, List.of(request("r", Phase.MAIN)), List.of());
+        var suite = suite("s", List.of(request("r", Phase.MAIN)), List.of());
 
         // when
         underTest.walk(suite, runtimeData);
@@ -93,33 +114,22 @@ class TestSuiteRunnerTest {
     }
 
     @Test
-    void walk_runsTheFiveStepsInOrderWhateverTheDeclarationOrder() {
-        // given - every category declared in the opposite order to the one it runs in
+    void walk_runsTheFourStepsInOrderWhateverTheDeclarationOrder() {
+        // given - every request category declared in the opposite order to the one it runs in
         var suite = suite(
                 "s",
-                Phase.MAIN,
                 List.of(
                         request("teardownRequest", Phase.TEARDOWN),
                         request("mainRequest", Phase.MAIN),
                         request("setupRequest", Phase.SETUP)),
-                List.of(
-                        suite("teardownSuite", Phase.TEARDOWN, List.of(), List.of()),
-                        suite("mainSuite", Phase.MAIN, List.of(), List.of()),
-                        suite("setupSuite", Phase.SETUP, List.of(), List.of())));
+                List.of(suite("first", List.of(), List.of()), suite("second", List.of(), List.of())));
 
         // when
         underTest.walk(suite, runtimeData);
 
         // then
         assertThat(nodeOrder())
-                .containsExactly(
-                        "s",
-                        "s/setupRequest",
-                        "s/setupSuite",
-                        "s/mainRequest",
-                        "s/mainSuite",
-                        "s/teardownSuite",
-                        "s/teardownRequest");
+                .containsExactly("s", "s/setupRequest", "s/mainRequest", "s/first", "s/second", "s/teardownRequest");
     }
 
     @Test
@@ -127,39 +137,35 @@ class TestSuiteRunnerTest {
         // given - a teardown list is the author's stated order, and is not reversed
         var suite = suite(
                 "s",
-                Phase.MAIN,
                 List.of(
                         request("m1", Phase.MAIN),
                         request("t1", Phase.TEARDOWN),
                         request("m2", Phase.MAIN),
                         request("t2", Phase.TEARDOWN)),
-                List.of(
-                        suite("tearA", Phase.TEARDOWN, List.of(), List.of()),
-                        suite("tearB", Phase.TEARDOWN, List.of(), List.of())));
+                List.of(suite("a", List.of(), List.of()), suite("b", List.of(), List.of())));
 
         // when
         underTest.walk(suite, runtimeData);
 
         // then
-        assertThat(nodeOrder()).containsExactly("s", "s/m1", "s/m2", "s/tearA", "s/tearB", "s/t1", "s/t2");
+        assertThat(nodeOrder()).containsExactly("s", "s/m1", "s/m2", "s/a", "s/b", "s/t1", "s/t2");
     }
 
     @Test
     void walk_appliesTheSameStepsInsideASubSuite() {
-        // given - a setup block with its own setup and teardown; no nesting special case
-        var block = suite(
+        // given - a subSuite with its own setup and teardown requests; no nesting special case
+        var inner = suite(
                 "login",
-                Phase.SETUP,
                 List.of(request("logout", Phase.TEARDOWN), request("token", Phase.MAIN), request("csrf", Phase.SETUP)),
                 List.of());
-        var suite = suite("s", Phase.MAIN, List.of(request("ping", Phase.MAIN)), List.of(block));
+        var suite = suite("s", List.of(request("ping", Phase.MAIN)), List.of(inner));
 
         // when
         underTest.walk(suite, runtimeData);
 
         // then
         assertThat(nodeOrder())
-                .containsExactly("s", "s/login", "s/login/csrf", "s/login/token", "s/login/logout", "s/ping");
+                .containsExactly("s", "s/ping", "s/login", "s/login/csrf", "s/login/token", "s/login/logout");
     }
 
     @Test
@@ -167,11 +173,8 @@ class TestSuiteRunnerTest {
         // given
         var suite = suite(
                 "s",
-                Phase.MAIN,
                 List.of(),
-                List.of(
-                        suite("a", Phase.MAIN, List.of(request("r", Phase.MAIN)), List.of()),
-                        suite("b", Phase.MAIN, List.of(), List.of())));
+                List.of(suite("a", List.of(request("r", Phase.MAIN)), List.of()), suite("b", List.of(), List.of())));
 
         // when
         underTest.walk(suite, runtimeData);
@@ -190,26 +193,9 @@ class TestSuiteRunnerTest {
     }
 
     @Test
-    void walk_walksARootDeclaringAPhaseExactlyLikeAMainRoot() {
-        // given - the root is nobody's child, so its marker places it nowhere
-        for (var phase : List.of(Phase.SETUP, Phase.TEARDOWN)) {
-            events.clear();
-            var suite = suite("s", phase, List.of(request("r", Phase.MAIN)), List.of());
-
-            // when
-            underTest.walk(suite, runtimeData);
-
-            // then
-            assertThat(trace())
-                    .as("root phase %s", phase)
-                    .containsExactly("enter s", "start s/r", "finish s/r", "exit s Completed");
-        }
-    }
-
-    @Test
     void walk_entersAndExitsASuiteWithNothingInIt() {
         // when
-        underTest.walk(suite("s", Phase.MAIN, List.of(), List.of()), runtimeData);
+        underTest.walk(suite("s", List.of(), List.of()), runtimeData);
 
         // then
         assertThat(trace()).containsExactly("enter s", "exit s Completed");
@@ -220,11 +206,7 @@ class TestSuiteRunnerTest {
     @Test
     void walk_addressesEveryNodeByTheNamesFromTheRootDown() {
         // given
-        var suite = suite(
-                "root",
-                Phase.MAIN,
-                List.of(),
-                List.of(suite("child", Phase.MAIN, List.of(request("req", Phase.MAIN)), List.of())));
+        var suite = suite("root", List.of(), List.of(suite("child", List.of(request("req", Phase.MAIN)), List.of())));
 
         // when
         underTest.walk(suite, runtimeData);
@@ -249,24 +231,23 @@ class TestSuiteRunnerTest {
         // given
         var suite = suite(
                 "s",
-                Phase.MAIN,
-                List.of(request("a", Phase.SETUP), request("c", Phase.MAIN)),
-                List.of(suite("sub", Phase.SETUP, List.of(request("b", Phase.MAIN)), List.of())));
+                List.of(request("a", Phase.MAIN), request("c", Phase.MAIN), request("z", Phase.SETUP)),
+                List.of(suite("sub", List.of(request("b", Phase.MAIN)), List.of())));
 
         // when
         underTest.walk(suite, runtimeData);
 
-        // then - the setup subSuite's request runs between a and c
+        // then - numbered in the order they ran, not the order they were declared
+        assertThat(results).extracting(result -> result.coordinates().name()).containsExactly("z", "a", "c", "b");
         assertThat(results)
                 .extracting(result -> result.coordinates().requestNo())
-                .containsExactly(1, 2, 3);
-        assertThat(results).extracting(result -> result.coordinates().name()).containsExactly("a", "b", "c");
+                .containsExactly(1, 2, 3, 4);
     }
 
     @Test
     void walk_numbersFromOneAgainOnEveryWalk() {
         // given
-        var suite = suite("s", Phase.MAIN, List.of(request("a", Phase.MAIN), request("b", Phase.MAIN)), List.of());
+        var suite = suite("s", List.of(request("a", Phase.MAIN), request("b", Phase.MAIN)), List.of());
         underTest.walk(suite, runtimeData);
         results.clear();
 
@@ -284,7 +265,7 @@ class TestSuiteRunnerTest {
     @Test
     void walk_handsEveryResultOnInExecutionOrder() {
         // given
-        var suite = suite("s", Phase.MAIN, List.of(request("a", Phase.MAIN), request("b", Phase.MAIN)), List.of());
+        var suite = suite("s", List.of(request("a", Phase.MAIN), request("b", Phase.MAIN)), List.of());
 
         // when
         underTest.walk(suite, runtimeData);
@@ -301,7 +282,7 @@ class TestSuiteRunnerTest {
     void walk_processesARequestWithOptionsBuiltFromItsOwnTimeout() {
         // given
         var request = new Request("r", null, null, "750", null, null, null, definition(), null, null);
-        var suite = suite("s", Phase.MAIN, List.of(request), List.of());
+        var suite = suite("s", List.of(request), List.of());
         var options = ArgumentCaptor.forClass(RequestOptions.class);
 
         // when
@@ -319,7 +300,6 @@ class TestSuiteRunnerTest {
         var request = new Request("r", null, null, null, null, null, Map.of("http", "mtls"), definition(), null, null);
         var suite = new TestSuite(
                 "s",
-                null,
                 null,
                 null,
                 null,
@@ -351,7 +331,6 @@ class TestSuiteRunnerTest {
                 "2000",
                 null,
                 null,
-                null,
                 List.of(request("inherits", Phase.MAIN), timedRequest("own", "3000")),
                 null);
         var root = new TestSuite(
@@ -361,7 +340,6 @@ class TestSuiteRunnerTest {
                 null,
                 null,
                 "1000",
-                null,
                 null,
                 null,
                 List.of(request("top", Phase.MAIN)),
@@ -378,10 +356,10 @@ class TestSuiteRunnerTest {
     @Test
     void walk_passesASuitesHandlerNamesToRequestsAtAnyDepth() {
         // given
-        var grandchild = suite("grandchild", Phase.MAIN, List.of(request("r", Phase.MAIN)), List.of());
-        var child = suite("child", Phase.MAIN, List.of(), List.of(grandchild));
+        var grandchild = suite("grandchild", List.of(request("r", Phase.MAIN)), List.of());
+        var child = suite("child", List.of(), List.of(grandchild));
         var root = new TestSuite(
-                "root", null, null, null, null, null, null, null, Map.of("http", "plain"), null, List.of(child));
+                "root", null, null, null, null, null, null, Map.of("http", "plain"), null, List.of(child));
 
         // when
         underTest.walk(root, runtimeData);
@@ -401,13 +379,11 @@ class TestSuiteRunnerTest {
                 null,
                 null,
                 null,
-                null,
                 Map.of("http", "mtls"),
                 List.of(request("r", Phase.MAIN)),
                 null);
         var root = new TestSuite(
                 "root",
-                null,
                 null,
                 null,
                 null,
@@ -436,11 +412,10 @@ class TestSuiteRunnerTest {
                 null,
                 "111",
                 null,
-                null,
                 Map.of("http", "mtls"),
                 List.of(request("inside", Phase.MAIN)),
                 null);
-        var sibling = suite("sibling", Phase.MAIN, List.of(request("next", Phase.MAIN)), List.of());
+        var sibling = suite("sibling", List.of(request("next", Phase.MAIN)), List.of());
         var root = new TestSuite(
                 "root",
                 null,
@@ -448,7 +423,6 @@ class TestSuiteRunnerTest {
                 null,
                 null,
                 "1000",
-                null,
                 null,
                 null,
                 List.of(request("cleanUp", Phase.TEARDOWN)),
@@ -463,6 +437,212 @@ class TestSuiteRunnerTest {
                 .containsExactlyInAnyOrderEntriesOf(Map.of("inside", "111", "next", "1000", "cleanUp", "1000"));
         verify(protocolRegistry, times(3)).resolve(any(), names.capture());
         assertThat(names.getAllValues()).containsExactly(Map.of("http", "mtls"), Map.of(), Map.of());
+    }
+
+    // ---------- entry: current path, skip, abort ----------
+
+    @Test
+    void walk_setsTheCurrentPathToTheSuiteBeforeEvaluatingItsEntry() {
+        // given - a tombstone left by a failed suite setVars must name that suite, not the last request
+        var seen = new ArrayList<String>();
+        doAnswer(call -> {
+                    seen.add(((RuntimeData) call.getArgument(1)).getCurrentPath());
+                    return Optional.empty();
+                })
+                .when(entryEvaluator)
+                .enter(any(), any());
+        var suite = suite("s", List.of(request("r", Phase.MAIN)), List.of(suite("child", List.of(), List.of())));
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then - "child" is entered after request "r" set the path to itself
+        assertThat(seen).containsExactly("s", "s/child");
+    }
+
+    @Test
+    void walk_evaluatesTheEntryAfterSuiteEntered() {
+        // given
+        var eventsAtEntry = new ArrayList<Integer>();
+        doAnswer(call -> {
+                    eventsAtEntry.add(events.size());
+                    return Optional.empty();
+                })
+                .when(entryEvaluator)
+                .enter(any(), any());
+
+        // when
+        underTest.walk(suite("s", List.of(), List.of()), runtimeData);
+
+        // then - SuiteEntered had already gone out
+        assertThat(eventsAtEntry).containsExactly(1);
+    }
+
+    @Test
+    void walk_exitsASkippedSuiteWalkingNothingBeneathIt() {
+        // given
+        entryVerdicts.put("skipped", new SuiteStatus.Skipped("Skipped due to condition true isTrue"));
+        var skipped = suite(
+                "skipped",
+                List.of(request("r", Phase.MAIN), request("cleanUp", Phase.TEARDOWN)),
+                List.of(suite("deeper", List.of(), List.of())));
+        var suite = suite("s", List.of(), List.of(skipped));
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then - both events for the skipped node, nothing beneath it, and it is not an error
+        assertThat(trace()).containsExactly("enter s", "enter s/skipped", "exit s/skipped Skipped", "exit s Completed");
+        assertThat(errors).isEmpty();
+    }
+
+    @Test
+    void walk_abortsAtEntryWithNoTeardownAndReportsTheError() {
+        // given
+        entryVerdicts.put("admin", new SuiteStatus.Aborted("setVars failed for 'token'"));
+        var admin =
+                suite("admin", List.of(request("login", Phase.SETUP), request("logout", Phase.TEARDOWN)), List.of());
+        var suite = suite("s", List.of(), List.of(admin));
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then - nothing under it acted, so nothing is undone; the error comes before the exit
+        assertThat(trace())
+                .containsExactly(
+                        "enter s", "enter s/admin", "error s/admin", "exit s/admin Aborted", "exit s Completed");
+        assertThat(errors).containsExactly(new SuiteError("s/admin", "setVars failed for 'token'"));
+    }
+
+    @Test
+    void walk_carriesTheSameReasonOnTheErrorAndTheExitEvent() {
+        // given
+        entryVerdicts.put("admin", new SuiteStatus.Aborted("setVars failed for 'token'"));
+
+        // when
+        underTest.walk(suite("s", List.of(), List.of(suite("admin", List.of(), List.of()))), runtimeData);
+
+        // then
+        assertThat(exits())
+                .filteredOn(exit -> exit.path().equals("s/admin"))
+                .singleElement()
+                .extracting(RunEvent.SuiteExited::status)
+                .isEqualTo(new SuiteStatus.Aborted(errors.getFirst().message()));
+    }
+
+    @Test
+    void walk_canSkipOrAbortTheRootItself() {
+        // given
+        entryVerdicts.put("s", new SuiteStatus.Skipped("Skipped due to condition true isTrue"));
+
+        // when
+        underTest.walk(suite("s", List.of(request("r", Phase.MAIN)), List.of()), runtimeData);
+
+        // then
+        assertThat(trace()).containsExactly("enter s", "exit s Skipped");
+    }
+
+    // ---------- a failed setup aborts the suite declaring it ----------
+
+    @Test
+    void walk_aFailedSetupRequestAbortsTheSuiteButRunsItsTeardown() {
+        // given
+        failing = name -> name.equals("login");
+        var suite = suite(
+                "s",
+                List.of(
+                        request("login", Phase.SETUP),
+                        request("csrf", Phase.SETUP),
+                        request("work", Phase.MAIN),
+                        request("logout", Phase.TEARDOWN)),
+                List.of(suite("tests", List.of(request("inside", Phase.MAIN)), List.of())));
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then - the rest of setup, the main requests and the subSuites are skipped; teardown unwinds
+        assertThat(nodeOrder()).containsExactly("s", "s/login", "s/logout");
+        assertThat(exits())
+                .singleElement()
+                .extracting(RunEvent.SuiteExited::status)
+                .isInstanceOf(SuiteStatus.Aborted.class);
+    }
+
+    @Test
+    void walk_anAbortedSubSuiteNeverAbortsItsParent() {
+        // given - a subSuite whose own login fails; its sibling and the parent's teardown are unaffected
+        failing = name -> name.equals("login");
+        var suite = suite(
+                "s",
+                List.of(request("cleanUp", Phase.TEARDOWN)),
+                List.of(
+                        suite("admin", List.of(request("login", Phase.SETUP), request("work", Phase.MAIN)), List.of()),
+                        suite("reader", List.of(request("read", Phase.MAIN)), List.of())));
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then
+        assertThat(nodeOrder())
+                .containsExactly("s", "s/admin", "s/admin/login", "s/reader", "s/reader/read", "s/cleanUp");
+        assertThat(errors).extracting(SuiteError::path).containsExactly("s/admin");
+        assertThat(trace()).endsWith("exit s Completed");
+    }
+
+    @Test
+    void walk_namesTheFailedSetupNodeInTheReason() {
+        // given
+        failing = name -> name.equals("login");
+
+        // when
+        underTest.walk(suite("s", List.of(request("login", Phase.SETUP)), List.of()), runtimeData);
+
+        // then
+        assertThat(errors).singleElement().satisfies(error -> {
+            assertThat(error.path()).isEqualTo("s");
+            assertThat(error.message()).contains("login");
+        });
+        assertThat(trace()).endsWith("error s", "exit s Aborted");
+    }
+
+    @Test
+    void walk_failuresOutsideSetupAbortNothing() {
+        // given - a failing main request, and a main subSuite that aborts at entry
+        failing = name -> name.equals("work");
+        entryVerdicts.put("broken", new SuiteStatus.Aborted("setVars failed for 'x'"));
+        var suite = suite(
+                "s",
+                List.of(request("work", Phase.MAIN), request("more", Phase.MAIN)),
+                List.of(
+                        suite("broken", List.of(), List.of()),
+                        suite("sibling", List.of(request("next", Phase.MAIN)), List.of())));
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then - siblings are independent, and the parent completes
+        assertThat(nodeOrder()).contains("s/more", "s/sibling/next");
+        assertThat(errors).extracting(SuiteError::path).containsExactly("s/broken");
+        assertThat(trace()).endsWith("exit s Completed");
+    }
+
+    @Test
+    void walk_staysAbortedWhenACancellationCutsTheTeardownShort() {
+        // given
+        failing = name -> name.equals("login");
+        cancelOn = event -> event instanceof RunEvent.RequestStarted started
+                && started.coordinates().name().equals("t1");
+        var suite = suite(
+                "s",
+                List.of(request("login", Phase.SETUP), request("t1", Phase.TEARDOWN), request("t2", Phase.TEARDOWN)),
+                List.of());
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then
+        assertThat(nodeOrder()).containsExactly("s", "s/login", "s/t1");
+        assertThat(trace()).endsWith("exit s Aborted");
     }
 
     // ---------- elapsed time ----------
@@ -482,11 +662,7 @@ class TestSuiteRunnerTest {
                 })
                 .when(processor)
                 .process(any(), any(), any(), any(), any());
-        var suite = suite(
-                "s",
-                Phase.MAIN,
-                List.of(),
-                List.of(suite("child", Phase.MAIN, List.of(request("r", Phase.MAIN)), List.of())));
+        var suite = suite("s", List.of(), List.of(suite("child", List.of(request("r", Phase.MAIN)), List.of())));
 
         // when
         underTest.walk(suite, runtimeData);
@@ -505,7 +681,7 @@ class TestSuiteRunnerTest {
         runControl.cancel();
 
         // when
-        underTest.walk(suite("s", Phase.MAIN, List.of(request("r", Phase.MAIN)), List.of()), runtimeData);
+        underTest.walk(suite("s", List.of(request("r", Phase.MAIN)), List.of()), runtimeData);
 
         // then
         assertThat(events).isEmpty();
@@ -517,7 +693,7 @@ class TestSuiteRunnerTest {
         // given - cancelled while the first request is being announced, i.e. while it runs
         cancelOn = event -> event instanceof RunEvent.RequestStarted started
                 && started.coordinates().name().equals("a");
-        var suite = suite("s", Phase.MAIN, List.of(request("a", Phase.MAIN), request("b", Phase.MAIN)), List.of());
+        var suite = suite("s", List.of(request("a", Phase.MAIN), request("b", Phase.MAIN)), List.of());
 
         // when
         underTest.walk(suite, runtimeData);
@@ -528,14 +704,13 @@ class TestSuiteRunnerTest {
 
     @Test
     void walk_startsNothingAfterACancelDuringASetupRequest() {
-        // given - a stop pressed during a login request must not go on into the setup block or the suite
+        // given - a stop pressed during a login request must not go on into the rest of the suite
         cancelOn = event -> event instanceof RunEvent.RequestStarted started
                 && started.coordinates().name().equals("login");
         var suite = suite(
                 "s",
-                Phase.MAIN,
                 List.of(request("login", Phase.SETUP), request("csrf", Phase.SETUP), request("work", Phase.MAIN)),
-                List.of(suite("seed", Phase.SETUP, List.of(), List.of())));
+                List.of(suite("tests", List.of(), List.of())));
 
         // when
         underTest.walk(suite, runtimeData);
@@ -545,39 +720,10 @@ class TestSuiteRunnerTest {
     }
 
     @Test
-    void walk_startsNothingAfterACancelDuringASetupSubSuite() {
-        // given
-        cancelOn = event -> event instanceof RunEvent.RequestFinished;
-        var setup = suite("seed", Phase.SETUP, List.of(request("a", Phase.MAIN), request("b", Phase.MAIN)), List.of());
-        var suite = suite(
-                "s",
-                Phase.MAIN,
-                List.of(request("work", Phase.MAIN)),
-                List.of(setup, suite("second", Phase.SETUP, List.of(), List.of())));
-
-        // when
-        underTest.walk(suite, runtimeData);
-
-        // then - neither the rest of the block, the next setup block nor the main phase starts
-        assertThat(trace())
-                .containsExactly(
-                        "enter s",
-                        "enter s/seed",
-                        "start s/seed/a",
-                        "finish s/seed/a",
-                        "exit s/seed Cancelled",
-                        "exit s Cancelled");
-    }
-
-    @Test
     void walk_checksCancellationBeforeEnteringASuite() {
         // given - a listener cancelling on a request's result; the next node is a suite
         cancelOn = event -> event instanceof RunEvent.RequestFinished;
-        var suite = suite(
-                "s",
-                Phase.MAIN,
-                List.of(request("r", Phase.MAIN)),
-                List.of(suite("next", Phase.MAIN, List.of(), List.of())));
+        var suite = suite("s", List.of(request("r", Phase.MAIN)), List.of(suite("next", List.of(), List.of())));
 
         // when
         underTest.walk(suite, runtimeData);
@@ -590,8 +736,8 @@ class TestSuiteRunnerTest {
     void walk_exitsEveryOpenSuiteCancelledInnermostFirst() {
         // given
         cancelOn = event -> event instanceof RunEvent.RequestFinished;
-        var inner = suite("inner", Phase.MAIN, List.of(request("a", Phase.MAIN), request("b", Phase.MAIN)), List.of());
-        var suite = suite("s", Phase.MAIN, List.of(), List.of(suite("mid", Phase.MAIN, List.of(), List.of(inner))));
+        var inner = suite("inner", List.of(request("a", Phase.MAIN), request("b", Phase.MAIN)), List.of());
+        var suite = suite("s", List.of(), List.of(suite("mid", List.of(), List.of(inner))));
 
         // when
         underTest.walk(suite, runtimeData);
@@ -611,9 +757,8 @@ class TestSuiteRunnerTest {
         cancelOn = event -> event instanceof RunEvent.RequestFinished;
         var suite = suite(
                 "s",
-                Phase.MAIN,
                 List.of(request("work", Phase.MAIN), request("cleanUp", Phase.TEARDOWN)),
-                List.of(suite("tearDown", Phase.TEARDOWN, List.of(), List.of())));
+                List.of(suite("later", List.of(), List.of())));
 
         // when
         underTest.walk(suite, runtimeData);
@@ -627,8 +772,7 @@ class TestSuiteRunnerTest {
         // given - a stop pressed during teardown ends it there rather than finishing the list
         cancelOn = event -> event instanceof RunEvent.RequestStarted started
                 && started.coordinates().name().equals("t1");
-        var suite = suite(
-                "s", Phase.MAIN, List.of(request("t1", Phase.TEARDOWN), request("t2", Phase.TEARDOWN)), List.of());
+        var suite = suite("s", List.of(request("t1", Phase.TEARDOWN), request("t2", Phase.TEARDOWN)), List.of());
 
         // when
         underTest.walk(suite, runtimeData);
@@ -644,11 +788,10 @@ class TestSuiteRunnerTest {
                 && finished.result().coordinates().name().equals("last");
         var suite = suite(
                 "s",
-                Phase.MAIN,
                 List.of(),
                 List.of(
-                        suite("child", Phase.MAIN, List.of(request("last", Phase.MAIN)), List.of()),
-                        suite("sibling", Phase.MAIN, List.of(), List.of())));
+                        suite("child", List.of(request("last", Phase.MAIN)), List.of()),
+                        suite("sibling", List.of(), List.of())));
 
         // when
         underTest.walk(suite, runtimeData);
@@ -670,7 +813,7 @@ class TestSuiteRunnerTest {
     void walk_throwsWithoutAnnouncingARequestWhoseHandlerCannotBeResolved() {
         // given
         when(protocolRegistry.resolve(any(), any())).thenThrow(new BratException("no handler named 'mtls'"));
-        var suite = suite("s", Phase.MAIN, List.of(request("r", Phase.MAIN)), List.of());
+        var suite = suite("s", List.of(request("r", Phase.MAIN)), List.of());
 
         // when / then
         assertThatThrownBy(() -> underTest.walk(suite, runtimeData))
@@ -689,8 +832,8 @@ class TestSuiteRunnerTest {
         return new Request(name, null, null, null, null, phase, null, definition(), null, null);
     }
 
-    private static TestSuite suite(String name, Phase phase, List<Request> requests, List<TestSuite> subSuites) {
-        return new TestSuite(name, null, null, null, null, null, null, phase, null, requests, subSuites);
+    private static TestSuite suite(String name, List<Request> requests, List<TestSuite> subSuites) {
+        return new TestSuite(name, null, null, null, null, null, null, null, requests, subSuites);
     }
 
     private static Request timedRequest(String name, String timeout) {
@@ -708,7 +851,7 @@ class TestSuiteRunnerTest {
 
     /** The events as short lines, so an order is readable in a failure message. */
     private List<String> trace() {
-        return events.stream()
+        return journal.stream()
                 .map(event -> switch (event) {
                     case RunEvent.SuiteEntered entered -> "enter " + entered.path();
                     case RunEvent.SuiteExited exited ->
@@ -718,6 +861,7 @@ class TestSuiteRunnerTest {
                         "start " + started.coordinates().path();
                     case RunEvent.RequestFinished finished ->
                         "finish " + finished.result().coordinates().path();
+                    case SuiteError error -> "error " + error.path();
                     default -> event.getClass().getSimpleName();
                 })
                 .toList();

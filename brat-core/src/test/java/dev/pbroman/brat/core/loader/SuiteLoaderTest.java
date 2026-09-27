@@ -53,12 +53,23 @@ class SuiteLoaderTest {
     @Test
     void load_acceptsAnEnumInAnyCase() {
         // given - the suite-author doc writes `phase: setup`, the assertions doc writes `severity: WARN`
-        var lower = underTest.load("name: s\nphase: teardown\n");
-        var upper = underTest.load("name: s\nphase: TEARDOWN\n");
+        var lower = underTest.load("name: s\nrequests:\n  - name: r\n    phase: teardown\n");
+        var upper = underTest.load("name: s\nrequests:\n  - name: r\n    phase: TEARDOWN\n");
 
         // then
-        assertThat(lower.phase()).isEqualTo(Phase.TEARDOWN);
-        assertThat(upper.phase()).isEqualTo(Phase.TEARDOWN);
+        assertThat(lower.requests().getFirst().phase()).isEqualTo(Phase.TEARDOWN);
+        assertThat(upper.requests().getFirst().phase()).isEqualTo(Phase.TEARDOWN);
+    }
+
+    @Test
+    void load_rejectsAPhaseOnASuite() {
+        // given - only requests take a phase
+        var yaml = "name: s\nsubSuites:\n  - name: log in\n    phase: setup\n";
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("phase");
     }
 
     // ---------- anchors, aliases, merge keys ----------
@@ -285,12 +296,12 @@ class SuiteLoaderTest {
     @Test
     void load_rejectsADuplicateKeyNamingItAndItsPosition() {
         // given
-        var yaml = "name: s\nphase: main\nphase: setup\n";
+        var yaml = "name: s\ndescription: one\ndescription: two\n";
 
         // then
         assertThatThrownBy(() -> underTest.load(yaml))
                 .isInstanceOf(BratException.class)
-                .hasMessageContaining("phase")
+                .hasMessageContaining("description")
                 .hasMessageContaining("line 3");
     }
 
@@ -414,7 +425,7 @@ class SuiteLoaderTest {
         var secret = "s3cr3t-token-value";
 
         // then - the accepted values are safe to print, the authored one is not
-        assertThatThrownBy(() -> underTest.load("name: s\nphase: " + secret + "\n"))
+        assertThatThrownBy(() -> underTest.load("name: s\nrequests:\n  - name: r\n    phase: " + secret + "\n"))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("phase")
                 .hasMessageContaining("SETUP")

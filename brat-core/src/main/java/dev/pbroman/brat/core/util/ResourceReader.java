@@ -77,7 +77,7 @@ public final class ResourceReader {
      * performed: a {@code ..} segment is passed to the underlying lookup as written, which the
      * filesystem honours and the classloader does not.
      *
-     * @param location the location as authored, after interpolation; never {@code null} or blank
+     * @param location the location as authored, after interpolation; must not be {@code null} or blank
      * @param suiteLocation the location the suite document was loaded from, prefix and all, or
      *        {@code null} when the suite came from no location — a document held in memory
      * @return {@code location} unchanged if it carries a prefix; otherwise {@code suiteLocation}'s
@@ -104,7 +104,7 @@ public final class ResourceReader {
      * is used as given — call {@link #resolve(String, String)} first where a bare path means
      * <em>relative to the suite</em>.
      *
-     * @param location the resource location, per the class-level doc; never {@code null} or blank
+     * @param location the resource location, per the class-level doc; must not be {@code null} or blank
      * @return {@code true} if a readable resource exists there, {@code false} otherwise — including a
      *         path naming a directory, which cannot be read as content, and one that resolves but
      *         cannot be inspected, a corrupt archive being the case that does — a decided absence and

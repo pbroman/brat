@@ -151,24 +151,23 @@ public class RequestProcessor {
      * not poll.
      * <p>
      * <strong>What it mutates.</strong>
-     * {@code runtimeData} only. Its {@code currentPath} and {@code currentRequestNo} are set from
-     * {@code coordinates} first, which is what lets code called further down record where it was
-     * without the identity being threaded through every signature — a capture tombstone is the one
-     * that needs it. {@code responseVars} is filled when a response arrives and emptied in a
-     * {@code finally}, so the namespace cannot outlive the request whatever ends it. {@code vars}
-     * gains every successful capture and a tombstone for every failed one, and those <em>do</em>
-     * survive: they are the mechanism for keeping something.
+     * {@code runtimeData} only. Its {@code currentPath} is set from {@code coordinates} first, which is
+     * what lets code called further down record where it was without the identity being threaded
+     * through every signature — a capture tombstone is the one that needs it. {@code responseVars}
+     * is filled when a response arrives and emptied in a {@code finally}, so the namespace cannot
+     * outlive the request whatever ends it. {@code vars} gains every successful capture and a
+     * tombstone for every failed one, and those <em>do</em> survive: they are the mechanism for
+     * keeping something.
      *
-     * @param request the request to run; never {@code null}
+     * @param request the request to run; must not be {@code null}
      * @param options what the run resolved for this request, as authored — not yet interpolated;
      *        never {@code null}. The caller assembles it, since only the walk knows what the ancestors
      *        declared
      * @param coordinates where this request sits, which the caller computes — the path is built from
      *        the names from the root down, and only the walk knows the ancestors. Passed rather than
      *        read off {@code runtimeData} so that it cannot be forgotten
-     * @param runtimeData the namespaces to resolve against; its {@code currentPath} and
-     *        {@code currentRequestNo} are <strong>set</strong> from {@code coordinates} before
-     *        anything else runs
+     * @param runtimeData the namespaces to resolve against; its {@code currentPath} is
+     *        <strong>set</strong> from {@code coordinates} before anything else runs
      * @param handler the handler that performs this request, already selected by the caller; never
      *        {@code null}
      * @return what happened; never {@code null}. Ask {@link RequestResult#failed()} for the verdict,
@@ -196,7 +195,6 @@ public class RequestProcessor {
 
         long methodStart = System.currentTimeMillis();
         runtimeData.setCurrentPath(coordinates.path());
-        runtimeData.setCurrentRequestNo(coordinates.requestNo());
 
         if (request.skipCondition() != null) {
             try {

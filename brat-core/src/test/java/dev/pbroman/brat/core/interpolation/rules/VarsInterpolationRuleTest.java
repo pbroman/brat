@@ -60,7 +60,7 @@ class VarsInterpolationRuleTest extends AbstractInterpolationTest {
     void onMissingReplacement_throwsForAVariableWhoseCaptureFailed() {
         // given
         runtimeData.setCurrentPath("happy path/create an order");
-        runtimeData.captureFailed("orderId", "no such path");
+        runtimeData.setVarFailed("orderId", "no such path");
 
         // when / then - the message must carry both halves, since the reader is standing elsewhere
         assertThatThrownBy(() -> interpolate("${vars.orderId}", runtimeData))
@@ -73,7 +73,7 @@ class VarsInterpolationRuleTest extends AbstractInterpolationTest {
     @Test
     void onMissingReplacement_readsUnknownForATombstoneWithNoPath() {
         // given - nothing set a current path, so the tombstone recorded none
-        runtimeData.captureFailed("orderId", "no such path");
+        runtimeData.setVarFailed("orderId", "no such path");
 
         // when / then - a missing location must not print as "null"
         assertThatThrownBy(() -> interpolate("${vars.orderId}", runtimeData))
@@ -85,7 +85,7 @@ class VarsInterpolationRuleTest extends AbstractInterpolationTest {
     @Test
     void onMissingReplacement_letsAnAuthoredFallbackWinOverATombstone() {
         // given
-        runtimeData.captureFailed("orderId", "no such path");
+        runtimeData.setVarFailed("orderId", "no such path");
 
         // when - the author has said what to do when the value is unavailable
         var result = interpolate("${vars.orderId:-none}", runtimeData);
@@ -97,8 +97,8 @@ class VarsInterpolationRuleTest extends AbstractInterpolationTest {
     @Test
     void onMissingReplacement_returnsEmptyStringAgainOnceACaptureSucceeds() {
         // given - a failed capture, then a later one that worked
-        runtimeData.captureFailed("orderId", "no such path");
-        runtimeData.captureVar("orderId", "42");
+        runtimeData.setVarFailed("orderId", "no such path");
+        runtimeData.setVar("orderId", "42");
 
         // when
         var result = interpolate("${vars.orderId}", runtimeData);

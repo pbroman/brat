@@ -41,7 +41,7 @@ public final class BodyFileChecks {
      * <p>A path holding a {@code ${...}} token is skipped, not resolved — it may name a different file per
      * environment, and a check against its unresolved text would fail on a suite that is correct.
      *
-     * @param suite the suite about to run; never {@code null}
+     * @param suite the suite about to run; must not be {@code null}
      * @param suiteLocation the location the suite was loaded from, prefix and all, or {@code null}
      *        when it came from no location. A {@code null} does not by itself fail: it fails only if
      *        some request names a bare path, which is then unresolvable

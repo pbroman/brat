@@ -135,7 +135,6 @@ class RequestProcessorTest {
 
         // then
         assertThat(runtimeData.getCurrentPath()).isEqualTo("happy path/create an order");
-        assertThat(runtimeData.getCurrentRequestNo()).isEqualTo(3);
     }
 
     @Test

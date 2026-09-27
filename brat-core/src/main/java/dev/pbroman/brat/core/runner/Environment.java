@@ -78,8 +78,8 @@ public record Environment(
      * The common case: a suite reaching a local server needs {@code baseUrl} and nothing else. The
      * environment-variable provider is still available, since the chain always appends it.
      *
-     * @param env the {@code env} namespace; never {@code null}
-     * @param params the {@code params} namespace; never {@code null}
+     * @param env the {@code env} namespace; must not be {@code null}
+     * @param params the {@code params} namespace; must not be {@code null}
      * @return an environment carrying an empty secrets configuration
      * @throws BratException if either argument is {@code null}
      */

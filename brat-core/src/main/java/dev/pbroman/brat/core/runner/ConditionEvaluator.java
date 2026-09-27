@@ -59,7 +59,7 @@ class ConditionEvaluator {
      * was — a skip condition is a guard that must fail closed, a loop condition ends the loop at once
      * — so the decision belongs to the caller rather than to this.
      *
-     * @param condition the authored condition; never {@code null}
+     * @param condition the authored condition; must not be {@code null}
      * @param runtimeData the namespaces to resolve it against
      * @return the interpolated copy and its verdict
      * @throws BratException if {@code condition} cannot be interpolated, or if nothing resolves its

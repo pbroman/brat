@@ -27,6 +27,7 @@ import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.TestSuite;
 import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.data.result.RunResult;
+import dev.pbroman.brat.core.data.result.SuiteError;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.handler.ApacheHttpRequestHandler;
@@ -255,11 +256,12 @@ public final class Brat {
      * failed assertion and a failed capture all become data on that request's result. What throws is
      * structural — a suite that cannot be walked, a handler that is missing.
      *
-     * @param suite the suite to run; never {@code null}
+     * @param suite the suite to run; must not be {@code null}
      * @param environment the launch namespaces and secrets configuration for this run; never
      *        {@code null}
      * @return the run's record, holding one {@link dev.pbroman.brat.core.data.result.RequestResult}
-     *         per request that ran, in execution order
+     *         per request that ran, in execution order, and one {@link SuiteError} per suite that was
+     *         aborted
      * @throws BratException if either argument is {@code null}, if a body file the suite names with a
      *         token-free path does not exist, or if the run cannot be assembled — a secrets source
      *         naming an unregistered provider type, say
@@ -284,7 +286,7 @@ public final class Brat {
      * cannot be resolved aborts the run <em>before</em> it is announced, so no listener is left holding
      * a request that never ends.
      *
-     * @param suite the suite to run; never {@code null}
+     * @param suite the suite to run; must not be {@code null}
      * @param environment the launch namespaces and secrets configuration for this run; never
      *        {@code null}
      * @param listeners the listeners to deliver events to, in the order they are called; never
@@ -292,7 +294,8 @@ public final class Brat {
      * @param runControl the channel a listener or the caller stops the run through; never
      *        {@code null}
      * @return the run's record, with {@code cancelled} set if the run was stopped early
-     * @throws BratException under the same conditions as {@link #run(TestSuite, Environment)}
+     * @throws BratException under the same conditions as {@link #run(TestSuite, Environment)}, or if
+     *         {@code listeners} or {@code runControl} is {@code null}
      */
     public RunResult run(TestSuite suite, Environment environment, List<RunListener> listeners, RunControl runControl) {
         nonNull(suite, "The suite to run must not be null");
@@ -306,16 +309,17 @@ public final class Brat {
         var startedAt = System.currentTimeMillis();
         emit(listeners, new RunEvent.RunStarted(Instant.now()));
         var results = new ArrayList<RequestResult>();
+        var errors = new ArrayList<SuiteError>();
         RunResult result = null;
         try {
-            openRun(suite, environment, listeners, runControl, results);
-            result = finish(results, startedAt, runControl);
+            openRun(suite, environment, listeners, runControl, results, errors);
+            result = finish(results, errors, startedAt, runControl);
             return result;
         } finally {
             // In a finally so the terminal event survives a fatal error: a listener holding a file
             // handle has no other point at which to flush and close. The instance the caller gets is
             // the one the listener sees, so the two can never disagree.
-            var reported = result == null ? finish(results, startedAt, runControl) : result;
+            var reported = result == null ? finish(results, errors, startedAt, runControl) : result;
             emit(listeners, new RunEvent.RunFinished(reported));
         }
     }
@@ -324,12 +328,14 @@ public final class Brat {
      * Builds the run's record from what has been collected so far.
      *
      * @param results the request results collected
+     * @param errors the suite errors collected
      * @param startedAt when the run began, in milliseconds
      * @param runControl the cancellation channel
      * @return the record
      */
-    private static RunResult finish(List<RequestResult> results, long startedAt, RunControl runControl) {
-        return new RunResult(List.copyOf(results), System.currentTimeMillis() - startedAt, runControl.isCancelled());
+    private static RunResult finish(
+            List<RequestResult> results, List<SuiteError> errors, long startedAt, RunControl runControl) {
+        return new RunResult(results, errors, System.currentTimeMillis() - startedAt, runControl.isCancelled());
     }
 
     /**
@@ -340,13 +346,15 @@ public final class Brat {
      * @param listeners the listeners to emit to
      * @param runControl the cancellation channel
      * @param results collects one result per request that ran, in order
+     * @param errors collects one error per suite that was aborted, in order
      */
     private void openRun(
             TestSuite suite,
             Environment environment,
             List<RunListener> listeners,
             RunControl runControl,
-            List<RequestResult> results) {
+            List<RequestResult> results,
+            List<SuiteError> errors) {
         var runtimeData = new RuntimeData(
                 suite.constants(),
                 environment.env(),
@@ -357,7 +365,7 @@ public final class Brat {
         // per run and must not outlive it, and this is the form that suppresses a close failure when
         // the run itself threw, instead of replacing the failure the caller needs to see.
         try (var secretsProvider = secretsBootstrap.build(environment.secretsConfig(), runtimeData)) {
-            walk(suite, listeners, runControl, results, runtimeData, secretsProvider);
+            walk(suite, listeners, runControl, results, errors, runtimeData, secretsProvider);
         }
     }
 
@@ -368,6 +376,7 @@ public final class Brat {
      * @param listeners the listeners to emit to
      * @param runControl the cancellation channel
      * @param results collects one result per request that ran, in order
+     * @param errors collects one error per suite that was aborted, in order
      * @param runtimeData the run's namespaces
      * @param secretsProvider the chain {@code ${secrets.…}} resolves through
      */
@@ -376,6 +385,7 @@ public final class Brat {
             List<RunListener> listeners,
             RunControl runControl,
             List<RequestResult> results,
+            List<SuiteError> errors,
             RuntimeData runtimeData,
             SecretsProvider secretsProvider) {
         var rules = new ArrayList<>(coreInterpolationRules);
@@ -396,7 +406,14 @@ public final class Brat {
                 new RequestOptionsInterpolator(),
                 new RequestExecutor(conditionEvaluator, attemptListener));
 
-        new TestSuiteRunner(processor, protocolRegistry, event -> emit(listeners, event), results::add, runControl)
+        new TestSuiteRunner(
+                        processor,
+                        protocolRegistry,
+                        new SuiteEntryEvaluator(interpolation, conditionEvaluator),
+                        event -> emit(listeners, event),
+                        results::add,
+                        errors::add,
+                        runControl)
                 .walk(suite, runtimeData);
     }
 
@@ -458,7 +475,7 @@ public final class Brat {
         /**
          * Adds an interpolation rule, consulted after the core rules at the same priority.
          *
-         * @param rule the rule to add; never {@code null}
+         * @param rule the rule to add; must not be {@code null}
          * @return this builder
          * @throws BratException if {@code rule} is {@code null}
          */
@@ -471,7 +488,7 @@ public final class Brat {
         /**
          * Adds a condition resolver rule, consulted after the core rules at the same priority.
          *
-         * @param rule the rule to add; never {@code null}
+         * @param rule the rule to add; must not be {@code null}
          * @return this builder
          * @throws BratException if {@code rule} is {@code null}
          */
@@ -484,7 +501,7 @@ public final class Brat {
         /**
          * Adds a function, reachable as {@code ${__name(…)}} for its own {@code name()}.
          *
-         * @param function the function to add; never {@code null}. One whose name a core function
+         * @param function the function to add; must not be {@code null}. One whose name a core function
          *        already uses replaces it, logged at WARN naming both
          * @return this builder
          * @throws BratException if {@code function} is {@code null}
@@ -498,7 +515,7 @@ public final class Brat {
         /**
          * Adds a secrets provider factory, reachable as a {@code type} in a secrets configuration.
          *
-         * @param factory the factory to add; never {@code null}. One whose {@code type()} a core
+         * @param factory the factory to add; must not be {@code null}. One whose {@code type()} a core
          *        factory already uses replaces it, logged at WARN naming both
          * @return this builder
          * @throws BratException if {@code factory} is {@code null}
@@ -517,7 +534,7 @@ public final class Brat {
          * implementation — and a suite says which it wants. One whose {@code (protocol, name)} pair
          * another registration already used replaces that one, logged at WARN naming both.
          *
-         * @param handler the handler to add; never {@code null}
+         * @param handler the handler to add; must not be {@code null}
          * @return this builder
          * @throws BratException if {@code handler} is {@code null}
          */
@@ -536,7 +553,7 @@ public final class Brat {
          * {@code ${...}} tokens in a request that then goes out on the wire. One for a type another
          * registration already covered replaces it, logged at WARN.
          *
-         * @param interpolator the interpolator to add; never {@code null}
+         * @param interpolator the interpolator to add; must not be {@code null}
          * @return this builder
          * @throws BratException if {@code interpolator} is {@code null}
          */
@@ -555,8 +572,8 @@ public final class Brat {
          * <strong>Never list order</strong> — plugin discovery order is unspecified, so a default has
          * to be named by somebody.
          *
-         * @param protocol the protocol this default applies to; never {@code null} or blank
-         * @param name the {@code name()} of the handler to use; never {@code null} or blank, and it
+         * @param protocol the protocol this default applies to; must not be {@code null} or blank
+         * @param name the {@code name()} of the handler to use; must not be {@code null} or blank, and it
          *        must be registered by the time {@link #build()} runs
          * @return this builder
          * @throws BratException if either argument is {@code null} or blank
@@ -575,7 +592,7 @@ public final class Brat {
          * classpath beside {@code brat-core}. Pass a different one where that is not where the plugins
          * are — a servlet container, or an IDE plugin with its own loader.
          *
-         * @param classLoader the loader to discover through; never {@code null}
+         * @param classLoader the loader to discover through; must not be {@code null}
          * @return this builder
          * @throws BratException if {@code classLoader} is {@code null}
          */

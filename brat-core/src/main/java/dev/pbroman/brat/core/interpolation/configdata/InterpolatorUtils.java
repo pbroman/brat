@@ -226,7 +226,7 @@ public final class InterpolatorUtils {
      * {@code file:bodies/create-order.json → 2.1 kB}. A body file is exactly the kind of file that
      * holds a credential, and a reporting string travels into logs and reports.
      *
-     * @param location the {@code file} entry's value, already interpolated; never {@code null} or
+     * @param location the {@code file} entry's value, already interpolated; must not be {@code null} or
      *        blank
      * @param interpolation the interpolation implementation, applied to the file's content
      * @param runtimeData the runtime data, read for the suite's own location so that a bare

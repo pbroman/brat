@@ -75,7 +75,7 @@ class BratTest {
     }
 
     private static TestSuite suite(Request... requests) {
-        return new TestSuite("suite", null, null, null, null, null, null, null, null, List.of(requests), null);
+        return new TestSuite("suite", null, null, null, null, null, null, null, List.of(requests), null);
     }
 
     /** An environment whose chain is the one {@link FixedSecretsProviderFactory} builds. */
@@ -291,9 +291,7 @@ class BratTest {
         var request = requestWithHandlers(Map.of("http", "mtls"));
 
         // when
-        brat.run(
-                new TestSuite("s", null, null, null, null, null, null, null, null, List.of(request), null),
-                environment);
+        brat.run(new TestSuite("s", null, null, null, null, null, null, null, List.of(request), null), environment);
 
         // then
         assertThat(named.calls).isEqualTo(1);
@@ -310,7 +308,6 @@ class BratTest {
                 .build();
         var suite = new TestSuite(
                 "s",
-                null,
                 null,
                 null,
                 null,
@@ -347,7 +344,6 @@ class BratTest {
                 null,
                 null,
                 null,
-                null,
                 Map.of("http", "mtls", "ftp", "vsftpd"),
                 List.of(requestWithHandlers(Map.of("http", "proxy"))),
                 null);
@@ -368,7 +364,7 @@ class BratTest {
 
         // when / then - structural, so it is not an errored result
         assertThatThrownBy(() -> brat.run(
-                        new TestSuite("s", null, null, null, null, null, null, null, null, List.of(request), null),
+                        new TestSuite("s", null, null, null, null, null, null, null, List.of(request), null),
                         environment))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("mtls");
@@ -426,8 +422,7 @@ class BratTest {
 
         // when
         var result = brat.run(
-                new TestSuite("s", null, null, null, null, null, null, null, null, List.of(request), null),
-                environment);
+                new TestSuite("s", null, null, null, null, null, null, null, List.of(request), null), environment);
 
         // then - a jar on the classpath is a registration, which is what path 3 exists for
         assertThat(result.requestResults().getFirst().status()).isInstanceOf(RequestStatus.Completed.class);
@@ -479,6 +474,9 @@ class BratTest {
                 .isInstanceOf(BratException.class);
         assertThatThrownBy(() -> Brat.builder().defaultRequestHandler("http", " "))
                 .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> Brat.builder().defaultRequestHandler("http", null))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> Brat.builder().defaultRequestHandler(" ", "x")).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -618,12 +616,10 @@ class BratTest {
                 null,
                 null,
                 null,
-                null,
                 List.of(request("nested", "${env.baseUrl}/b")),
                 null);
         var outer = new TestSuite(
                 "outer",
-                null,
                 null,
                 null,
                 null,
@@ -649,10 +645,83 @@ class BratTest {
     }
 
     @Test
+    void run_failsWithNoRequestResultsWhenItsOnlySubtreeWasAborted() {
+        // given - the subtree's setVars reads an env var the launch did not supply
+        var admin = new TestSuite(
+                "admin",
+                null,
+                null,
+                Map.of("token", "${env.adminToken}"),
+                null,
+                null,
+                null,
+                null,
+                List.of(request("me", "${env.baseUrl}/me")),
+                null);
+        var root = new TestSuite("root", null, null, null, null, null, null, null, null, List.of(admin));
+
+        // when
+        var result = brat().run(root, environment);
+
+        // then - nothing ran, and that is not green
+        assertThat(result.requestResults()).isEmpty();
+        assertThat(result.suiteErrors()).singleElement().satisfies(error -> {
+            assertThat(error.path()).isEqualTo("root/admin");
+            assertThat(error.message()).contains("token", "adminToken");
+        });
+        assertThat(result.failed()).isTrue();
+    }
+
+    @Test
+    void run_aSiblingReadingAVarItsSiblingFailedToSetFailsNamingTheCause() {
+        // given - "admin" cannot compute the token; "reader" reads it anyway
+        var admin = new TestSuite(
+                "admin", null, null, Map.of("token", "${env.adminToken}"), null, null, null, null, null, null);
+        var reader = new TestSuite(
+                "reader",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of(request("me", "${env.baseUrl}/me?t=${vars.token}")),
+                null);
+        var root = new TestSuite("root", null, null, null, null, null, null, null, null, List.of(admin, reader));
+
+        // when
+        var result = brat().run(root, environment);
+
+        // then - the tombstone turns a silent "" into an error naming where the var failed
+        assertThat(result.requestResults())
+                .singleElement()
+                .satisfies(requestResult -> assertThat(requestResult.status())
+                        .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.type(
+                                dev.pbroman.brat.core.data.result.RequestStatus.Errored.class))
+                        .extracting(dev.pbroman.brat.core.data.result.RequestStatus.Errored::message)
+                        .asString()
+                        .contains("token", "root/admin"));
+    }
+
+    @Test
     void run_throwsForANullArgument() {
         // when / then
         assertThatThrownBy(() -> brat().run(null, environment)).isInstanceOf(BratException.class);
         assertThatThrownBy(() -> brat().run(suite(), null)).isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void run_throwsForANullArgumentWithListeners() {
+        // when / then
+        assertThatThrownBy(() -> brat().run(null, environment, List.of(), new StubRunControl()))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> brat().run(suite(), null, List.of(), new StubRunControl()))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> brat().run(suite(), environment, null, new StubRunControl()))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> brat().run(suite(), environment, List.of(), null))
+                .isInstanceOf(BratException.class);
     }
 
     @Test

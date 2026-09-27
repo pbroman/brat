@@ -34,8 +34,8 @@ final class PluginDiscovery {
      * this call, so a missing class, an unimplemented interface or a throwing constructor surfaces
      * while the runner is being built rather than in the middle of a run.
      *
-     * @param service the extension-point interface to look for; never {@code null}
-     * @param classLoader the loader to search; never {@code null} — a {@code null} would mean the
+     * @param service the extension-point interface to look for; must not be {@code null}
+     * @param classLoader the loader to search; must not be {@code null} — a {@code null} would mean the
      *        bootstrap loader, which finds nothing and would look like "no plugins installed"
      * @return the implementations found, in {@code ServiceLoader} order; empty when there are none,
      *         which is the ordinary case

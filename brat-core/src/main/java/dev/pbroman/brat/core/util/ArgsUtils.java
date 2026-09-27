@@ -27,7 +27,7 @@ public final class ArgsUtils {
     /**
      * Rejects any argument its owner does not know, so a typo fails loudly rather than being ignored.
      *
-     * @param args the bag to check; never {@code null}, and an empty one passes whatever is legal
+     * @param args the bag to check; must not be {@code null}, and an empty one passes whatever is legal
      * @param subject what owns the bag, named as it should read in the message — for example
      *        {@code the 'httpclient5' request handler} or {@code the Number func 'isBetween'}
      * @param legalKeys every key the owner accepts; none means the owner takes no arguments at all,
@@ -59,7 +59,7 @@ public final class ArgsUtils {
     /**
      * Returns an argument its owner requires.
      *
-     * @param args the bag to read; never {@code null}
+     * @param args the bag to read; must not be {@code null}
      * @param subject what owns the bag, named as it should read in the message
      * @param key the argument to read
      * @return the value, which is never {@code null}

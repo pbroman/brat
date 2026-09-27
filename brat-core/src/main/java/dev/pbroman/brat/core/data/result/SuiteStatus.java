@@ -24,7 +24,8 @@ public sealed interface SuiteStatus {
     record Skipped(String reason) implements SuiteStatus {}
 
     /**
-     * The walk abandoned the suite before finishing it — at entry, or when a setup block failed —
+     * The walk abandoned the suite before finishing it — at entry, or when one of its own setup
+     * requests failed —
      * because something showed the environment is not fit to run what is beneath it. Its siblings are
      * unaffected.
      *

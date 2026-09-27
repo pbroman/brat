@@ -72,7 +72,6 @@ class ProtocolExtensibilityTest extends EndToEndTestBase {
                 null,
                 null,
                 null,
-                null,
                 Map.of("http", "mtls"),
                 List.of(request()),
                 null);

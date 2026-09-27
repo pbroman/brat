@@ -51,7 +51,7 @@ record InheritedDefaults(String timeout, Map<String, String> requestHandlers) {
      *       does not mention is kept.</li>
      * </ul>
      *
-     * @param suite the suite being entered; never {@code null}
+     * @param suite the suite being entered; must not be {@code null}
      * @return a new instance; this one is unchanged
      */
     InheritedDefaults with(TestSuite suite) {
@@ -63,7 +63,7 @@ record InheritedDefaults(String timeout, Map<String, String> requestHandlers) {
      * The options {@code request} runs with, as authored: its own {@code timeout} if it declares one,
      * otherwise the inherited one.
      *
-     * @param request the request about to run; never {@code null}
+     * @param request the request about to run; must not be {@code null}
      * @return a new, not yet interpolated {@link RequestOptions}. Its {@code timeout} is {@code null}
      *         when neither the request nor any enclosing suite declared one, leaving the default to be
      *         applied when the value is read
@@ -76,7 +76,7 @@ record InheritedDefaults(String timeout, Map<String, String> requestHandlers) {
      * The handler names {@code request} is resolved with: the inherited names with the request's own
      * laid over them per protocol, the request's entry winning where both name one.
      *
-     * @param request the request about to run; never {@code null}
+     * @param request the request about to run; must not be {@code null}
      * @return a new map; never {@code null}, possibly empty. These defaults are unchanged
      */
     Map<String, String> handlerNames(Request request) {

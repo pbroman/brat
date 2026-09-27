@@ -14,9 +14,8 @@ import java.util.Map;
  * {@link Request}: what it holds that interpolates is other types, interpolated per request rather
  * than per suite.
  * <p>
- * Several fields bind here and are read by nothing yet — {@code setVars}, {@code auth} and
- * {@code skipCondition}. They are defined because the loader rejects unknown keys,
- * so an author writing a legal key must find a field waiting for it; what is still missing is a
+ * {@code auth} binds here and is read by nothing yet. It is defined because the loader rejects unknown
+ * keys, so an author writing a legal key must find a field waiting for it; what is still missing is a
  * <em>reader</em>, not a field.
  *
  * @param name names the node in reports and forms a segment of every path beneath it. The loader
@@ -34,8 +33,6 @@ import java.util.Map;
  *        than prefixed: a request's own {@code timeout} is the same word one level down, exactly as
  *        {@code auth} is
  * @param skipCondition skip this suite and everything under it when it holds, or {@code null}
- * @param phase when this suite runs relative to its siblings; never {@code null}, defaulting to
- *        {@link Phase#MAIN}
  * @param requestHandlers which handler executes a request, keyed by protocol; never {@code null}.
  *        Merges per key rather than replacing wholesale
  * @param requests this suite's own requests, in declaration order; never {@code null}
@@ -49,13 +46,12 @@ public record TestSuite(
         Auth auth,
         String timeout,
         Condition skipCondition,
-        Phase phase,
         Map<String, String> requestHandlers,
         List<Request> requests,
         List<TestSuite> subSuites) {
 
     /**
-     * Defaults every collection to empty and {@code phase} to {@link Phase#MAIN}, and copies the
+     * Defaults every collection to empty, and copies the
      * mutable arguments.
      * <p>
      * No collection is ever {@code null} on a constructed instance, so the walk iterates without
@@ -66,7 +62,6 @@ public record TestSuite(
     public TestSuite {
         constants = constants == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(constants));
         setVars = setVars == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(setVars));
-        phase = phase == null ? Phase.MAIN : phase;
         requestHandlers =
                 requestHandlers == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(requestHandlers));
         requests = requests == null ? List.of() : Collections.unmodifiableList(new ArrayList<>(requests));

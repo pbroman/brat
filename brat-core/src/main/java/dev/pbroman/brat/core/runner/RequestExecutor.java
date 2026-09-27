@@ -66,7 +66,7 @@ class RequestExecutor {
      * {@link RequestStatus.Errored}. It is an authoring error rather than a transient one, and
      * spending the whole budget with waits in between cannot make it start working.
      *
-     * @param definition the interpolated request to perform; never {@code null}
+     * @param definition the interpolated request to perform; must not be {@code null}
      * @param options the interpolated options it is performed with, handed to the handler on every
      *        attempt; never {@code null}
      * @param handler the handler that performs it, already selected for this request; never

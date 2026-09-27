@@ -216,7 +216,7 @@ class InheritedDefaultsTest {
     // ---------- helpers ----------
 
     private static TestSuite suite(String timeout, Map<String, String> requestHandlers) {
-        return new TestSuite("s", null, null, null, null, timeout, null, null, requestHandlers, List.of(), null);
+        return new TestSuite("s", null, null, null, null, timeout, null, requestHandlers, List.of(), null);
     }
 
     private static Request request(String timeout, Map<String, String> requestHandlers) {
