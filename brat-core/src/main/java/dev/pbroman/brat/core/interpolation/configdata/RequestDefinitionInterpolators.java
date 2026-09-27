@@ -34,7 +34,7 @@ public final class RequestDefinitionInterpolators {
      * the <strong>last wins</strong>, logged at WARN naming both, which is what lets a consumer
      * replace a built-in interpolator with its own.
      *
-     * @param interpolators the interpolators to register; never {@code null}, possibly empty
+     * @param interpolators the interpolators to register; must not be {@code null}, may be empty
      * @throws BratException if {@code interpolators} is {@code null}, or if any element or any
      *         element's {@code definitionType()} is {@code null}
      */
@@ -74,7 +74,7 @@ public final class RequestDefinitionInterpolators {
      * here rather than resolving to its parent's interpolator, which would silently leave the
      * subclass's own fields holding raw {@code ${...}} tokens — a request that then runs, and passes.
      *
-     * @param definition the authored definition to interpolate; never {@code null}
+     * @param definition the authored definition to interpolate; must not be {@code null}
      * @param interpolation resolves the tokens
      * @param runtimeData the namespaces to resolve against
      * @return a fresh interpolated copy, as {@link RequestDefinitionInterpolator#interpolated}

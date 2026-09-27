@@ -25,7 +25,7 @@ class HttpRequestDefinitionTest {
         var body = Map.of(RAW_BODY, "{\"item\": \"widget\"}");
 
         // when
-        var definition = new HttpRequestDefinition("http://x", "POST", null, body, Map.of("Content-Type", JSON), null);
+        var definition = new HttpRequestDefinition("http://x", "POST", body, Map.of("Content-Type", JSON));
 
         // then
         assertThat(definition.getBody()).containsEntry(BODY_STRING, "{\"item\": \"widget\"}");
@@ -37,7 +37,7 @@ class HttpRequestDefinitionTest {
         var body = Map.of(RAW_BODY, "{}");
 
         // then
-        assertThatCode(() -> new HttpRequestDefinition("http://x", "POST", null, body, Map.of(), null))
+        assertThatCode(() -> new HttpRequestDefinition("http://x", "POST", body, Map.of()))
                 .doesNotThrowAnyException();
     }
 
@@ -47,7 +47,7 @@ class HttpRequestDefinitionTest {
         var body = Map.of(RAW_BODY, "{}");
 
         // then — the constructor's own Javadoc permits null headers
-        assertThatCode(() -> new HttpRequestDefinition("http://x", "POST", null, body, null, null))
+        assertThatCode(() -> new HttpRequestDefinition("http://x", "POST", body, null))
                 .doesNotThrowAnyException();
     }
 
@@ -59,7 +59,7 @@ class HttpRequestDefinitionTest {
         body.put("b", "2");
 
         // when
-        var definition = new HttpRequestDefinition("http://x", "POST", null, body, Map.of("Content-Type", FORM), null);
+        var definition = new HttpRequestDefinition("http://x", "POST", body, Map.of("Content-Type", FORM));
 
         // then
         assertThat(definition.getBody()).containsEntry(BODY_STRING, "a=1&b=2");
@@ -72,7 +72,7 @@ class HttpRequestDefinitionTest {
         body.put("a", "1");
 
         // when
-        var definition = new HttpRequestDefinition("http://x", "POST", null, body, Map.of("content-type", FORM), null);
+        var definition = new HttpRequestDefinition("http://x", "POST", body, Map.of("content-type", FORM));
 
         // then
         assertThat(definition.getBody()).containsEntry(BODY_STRING, "a=1");
@@ -84,7 +84,7 @@ class HttpRequestDefinitionTest {
         var body = Map.of(FILE_BODY, "bodies/does-not-exist-${vars.stage}.json");
 
         // when
-        var definition = new HttpRequestDefinition("http://x", "POST", null, body, Map.of(), null);
+        var definition = new HttpRequestDefinition("http://x", "POST", body, Map.of());
 
         // then
         assertThat(definition.getBody()).containsEntry(FILE_BODY, "bodies/does-not-exist-${vars.stage}.json");
@@ -98,7 +98,7 @@ class HttpRequestDefinitionTest {
         body.put(RAW_BODY, "{}");
 
         // when
-        new HttpRequestDefinition("http://x", "POST", null, body, Map.of("Content-Type", JSON), null);
+        new HttpRequestDefinition("http://x", "POST", body, Map.of("Content-Type", JSON));
 
         // then
         assertThat(body).containsOnlyKeys(RAW_BODY);
@@ -110,7 +110,7 @@ class HttpRequestDefinitionTest {
         var headers = Map.of("content-type", JSON);
 
         // when
-        var definition = new HttpRequestDefinition("http://x", "POST", null, null, headers, null);
+        var definition = new HttpRequestDefinition("http://x", "POST", null, headers);
 
         // then — the author's spelling is what a report and an outcome key echo
         assertThat(definition.getHeaders()).containsOnlyKeys("content-type");
@@ -119,7 +119,7 @@ class HttpRequestDefinitionTest {
     @Test
     void constructor_defaultsAnAbsentMethodToGet() {
         // when - a null method would otherwise bind fine and fail at request time
-        var definition = new HttpRequestDefinition("http://x", null, null, null, null, null);
+        var definition = new HttpRequestDefinition("http://x", null, null, null);
 
         // then
         assertThat(definition.getMethod()).isEqualTo("GET");
@@ -128,7 +128,7 @@ class HttpRequestDefinitionTest {
     @Test
     void constructor_keepsADeclaredMethod() {
         // when
-        var definition = new HttpRequestDefinition("http://x", "POST", null, null, null, null);
+        var definition = new HttpRequestDefinition("http://x", "POST", null, null);
 
         // then
         assertThat(definition.getMethod()).isEqualTo("POST");
@@ -137,7 +137,7 @@ class HttpRequestDefinitionTest {
     @Test
     void constructor_keepsANullBodyNull() {
         // when
-        var definition = new HttpRequestDefinition("http://x", "GET", null, null, Map.of(), null);
+        var definition = new HttpRequestDefinition("http://x", "GET", null, Map.of());
 
         // then
         assertThat(definition.getBody()).isNull();
@@ -151,7 +151,7 @@ class HttpRequestDefinitionTest {
         headers.put("content-type", FORM);
 
         // then - rejected at construction, so it fails whether or not anything reads that header
-        assertThatThrownBy(() -> new HttpRequestDefinition("http://x", "POST", null, null, headers, null))
+        assertThatThrownBy(() -> new HttpRequestDefinition("http://x", "POST", null, headers))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("Content-Type");
     }
@@ -165,7 +165,7 @@ class HttpRequestDefinitionTest {
 
         // then - rejected at construction rather than resolved by whichever step happens to run last,
         // and the message quotes neither payload
-        assertThatThrownBy(() -> new HttpRequestDefinition("http://x", "POST", null, body, null, null))
+        assertThatThrownBy(() -> new HttpRequestDefinition("http://x", "POST", body, null))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("'raw'")
                 .hasMessageContaining("'file'")
@@ -180,7 +180,7 @@ class HttpRequestDefinitionTest {
         body.put("a", "1");
 
         // when
-        var definition = new HttpRequestDefinition("http://x", "POST", null, body, Map.of("Content-Type", FORM), null);
+        var definition = new HttpRequestDefinition("http://x", "POST", body, Map.of("Content-Type", FORM));
 
         // then - "no _bodyString is present yet" means an authored one wins
         assertThat(definition.getBody()).containsEntry(BODY_STRING, "already=encoded");
@@ -192,7 +192,7 @@ class HttpRequestDefinitionTest {
         var body = Map.of(FILE_BODY, "bodies/order.json");
 
         // when
-        var definition = new HttpRequestDefinition("http://x", "POST", null, body, Map.of("Content-Type", FORM), null);
+        var definition = new HttpRequestDefinition("http://x", "POST", body, Map.of("Content-Type", FORM));
 
         // then - form-encoding it would send the literal path as the payload
         assertThat(definition.getBody()).containsOnlyKeys(FILE_BODY);
@@ -204,7 +204,7 @@ class HttpRequestDefinitionTest {
         var body = new LinkedHashMap<String, String>();
 
         // when
-        var definition = new HttpRequestDefinition("http://x", "POST", null, body, Map.of("Content-Type", FORM), null);
+        var definition = new HttpRequestDefinition("http://x", "POST", body, Map.of("Content-Type", FORM));
 
         // then
         assertThat(definition.getBody()).isEmpty();
@@ -213,7 +213,7 @@ class HttpRequestDefinitionTest {
     @Test
     void constructor_defaultsSeverityAndDropsNoHeadersWhenBothAreNull() {
         // when
-        var definition = new HttpRequestDefinition("http://x", "GET", null, null, null, null);
+        var definition = new HttpRequestDefinition("http://x", "GET", null, null);
 
         // then
         assertThat(definition.getHeaders()).isNull();
@@ -227,7 +227,7 @@ class HttpRequestDefinitionTest {
         body.put("a", "1");
 
         // when
-        var definition = new HttpRequestDefinition("http://x", "POST", null, body, Map.of("Content-Type", JSON), null);
+        var definition = new HttpRequestDefinition("http://x", "POST", body, Map.of("Content-Type", JSON));
 
         // then - the documented third case: returned unchanged
         assertThat(definition.getBody()).containsOnlyKeys("a");
@@ -236,7 +236,7 @@ class HttpRequestDefinitionTest {
     @Test
     void protocol_isHttpAndComesFromTheTypeRatherThanTheDocument() {
         // given - the authored protocol: key selects which class binds and is consumed doing so
-        var definition = new HttpRequestDefinition("http://x/y", "GET", null, null, null, null);
+        var definition = new HttpRequestDefinition("http://x/y", "GET", null, null);
 
         // then
         assertThat(definition.protocol()).isEqualTo("http");
@@ -245,7 +245,7 @@ class HttpRequestDefinitionTest {
     @Test
     void args_defaultToAnEmptyMapRatherThanNull() {
         // given - every handler has to validate the bag, so none of them should have to null-check it
-        var definition = new HttpRequestDefinition("http://x/y", "GET", null, null, null, null);
+        var definition = new HttpRequestDefinition("http://x/y", "GET", null, null);
 
         // then
         assertThat(definition.getArgs()).isEmpty();
@@ -256,7 +256,7 @@ class HttpRequestDefinitionTest {
         // given
         var authored = new LinkedHashMap<String, String>();
         authored.put("certAlias", "client-a");
-        var definition = new HttpRequestDefinition("http://x/y", "GET", null, null, null, null, authored);
+        var definition = new HttpRequestDefinition("http://x/y", "GET", null, null, authored);
 
         // when - the author's map goes on living after the definition is built
         authored.put("added", "later");

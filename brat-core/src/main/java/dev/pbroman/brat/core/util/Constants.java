@@ -117,6 +117,7 @@ public final class Constants {
     public static final String CONTAINS_ANY_OF = "containsanyof";
     public static final String CONTAINS_EXACTLY = "containsexactly";
     public static final String CONTAINS_EXACTLY_IN_ANY_ORDER = "containsexactlyinanyorder";
+    public static final String ONE_OF = "oneof";
     public static final String ARG_IGNORE = "ignore";
 
     public static final String BETWEEN = "between";

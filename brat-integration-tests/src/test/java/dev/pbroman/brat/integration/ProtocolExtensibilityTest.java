@@ -72,7 +72,6 @@ class ProtocolExtensibilityTest extends EndToEndTestBase {
                 null,
                 null,
                 null,
-                null,
                 Map.of("http", "mtls"),
                 List.of(request()),
                 null);
@@ -102,6 +101,7 @@ class ProtocolExtensibilityTest extends EndToEndTestBase {
     private static Request request() {
         return new Request(
                 "list the users",
+                null,
                 null,
                 null,
                 null,

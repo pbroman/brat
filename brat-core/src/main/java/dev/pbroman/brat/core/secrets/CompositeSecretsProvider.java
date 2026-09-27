@@ -42,7 +42,7 @@ public final class CompositeSecretsProvider implements SecretsProvider {
      * Resolves {@code key} by consulting each provider in order and returning the first value
      * found. Providers after the one that resolved the key are not consulted.
      *
-     * @param key the logical secret name; never {@code null} or blank
+     * @param key the logical secret name; must not be {@code null} or blank
      * @return the value from the first provider that has {@code key}, or {@link Optional#empty()}
      *         if no provider in the chain has it — including when the chain is empty
      * @throws BratException if {@code key} is {@code null} or blank, or if any provider consulted

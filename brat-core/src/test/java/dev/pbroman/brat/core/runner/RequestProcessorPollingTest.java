@@ -16,6 +16,7 @@ import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.RepeatUntil;
 import dev.pbroman.brat.core.data.Request;
+import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.ResponseActions;
 import dev.pbroman.brat.core.data.result.HttpResponse;
 import dev.pbroman.brat.core.data.result.RequestCoordinates;
@@ -25,6 +26,7 @@ import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.handler.HttpResponseVars;
 import dev.pbroman.brat.core.interpolation.configdata.RequestDefinitionInterpolators;
+import dev.pbroman.brat.core.interpolation.configdata.RequestOptionsInterpolator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -43,6 +45,8 @@ import static org.mockito.Mockito.when;
  */
 class RequestProcessorPollingTest {
 
+    private static final RequestOptions OPTIONS = new RequestOptions(null);
+
     private RequestDefinitionInterpolators requestDefinitionInterpolator;
     private ConfigDataInterpolator<Condition> conditionInterpolator;
     private ConfigDataInterpolator<FlowControl> flowControlInterpolator;
@@ -54,10 +58,9 @@ class RequestProcessorPollingTest {
     private final List<AttemptFinished> attempts = new ArrayList<>();
 
     private final Condition pollCondition = new Condition("isEqualTo", "${response.statusCode}", "200");
-    private final HttpRequestDefinition authored =
-            new HttpRequestDefinition("http://x/jobs/1", "GET", null, null, null, null);
+    private final HttpRequestDefinition authored = new HttpRequestDefinition("http://x/jobs/1", "GET", null, null);
     private final HttpRequestDefinition interpolated =
-            new HttpRequestDefinition("http://x/jobs/1", "GET", null, null, null, null, Map.of());
+            new HttpRequestDefinition("http://x/jobs/1", "GET", null, null, Map.of());
     private final RequestCoordinates coordinates = new RequestCoordinates("s/poll", null, "poll", 1);
 
     @SuppressWarnings("unchecked")
@@ -82,6 +85,7 @@ class RequestProcessorPollingTest {
                 conditionEvaluator,
                 responseHandler,
                 flowControlInterpolator,
+                new RequestOptionsInterpolator(),
                 new RequestExecutor(conditionEvaluator, attempts::add));
 
         runtimeData = new RuntimeData(Map.of(), Map.of());
@@ -94,7 +98,7 @@ class RequestProcessorPollingTest {
         var repeatUntil = new RepeatUntil(pollCondition, maxAttempts, wait, messageOnFail);
         var flowControl = new FlowControl(null, repeatUntil);
         when(flowControlInterpolator.interpolated(any(), any(), any())).thenReturn(flowControl);
-        return new Request("poll", null, null, null, null, null, authored, null, flowControl);
+        return new Request("poll", null, null, null, null, null, null, authored, null, flowControl);
     }
 
     /** A polling request that also declares response actions, so the two can be observed together. */
@@ -103,7 +107,16 @@ class RequestProcessorPollingTest {
         var flowControl = new FlowControl(null, repeatUntil);
         when(flowControlInterpolator.interpolated(any(), any(), any())).thenReturn(flowControl);
         return new Request(
-                "poll", null, null, null, null, null, authored, new ResponseActions(List.of(), Map.of()), flowControl);
+                "poll",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                authored,
+                new ResponseActions(List.of(), Map.of()),
+                flowControl);
     }
 
     private HttpResponse response(int statusCode) {
@@ -115,11 +128,12 @@ class RequestProcessorPollingTest {
     @Test
     void process_givesUpWhenTheAttemptsAreExhaustedWithResponses() {
         // given
-        when(requestHandler.performRequest(any())).thenReturn(response(202));
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202));
         when(conditionResolver.resolve(any())).thenReturn(false);
 
         // when
-        var result = underTest.process(polling("3", "0", "still processing"), coordinates, runtimeData, requestHandler);
+        var result = underTest.process(
+                polling("3", "0", "still processing"), OPTIONS, coordinates, runtimeData, requestHandler);
 
         // then - never reaching the condition is a failure, not a pass
         assertThat(result.status())
@@ -135,11 +149,11 @@ class RequestProcessorPollingTest {
     @Test
     void process_generatesAGiveUpMessageWhenTheAuthorDeclaredNone() {
         // given
-        when(requestHandler.performRequest(any())).thenReturn(response(202));
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202));
         when(conditionResolver.resolve(any())).thenReturn(false);
 
         // when
-        var result = underTest.process(polling("2", "0", null), coordinates, runtimeData, requestHandler);
+        var result = underTest.process(polling("2", "0", null), OPTIONS, coordinates, runtimeData, requestHandler);
 
         // then - never null: a report needs a sentence even where the author wrote none
         assertThat(result.status())
@@ -157,21 +171,21 @@ class RequestProcessorPollingTest {
                 .thenThrow(new BratException("The parameter 'attempts' is not set."));
 
         // when
-        var result = underTest.process(request, coordinates, runtimeData, requestHandler);
+        var result = underTest.process(request, OPTIONS, coordinates, runtimeData, requestHandler);
 
         // then - the loop's bounds are unknowable, and guessing them is how a suite spins
         assertThat(result.status()).isInstanceOf(RequestStatus.Errored.class);
-        verify(requestHandler, never()).performRequest(any());
+        verify(requestHandler, never()).performRequest(any(), any());
     }
 
     @Test
     void process_emitsNoAttemptFinishedForARequestThatDoesNotPoll() {
         // given
-        when(requestHandler.performRequest(any())).thenReturn(response(200));
-        var request = new Request("once", null, null, null, null, null, authored, null, null);
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(200));
+        var request = new Request("once", null, null, null, null, null, null, authored, null, null);
 
         // when
-        underTest.process(request, coordinates, runtimeData, requestHandler);
+        underTest.process(request, OPTIONS, coordinates, runtimeData, requestHandler);
 
         // then - no loop, so no progress to report within one
         assertThat(attempts).isEmpty();
@@ -182,16 +196,25 @@ class RequestProcessorPollingTest {
     @Test
     void process_runsResponseActionsOnAGiveUp() {
         // given - there is a response, and "gave up and the status was 500" says more than either
-        when(requestHandler.performRequest(any())).thenReturn(response(500));
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(500));
         when(conditionResolver.resolve(any())).thenReturn(false);
         var repeatUntil = new RepeatUntil(pollCondition, "2", "0", "gave up");
         var flowControl = new FlowControl(null, repeatUntil);
         when(flowControlInterpolator.interpolated(any(), any(), any())).thenReturn(flowControl);
         var request = new Request(
-                "poll", null, null, null, null, null, authored, new ResponseActions(List.of(), Map.of()), flowControl);
+                "poll",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                authored,
+                new ResponseActions(List.of(), Map.of()),
+                flowControl);
 
         // when
-        underTest.process(request, coordinates, runtimeData, requestHandler);
+        underTest.process(request, OPTIONS, coordinates, runtimeData, requestHandler);
 
         // then
         verify(responseHandler).handleResponse(any(), any());
@@ -200,12 +223,12 @@ class RequestProcessorPollingTest {
     @Test
     void process_runsResponseActionsWhenTheConditionHolds() {
         // given - the other half of "response actions run on Completed and on GaveUp"
-        when(requestHandler.performRequest(any())).thenReturn(response(200));
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(200));
         when(conditionResolver.resolve(any())).thenReturn(true);
         var request = pollingWithResponseActions("3", null);
 
         // when
-        var result = underTest.process(request, coordinates, runtimeData, requestHandler);
+        var result = underTest.process(request, OPTIONS, coordinates, runtimeData, requestHandler);
 
         // then
         verify(responseHandler).handleResponse(any(), any());
@@ -216,13 +239,13 @@ class RequestProcessorPollingTest {
     void process_erroresWhenTheResponseActionsThrowOnAGiveUp() {
         // given - ResponseHandler is an extension point, so core cannot assume an implementation
         // keeps its own failures in; a plugin that throws must not abort the run
-        when(requestHandler.performRequest(any())).thenReturn(response(500));
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(500));
         when(conditionResolver.resolve(any())).thenReturn(false);
         when(responseHandler.handleResponse(any(), any())).thenThrow(new IllegalStateException("a plugin broke"));
         var request = pollingWithResponseActions("2", "gave up");
 
         // when
-        var result = underTest.process(request, coordinates, runtimeData, requestHandler);
+        var result = underTest.process(request, OPTIONS, coordinates, runtimeData, requestHandler);
 
         // then
         assertThat(result.status())
@@ -236,10 +259,10 @@ class RequestProcessorPollingTest {
     void process_erroresWhenMaxAttemptsIsNotPositive() {
         // given - a ceiling of zero is a ceiling the author did not mean, and ${params.attempts}
         // resolving to 0 is the realistic route in
-        when(requestHandler.performRequest(any())).thenReturn(response(200));
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(200));
 
         // when
-        var result = underTest.process(polling("0", "0", null), coordinates, runtimeData, requestHandler);
+        var result = underTest.process(polling("0", "0", null), OPTIONS, coordinates, runtimeData, requestHandler);
 
         // then - the same treatment an unparseable value gets, rather than a silent default
         assertThat(result.status())
@@ -247,6 +270,6 @@ class RequestProcessorPollingTest {
                 .extracting(RequestStatus.Errored::message)
                 .asString()
                 .contains("must be a positive number");
-        verify(requestHandler, never()).performRequest(any());
+        verify(requestHandler, never()).performRequest(any(), any());
     }
 }

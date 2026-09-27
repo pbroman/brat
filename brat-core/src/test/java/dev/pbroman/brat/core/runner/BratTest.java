@@ -28,8 +28,10 @@ import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.RepeatUntil;
 import dev.pbroman.brat.core.data.Request;
+import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.TestSuite;
 import dev.pbroman.brat.core.data.result.HttpResponse;
+import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
@@ -52,7 +54,7 @@ class BratTest {
         }
 
         @Override
-        public HttpResponse performRequest(HttpRequestDefinition definition) {
+        public HttpResponse performRequest(HttpRequestDefinition definition, RequestOptions options) {
             return new HttpResponse(200, Map.of(), "{\"id\": \"7\"}");
         }
     };
@@ -67,13 +69,14 @@ class BratTest {
                 null,
                 null,
                 null,
-                new HttpRequestDefinition(url, "GET", null, null, null, null),
+                null,
+                new HttpRequestDefinition(url, "GET", null, null),
                 null,
                 null);
     }
 
     private static TestSuite suite(Request... requests) {
-        return new TestSuite("suite", null, null, null, null, null, null, null, null, List.of(requests), null);
+        return new TestSuite("suite", null, null, null, null, null, null, null, List.of(requests), null);
     }
 
     /** An environment whose chain is the one {@link FixedSecretsProviderFactory} builds. */
@@ -96,8 +99,9 @@ class BratTest {
                 null,
                 null,
                 null,
+                null,
                 requestHandlers,
-                new HttpRequestDefinition("http://localhost:8080/x", "GET", null, null, null, null),
+                new HttpRequestDefinition("http://localhost:8080/x", "GET", null, null),
                 null,
                 null);
     }
@@ -111,6 +115,7 @@ class BratTest {
 
         private final String name;
         private int calls;
+        private RequestOptions lastOptions;
 
         private RecordingHandler(String name) {
             this.name = name;
@@ -122,8 +127,9 @@ class BratTest {
         }
 
         @Override
-        public HttpResponse performRequest(HttpRequestDefinition requestDefinition) {
+        public HttpResponse performRequest(HttpRequestDefinition requestDefinition, RequestOptions options) {
             calls++;
+            lastOptions = options;
             return new HttpResponse(200, Map.of(), "{}");
         }
     }
@@ -140,7 +146,7 @@ class BratTest {
         public HttpRequestDefinition interpolated(
                 HttpRequestDefinition target, Interpolation interpolation, RuntimeData runtimeData) {
             return new HttpRequestDefinition(
-                    "http://replaced/by-the-builder", target.getMethod(), null, null, null, null, null, Map.of());
+                    "http://replaced/by-the-builder", target.getMethod(), null, null, null, Map.of());
         }
     }
 
@@ -163,7 +169,7 @@ class BratTest {
         }
 
         @Override
-        public Object performRequest(RequestDefinition requestDefinition) {
+        public Object performRequest(RequestDefinition requestDefinition, RequestOptions options) {
             return null;
         }
 
@@ -251,6 +257,30 @@ class BratTest {
     // ---------- selecting a handler ----------
 
     @Test
+    void run_handsTheHandlerTheRequestsOwnTimeoutResolved() {
+        // given
+        var recording = recordingHandler("test");
+        var brat = Brat.builder().requestHandler(recording).build();
+        var request = new Request(
+                "r",
+                null,
+                null,
+                "${env.timeout}",
+                null,
+                null,
+                null,
+                new HttpRequestDefinition("http://localhost:8080/x", "GET", null, null),
+                null,
+                null);
+
+        // when
+        brat.run(suite(request), Environment.of(Map.of("timeout", "1500"), Map.of()));
+
+        // then
+        assertThat(recording.lastOptions.timeoutMs()).isEqualTo(1500L);
+    }
+
+    @Test
     void run_usesTheHandlerTheRequestNames() {
         // given - two handlers for one protocol, which is what selection by name exists for
         var named = recordingHandler("mtls");
@@ -262,9 +292,7 @@ class BratTest {
         var request = requestWithHandlers(Map.of("http", "mtls"));
 
         // when
-        brat.run(
-                new TestSuite("s", null, null, null, null, null, null, null, null, List.of(request), null),
-                environment);
+        brat.run(new TestSuite("s", null, null, null, null, null, null, null, List.of(request), null), environment);
 
         // then
         assertThat(named.calls).isEqualTo(1);
@@ -281,7 +309,6 @@ class BratTest {
                 .build();
         var suite = new TestSuite(
                 "s",
-                null,
                 null,
                 null,
                 null,
@@ -318,7 +345,6 @@ class BratTest {
                 null,
                 null,
                 null,
-                null,
                 Map.of("http", "mtls", "ftp", "vsftpd"),
                 List.of(requestWithHandlers(Map.of("http", "proxy"))),
                 null);
@@ -339,7 +365,7 @@ class BratTest {
 
         // when / then - structural, so it is not an errored result
         assertThatThrownBy(() -> brat.run(
-                        new TestSuite("s", null, null, null, null, null, null, null, null, List.of(request), null),
+                        new TestSuite("s", null, null, null, null, null, null, null, List.of(request), null),
                         environment))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("mtls");
@@ -397,8 +423,7 @@ class BratTest {
 
         // when
         var result = brat.run(
-                new TestSuite("s", null, null, null, null, null, null, null, null, List.of(request), null),
-                environment);
+                new TestSuite("s", null, null, null, null, null, null, null, List.of(request), null), environment);
 
         // then - a jar on the classpath is a registration, which is what path 3 exists for
         assertThat(result.requestResults().getFirst().status()).isInstanceOf(RequestStatus.Completed.class);
@@ -450,6 +475,9 @@ class BratTest {
                 .isInstanceOf(BratException.class);
         assertThatThrownBy(() -> Brat.builder().defaultRequestHandler("http", " "))
                 .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> Brat.builder().defaultRequestHandler("http", null))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> Brat.builder().defaultRequestHandler(" ", "x")).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -547,10 +575,11 @@ class BratTest {
                 "r",
                 null,
                 null,
+                null,
                 new Condition("isAlwaysTrue", "a", null),
                 null,
                 null,
-                new HttpRequestDefinition("${env.baseUrl}/a", "GET", null, null, null, null),
+                new HttpRequestDefinition("${env.baseUrl}/a", "GET", null, null),
                 null,
                 null);
 
@@ -577,15 +606,131 @@ class BratTest {
     }
 
     @Test
-    void run_rejectsASuiteDeclaringSubSuites() {
-        // given — the tree walk and its inheritance are a later phase
-        var nested =
-                new TestSuite("outer", null, null, null, null, null, null, null, null, List.of(), List.of(suite()));
+    void run_walksASuiteDeclaringSubSuites() {
+        // given - the walk's order is TestSuiteRunner's to pin; this pins only that Brat hands it the tree
+        var inner = new TestSuite(
+                "inner",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of(request("nested", "${env.baseUrl}/b")),
+                null);
+        var outer = new TestSuite(
+                "outer",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of(request("top", "${env.baseUrl}/a")),
+                List.of(inner));
+        var events = new ArrayList<RunEvent>();
 
-        // when / then — rejected rather than half-run
-        assertThatThrownBy(() -> brat().run(nested, environment))
-                .isInstanceOf(BratException.class)
-                .hasMessageContaining("subSuites");
+        // when
+        var result = brat().run(outer, environment, List.of(events::add), new StubRunControl());
+
+        // then
+        assertThat(result.requestResults())
+                .extracting(requestResult -> requestResult.coordinates().path())
+                .containsExactly("outer/top", "outer/inner/nested");
+        assertThat(events)
+                .filteredOn(RunEvent.SuiteExited.class::isInstance)
+                .extracting(event -> ((RunEvent.SuiteExited) event).path())
+                .containsExactly("outer/inner", "outer");
+    }
+
+    @Test
+    void run_failsWithNoRequestResultsWhenItsOnlySubtreeWasAborted() {
+        // given - the subtree's setVars reads an env var the launch did not supply
+        var admin = new TestSuite(
+                "admin",
+                null,
+                null,
+                Map.of("token", "${env.adminToken}"),
+                null,
+                null,
+                null,
+                null,
+                List.of(request("me", "${env.baseUrl}/me")),
+                null);
+        var root = new TestSuite("root", null, null, null, null, null, null, null, null, List.of(admin));
+
+        // when
+        var result = brat().run(root, environment);
+
+        // then - nothing ran, and that is not green
+        assertThat(result.requestResults()).isEmpty();
+        assertThat(result.suiteErrors()).singleElement().satisfies(error -> {
+            assertThat(error.path()).isEqualTo("root/admin");
+            assertThat(error.message()).contains("token", "adminToken");
+        });
+        assertThat(result.failed()).isTrue();
+    }
+
+    @Test
+    void run_aSiblingReadingAVarItsSiblingFailedToSetFailsNamingTheCause() {
+        // given - "admin" cannot compute the token; "reader" reads it anyway
+        var admin = new TestSuite(
+                "admin", null, null, Map.of("token", "${env.adminToken}"), null, null, null, null, null, null);
+        var reader = new TestSuite(
+                "reader",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of(request("me", "${env.baseUrl}/me?t=${vars.token}")),
+                null);
+        var root = new TestSuite("root", null, null, null, null, null, null, null, null, List.of(admin, reader));
+
+        // when
+        var result = brat().run(root, environment);
+
+        // then - the tombstone turns a silent "" into an error naming where the var failed
+        assertThat(result.requestResults())
+                .singleElement()
+                .satisfies(requestResult -> assertThat(requestResult.status())
+                        .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.type(
+                                dev.pbroman.brat.core.data.result.RequestStatus.Errored.class))
+                        .extracting(dev.pbroman.brat.core.data.result.RequestStatus.Errored::message)
+                        .asString()
+                        .contains("token", "root/admin"));
+    }
+
+    @Test
+    void run_resolvesAWaitAfterAndPausesForIt() {
+        // given
+        var request = new Request(
+                "r",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new HttpRequestDefinition("${env.baseUrl}/x", "GET", null, null),
+                null,
+                new FlowControl("${env.pause}", null));
+        var environment = Environment.of(Map.of("baseUrl", "http://localhost:8080", "pause", "150"), Map.of());
+
+        // when
+        var result = brat().run(suite(request), environment);
+
+        // then - the resolved pause is on the result, and the run's time includes it. The run is timed on
+        // the wall clock and the pause on the monotonic one, so a few milliseconds between them is allowed
+        assertThat(result.requestResults())
+                .singleElement()
+                .extracting(RequestResult::waitAfterMs)
+                .isEqualTo(150L);
+        assertThat(result.elapsedMs()).isGreaterThanOrEqualTo(140L);
     }
 
     @Test
@@ -593,6 +738,19 @@ class BratTest {
         // when / then
         assertThatThrownBy(() -> brat().run(null, environment)).isInstanceOf(BratException.class);
         assertThatThrownBy(() -> brat().run(suite(), null)).isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void run_throwsForANullArgumentWithListeners() {
+        // when / then
+        assertThatThrownBy(() -> brat().run(null, environment, List.of(), new StubRunControl()))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> brat().run(suite(), null, List.of(), new StubRunControl()))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> brat().run(suite(), environment, null, new StubRunControl()))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> brat().run(suite(), environment, List.of(), null))
+                .isInstanceOf(BratException.class);
     }
 
     @Test
@@ -671,7 +829,8 @@ class BratTest {
                 null,
                 null,
                 null,
-                new HttpRequestDefinition("${env.baseUrl}/a", "GET", null, null, null, null),
+                null,
+                new HttpRequestDefinition("${env.baseUrl}/a", "GET", null, null),
                 null,
                 new FlowControl(
                         null,
@@ -827,9 +986,9 @@ class BratTest {
     @Test
     void run_failsAtLaunchWhenABodyFileIsNotThere() {
         // given - a token-free path is knowable before anything runs
-        var definition = new HttpRequestDefinition(
-                "http://url", "POST", null, Map.of("file", "file:/no/such/body.json"), null, null);
-        var request = new Request("create", null, null, null, null, null, definition, null, null);
+        var definition =
+                new HttpRequestDefinition("http://url", "POST", Map.of("file", "file:/no/such/body.json"), null);
+        var request = new Request("create", null, null, null, null, null, null, definition, null, null);
 
         // then - and it throws rather than reporting, because no run ever started
         assertThatThrownBy(() -> brat().run(suite(request), environment))

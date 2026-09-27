@@ -27,16 +27,17 @@ import static org.apache.hc.core5.http.HttpHeaders.CONTENT_TYPE;
  * {@code final}: a plugin adding a protocol writes its own {@code RequestDefinition} implementation
  * beside this one rather than extending it, and "HTTP plus one extra knob" is the per-request handler
  * {@code args} bag rather than a subclass.
+ * <p>
+ * It holds only what is sent. How long to wait for the answer is the request's {@code timeout}, which
+ * reaches the handler resolved in {@link RequestOptions}.
  */
 @Getter
 public final class HttpRequestDefinition extends ConfigData implements RequestDefinition {
 
     private final String url;
     private final String method;
-    private final String timeout;
     private final Map<String, String> body;
     private final Map<String, String> headers;
-    private final Auth auth;
     private final Map<String, String> args;
 
     @Override
@@ -56,10 +57,8 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
      * @param url the request URL, possibly holding {@code ${...}} tokens
      * @param method the HTTP method, or {@code null} for {@code GET} — the convention every
      *        comparable tool follows, and better than binding a null that fails at request time
-     * @param timeout the request timeout in milliseconds, or {@code null} for the default
      * @param body the body, keyed by one of the well-known body keys, or {@code null}
      * @param headers the request headers, or {@code null}
-     * @param auth the authentication to apply, or {@code null}
      * @param args extra arguments for the handler that performs this request, or {@code null} for
      *        none. Their keys belong to that handler, not to HTTP — which is why they are a bag and
      *        not fields, and why the handler is what rejects one it does not know
@@ -74,10 +73,8 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
     public HttpRequestDefinition(
             String url,
             String method,
-            String timeout,
             Map<String, String> body,
             Map<String, String> headers,
-            Auth auth,
             Map<String, String> args,
             Map<String, InterpolationOutcome> outcomes) {
         super(outcomes);
@@ -85,9 +82,7 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
         HttpHeaderUtils.requireNoCaseDuplicates(headers);
         this.url = url;
         this.method = method == null ? DEFAULT_METHOD : method;
-        this.timeout = timeout;
         this.headers = headers == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(headers));
-        this.auth = auth;
         this.args = args == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(args));
         this.body = prepared(body, this.headers);
     }
@@ -98,22 +93,18 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
      *
      * @param url the request URL
      * @param method the HTTP method
-     * @param timeout the request timeout
      * @param body the request body entries
      * @param headers the request headers
-     * @param auth the auth configuration
      * @param args extra arguments for the handler, or {@code null} for none
      */
     @JsonCreator
     public HttpRequestDefinition(
             String url,
             String method,
-            String timeout,
             Map<String, String> body,
             Map<String, String> headers,
-            Auth auth,
             Map<String, String> args) {
-        this(url, method, timeout, body, headers, auth, args, null);
+        this(url, method, body, headers, args, null);
     }
 
     /**
@@ -122,19 +113,11 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
      *
      * @param url the request URL
      * @param method the HTTP method
-     * @param timeout the request timeout
      * @param body the request body entries
      * @param headers the request headers
-     * @param auth the auth configuration
      */
-    public HttpRequestDefinition(
-            String url,
-            String method,
-            String timeout,
-            Map<String, String> body,
-            Map<String, String> headers,
-            Auth auth) {
-        this(url, method, timeout, body, headers, auth, null, null);
+    public HttpRequestDefinition(String url, String method, Map<String, String> body, Map<String, String> headers) {
+        this(url, method, body, headers, null, null);
     }
 
     /**

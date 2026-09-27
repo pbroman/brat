@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
+import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.result.HttpResponse;
 
 /**
@@ -34,7 +35,7 @@ public final class FixedResponseHttpHandler implements HttpRequestHandler {
     }
 
     @Override
-    public HttpResponse performRequest(HttpRequestDefinition requestDefinition) {
+    public HttpResponse performRequest(HttpRequestDefinition requestDefinition, RequestOptions options) {
         calls.incrementAndGet();
         return new HttpResponse(
                 STATUS,

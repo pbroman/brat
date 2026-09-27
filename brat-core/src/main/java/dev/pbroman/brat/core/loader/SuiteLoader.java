@@ -60,7 +60,7 @@ public final class SuiteLoader {
      * path that guarantees it; building one by hand is for a consumer with its own protocol set, and
      * that consumer owns keeping the two in step.
      *
-     * @param protocols the definition class per protocol name; never {@code null}, and a copy is kept
+     * @param protocols the definition class per protocol name; must not be {@code null}, and a copy is kept
      * @throws BratException if {@code protocols} is {@code null}
      */
     public SuiteLoader(Map<String, Class<? extends RequestDefinition>> protocols) {

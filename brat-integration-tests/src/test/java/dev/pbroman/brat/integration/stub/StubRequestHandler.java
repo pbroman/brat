@@ -3,6 +3,7 @@ package dev.pbroman.brat.integration.stub;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.handler.RequestHandler;
+import dev.pbroman.brat.core.data.RequestOptions;
 
 /**
  * Executes {@code protocol: stub} requests, by echoing them.
@@ -32,7 +33,7 @@ public final class StubRequestHandler implements RequestHandler<StubRequestDefin
     }
 
     @Override
-    public StubResponse performRequest(StubRequestDefinition requestDefinition) {
+    public StubResponse performRequest(StubRequestDefinition requestDefinition, RequestOptions options) {
         var said = requestDefinition.getSay();
         return new StubResponse(said, said == null ? 0 : said.length());
     }

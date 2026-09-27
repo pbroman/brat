@@ -4,8 +4,8 @@ import dev.pbroman.brat.core.data.ResponseActions;
 import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.result.CaptureFailure;
 import dev.pbroman.brat.core.data.result.ResponseActionsResult;
-import dev.pbroman.brat.core.data.runtime.CaptureTombstone;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.data.runtime.VarTombstone;
 import dev.pbroman.brat.core.exception.BratException;
 
 /**
@@ -24,7 +24,7 @@ public interface ResponseHandler {
      * does not hide the rest.
      * <p>
      * <strong>A failed capture also marks its variable.</strong> The key is removed from {@code vars}
-     * and given a {@link CaptureTombstone}, so a later request reading it fails with the cause instead
+     * and given a {@link VarTombstone}, so a later request reading it fails with the cause instead
      * of resolving to the empty string. A capture that succeeds clears any tombstone the key carried.
      *
      * @param responseActions the actions to perform; never {@code null}

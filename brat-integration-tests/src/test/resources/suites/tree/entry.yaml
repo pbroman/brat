@@ -1,0 +1,45 @@
+# What a suite declares for its own entry. "admin" computes a token from an environment value the
+# launch does not supply, so it aborts before anything under it runs; "reader" then reads that token and
+# is told where it failed. "tenant only" is skipped by a condition on a launch value.
+name: entry
+description: suite setVars and skipCondition, evaluated on entering a suite
+
+subSuites:
+  - name: admin
+    setVars:
+      token: "${env.adminToken}"                 # not supplied, so this suite aborts on entry
+    requests:
+      - name: create as admin
+        phase: setup
+        requestDefinition:
+          url: "${env.baseUrl}/create"
+          method: POST
+          headers:
+            Content-Type: application/json
+          body:
+            raw: |
+              {"username": "admin"}
+
+      - name: clean up as admin
+        phase: teardown                          # does not run: nothing under the suite acted
+        requestDefinition:
+          url: "${env.baseUrl}/clear"
+          method: DELETE
+
+  - name: reader
+    requests:
+      - name: read with the admin token
+        requestDefinition:
+          url: "${env.baseUrl}/echo"
+          headers:
+            X-Token: "${vars.token}"             # errors, naming where the token failed
+
+  - name: tenant only
+    skipCondition:
+      a: "${env.tenant}"
+      func: isEqualTo
+      b: none
+    requests:
+      - name: tenant request
+        requestDefinition:
+          url: "${env.baseUrl}/all"

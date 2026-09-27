@@ -22,7 +22,7 @@ import dev.pbroman.brat.core.util.Require;
  * suite runs to completion and reports every failure instead of aborting on the first. An assertion
  * that cannot be interpolated or resolved becomes a failed {@link AssertionResult}; a capture that
  * cannot be resolved becomes a {@link dev.pbroman.brat.core.data.result.CaptureFailure} and leaves a
- * {@link dev.pbroman.brat.core.data.runtime.CaptureTombstone} on its variable.
+ * {@link dev.pbroman.brat.core.data.runtime.VarTombstone} on its variable.
  */
 public class ResponseActionsHandler implements ResponseHandler {
 
@@ -54,10 +54,10 @@ public class ResponseActionsHandler implements ResponseHandler {
         for (var setVar : responseActions.getSetVars().entrySet()) {
             try {
                 var interpolated = interpolation.interpolate(setVar.getValue(), runtimeData);
-                runtimeData.captureVar(setVar.getKey(), interpolated);
+                runtimeData.setVar(setVar.getKey(), interpolated);
             } catch (Exception e) {
                 var message = FailureMessages.causeOf(e, "The capture");
-                runtimeData.captureFailed(setVar.getKey(), message);
+                runtimeData.setVarFailed(setVar.getKey(), message);
                 captureFailures.add(new CaptureFailure(setVar.getKey(), setVar.getValue(), message));
             }
         }

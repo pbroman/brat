@@ -12,6 +12,7 @@ import java.util.Locale;
 
 import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
+import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.result.HttpResponse;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.ArgsUtils;
@@ -174,13 +175,9 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
      *       the path and the file's content may hold {@code ${…}} tokens. A body is sent on whatever
      *       method declares one, rather than only on POST/PUT/PATCH — silently dropping a body an
      *       author wrote is worse than letting the server reject it</li>
-     *   <li><strong>timeout</strong> — parsed as a whole number of milliseconds and applied to
-     *       awaiting a response and to waiting for a pooled connection. Absent, it is
-     *       {@link dev.pbroman.brat.core.util.Constants#DEFAULT_TIMEOUT_MS}, and zero or negative is
-     *       rejected rather than taken as HttpClient5 takes it, which is infinite. A request with no
-     *       ceiling at all is not offered: an unbounded wait is indistinguishable from a hang. The
-     *       cascade may fill a request's {@code timeout} from an ancestor before it reaches here;
-     *       this applies when nothing did.
+     *   <li><strong>timeout</strong> — {@code options}' {@link RequestOptions#timeoutMs()}, applied to
+     *       awaiting a response and to waiting for a pooled connection. It is always a positive number
+     *       of milliseconds, so a request is never sent without a ceiling.
      *       <p>
      *       ⚠ <strong>It does not bound connecting.</strong> HttpClient5 moved the connect timeout
      *       from {@code RequestConfig} to {@code ConnectionConfig}, which is held by the connection
@@ -190,25 +187,23 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
      *       that long to reach an unreachable host. Left rather than worked around because the
      *       library's own default is three minutes, which is worse, and because connecting is
      *       arguably a property of the pooled route rather than of one request</li>
-     *   <li><strong>auth</strong> — <em>ignored</em>. A declared {@code auth:} binds and interpolates
-     *       and is then inert: nothing applies it to the request. Stated because a silently inert
-     *       credential is the kind of thing a suite passes green without</li>
      * </ul>
      *
      * @param requestDefinition the interpolated request to perform
+     * @param options what the run resolved for this request
      * @return the response: its status, every value of every header it carried, and its body, which
      *         is {@code null} when the response had none. Never {@code null}
-     * @throws BratException if {@code requestDefinition} is {@code null}; if {@code url} is absent or
-     *         not a valid URI; if {@code timeout} is set and is not a whole number of milliseconds;
-     *         if a {@code file} body cannot be read, naming the path; if a body is declared but holds
-     *         nothing to send, which means entries with neither a {@code raw} nor a {@code file} key
+     * @throws BratException if {@code requestDefinition} or {@code options} is {@code null}; if
+     *         {@code url} is absent or not a valid URI; if a body is declared but holds nothing to
+     *         send, which means entries with neither a {@code raw} nor a {@code file} key
      *         nor a form-encoded {@code Content-Type} to join them under; or if the request cannot be
      *         completed at all — connection refused, unknown host, failed TLS handshake, or the
      *         timeout elapsing
      */
     @Override
-    public HttpResponse performRequest(HttpRequestDefinition requestDefinition) {
+    public HttpResponse performRequest(HttpRequestDefinition requestDefinition, RequestOptions options) {
         Require.nonNull(requestDefinition, "Cannot perform a null request definition");
+        Require.nonNull(options, "Cannot perform a request without its options");
 
         // This handler takes no arguments at all, so any key is unknown. Ignoring them would make the
         // one handler everybody starts with the exception to what the author documents - and would
@@ -231,7 +226,7 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
         }
 
         var context = HttpClientContext.create();
-        context.setRequestConfig(configOf(requestDefinition));
+        context.setRequestConfig(configOf(options));
         try {
             return client.execute(builder.build(), context, ApacheHttpRequestHandler::toResponse);
         } catch (IOException e) {
@@ -323,22 +318,11 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
     /**
      * Builds the per-request configuration, which is where the timeout lands.
      *
-     * @param definition the interpolated request
+     * @param options the interpolated options, whose timeout is already defaulted and validated
      * @return the configuration for this one request
-     * @throws BratException if {@code timeout} is set and is not a whole number of milliseconds
      */
-    private static RequestConfig configOf(HttpRequestDefinition definition) {
-        var declared = StringUtils.defaultIfBlank(definition.getTimeout(), DEFAULT_TIMEOUT_MS);
-        long millis;
-        try {
-            millis = Long.parseLong(declared.trim());
-        } catch (NumberFormatException e) {
-            throw new BratException("The timeout '" + declared + "' is not a whole number of milliseconds", e);
-        }
-        if (millis <= 0) {
-            throw new BratException("The timeout '" + declared + "' must be a positive number of milliseconds");
-        }
-        var timeout = Timeout.ofMilliseconds(millis);
+    private static RequestConfig configOf(RequestOptions options) {
+        var timeout = Timeout.ofMilliseconds(options.timeoutMs());
         // No connect timeout here: HttpClient5 moved it to ConnectionConfig, which is per connection
         // manager, so the constructor sets it once for the handler. See the note on performRequest.
         return RequestConfig.custom()

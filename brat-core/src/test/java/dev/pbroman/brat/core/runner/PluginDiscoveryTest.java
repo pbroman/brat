@@ -8,6 +8,7 @@ import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
 import dev.pbroman.brat.core.api.interpolation.BratFunction;
 import dev.pbroman.brat.core.api.interpolation.RequestDefinitionInterpolator;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
+import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.result.HttpResponse;
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
@@ -37,14 +38,14 @@ class PluginDiscoveryTest {
         }
 
         @Override
-        public HttpResponse performRequest(HttpRequestDefinition requestDefinition) {
+        public HttpResponse performRequest(HttpRequestDefinition requestDefinition, RequestOptions options) {
             return new HttpResponse(200, java.util.Map.of(), "discovered");
         }
     }
 
     /**
      * Declared in the interpolator fixture, so a builder test can prove that a definition
-     * interpolator arrives by discovery too — the second collected point 8a-2 added.
+     * interpolator arrives by discovery too, as a request handler does.
      */
     public static final class DiscoverableInterpolator implements RequestDefinitionInterpolator<HttpRequestDefinition> {
 
@@ -61,7 +62,7 @@ class PluginDiscoveryTest {
                 HttpRequestDefinition target,
                 dev.pbroman.brat.core.api.interpolation.Interpolation interpolation,
                 dev.pbroman.brat.core.data.runtime.RuntimeData runtimeData) {
-            return new HttpRequestDefinition(URL, target.getMethod(), null, null, null, null, null, java.util.Map.of());
+            return new HttpRequestDefinition(URL, target.getMethod(), null, null, null, java.util.Map.of());
         }
     }
 

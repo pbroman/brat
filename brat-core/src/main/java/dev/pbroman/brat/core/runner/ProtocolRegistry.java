@@ -37,11 +37,11 @@ final class ProtocolRegistry {
      * no order survives to lookup time and two handlers under one name can only be an overlay. That
      * is what lets a plugin replace a built-in handler while every suite goes on naming it.
      *
-     * @param handlers the handlers to register, in precedence order — later wins; never {@code null},
+     * @param handlers the handlers to register, in precedence order — later wins; must not be {@code null},
      *        possibly empty, though a runner with none can perform no request
      * @param defaultNames the handler to use for a protocol when a suite names none, keyed by
      *        protocol; never {@code null}, possibly empty
-     * @param interpolators the interpolators available for request definitions; never {@code null}
+     * @param interpolators the interpolators available for request definitions; must not be {@code null}
      * @throws BratException if any argument is {@code null}, or if a handler declares a {@code null}
      *         or blank {@code protocol()}, {@code name()} or {@code definitionType()}
      * @throws BratException if two handlers for one protocol declare different

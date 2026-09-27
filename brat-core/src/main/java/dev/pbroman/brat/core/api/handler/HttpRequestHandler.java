@@ -3,6 +3,7 @@ package dev.pbroman.brat.core.api.handler;
 import java.util.Map;
 
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
+import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.result.HttpResponse;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.handler.HttpResponseVars;
@@ -15,7 +16,7 @@ import static dev.pbroman.brat.core.util.Constants.HTTP;
  * Everything true of HTTP rather than of one client is fixed here — the protocol name, the class an
  * authored {@code requestDefinition:} binds to, and the namespace a suite reads a response through —
  * so an implementation supplies only {@link #name()} and
- * {@link #performRequest(HttpRequestDefinition)}. Two HTTP handlers can then differ in how they send
+ * {@link #performRequest(HttpRequestDefinition, RequestOptions)}. Two HTTP handlers can then differ in how they send
  * a request and never in what a suite may say about one.
  */
 public interface HttpRequestHandler extends RequestHandler<HttpRequestDefinition, HttpResponse> {
@@ -39,6 +40,8 @@ public interface HttpRequestHandler extends RequestHandler<HttpRequestDefinition
      * Performs the HTTP request described by {@code requestDefinition} and returns the response.
      *
      * @param requestDefinition the request to perform
+     * @param options what the run resolved for this request; its timeout bounds the wait for a
+     *        response
      * @return the HTTP response, whatever its status code — see
      *         {@link RequestHandler#performRequest} for why a 4xx or 5xx is a result rather than a
      *         failure
@@ -48,5 +51,5 @@ public interface HttpRequestHandler extends RequestHandler<HttpRequestDefinition
      *         <em>our</em> timeout is not
      */
     @Override
-    HttpResponse performRequest(HttpRequestDefinition requestDefinition);
+    HttpResponse performRequest(HttpRequestDefinition requestDefinition, RequestOptions options);
 }

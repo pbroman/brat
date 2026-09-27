@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class RuntimeDataCaptureTest {
+class RuntimeDataSetVarTest {
 
     private RuntimeData runtimeData;
 
@@ -72,21 +72,21 @@ class RuntimeDataCaptureTest {
     }
 
     @Test
-    void captureVar_setsTheVariable() {
+    void setVar_setsTheVariable() {
         // when
-        runtimeData.captureVar("orderId", "42");
+        runtimeData.setVar("orderId", "42");
 
         // then
         assertThat(runtimeData.getVars()).containsEntry("orderId", "42");
     }
 
     @Test
-    void captureVar_clearsAnEarlierTombstone() {
+    void setVar_clearsAnEarlierTombstone() {
         // given - a capture that failed, then one that succeeded
-        runtimeData.captureFailed("orderId", "no such path");
+        runtimeData.setVarFailed("orderId", "no such path");
 
         // when
-        runtimeData.captureVar("orderId", "42");
+        runtimeData.setVar("orderId", "42");
 
         // then - an ordinary variable, not a poisoned one
         assertThat(runtimeData.getTombstone("orderId")).isNull();
@@ -94,43 +94,43 @@ class RuntimeDataCaptureTest {
     }
 
     @Test
-    void captureVar_throwsForANullName() {
+    void setVar_throwsForANullName() {
         // when / then
-        assertThatThrownBy(() -> runtimeData.captureVar(null, "42")).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> runtimeData.setVar(null, "42")).isInstanceOf(BratException.class);
     }
 
     @Test
-    void captureFailed_leavesATombstoneNamingTheCauseAndThePath() {
+    void setVarFailed_leavesATombstoneNamingTheCauseAndThePath() {
         // when
-        runtimeData.captureFailed("orderId", "no such path");
+        runtimeData.setVarFailed("orderId", "no such path");
 
         // then
         assertThat(runtimeData.getTombstone("orderId"))
-                .isEqualTo(new CaptureTombstone("no such path", "happy path/create an order"));
+                .isEqualTo(new VarTombstone("no such path", "happy path/create an order"));
     }
 
     @Test
-    void captureFailed_removesAnyStaleValue() {
+    void setVarFailed_removesAnyStaleValue() {
         // given - the key already holds a value captured by an earlier request
-        runtimeData.captureVar("orderId", "41");
+        runtimeData.setVar("orderId", "41");
 
         // when
-        runtimeData.captureFailed("orderId", "no such path");
+        runtimeData.setVarFailed("orderId", "no such path");
 
         // then - the stale value must not be found ahead of the tombstone
         assertThat(runtimeData.getVars()).doesNotContainKey("orderId");
     }
 
     @Test
-    void captureFailed_throwsForANullName() {
+    void setVarFailed_throwsForANullName() {
         // when / then
-        assertThatThrownBy(() -> runtimeData.captureFailed(null, "why")).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> runtimeData.setVarFailed(null, "why")).isInstanceOf(BratException.class);
     }
 
     @Test
     void getTombstone_answersNullForAKeyThatNeverFailed() {
         // given
-        runtimeData.captureVar("orderId", "42");
+        runtimeData.setVar("orderId", "42");
 
         // when / then
         assertThat(runtimeData.getTombstone("orderId")).isNull();

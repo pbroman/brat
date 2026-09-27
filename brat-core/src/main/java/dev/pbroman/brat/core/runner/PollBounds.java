@@ -6,6 +6,7 @@ import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.RepeatUntil;
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.util.DurationUtils;
 
 import static dev.pbroman.brat.core.util.Constants.DEFAULT_MAX_ATTEMPTS;
 
@@ -69,7 +70,7 @@ record PollBounds(Condition condition, int maxAttempts, long waitBetweenAttempts
         return Optional.of(new PollBounds(
                 repeatUntil.getCondition(),
                 maxAttempts(repeatUntil.getMaxAttempts()),
-                waitBetweenAttempts(repeatUntil.getWaitBetweenAttempts()),
+                DurationUtils.nonNegativeMillis(repeatUntil.getWaitBetweenAttempts(), "waitBetweenAttempts"),
                 repeatUntil.getMessageOnFail()));
     }
 
@@ -85,23 +86,6 @@ record PollBounds(Condition condition, int maxAttempts, long waitBetweenAttempts
         }
         if (parsed <= 0) {
             throw new BratException("The maxAttempts '" + declared + "' must be a positive number of attempts");
-        }
-        return parsed;
-    }
-
-    private static long waitBetweenAttempts(String declared) {
-        if (declared == null) {
-            return 0;
-        }
-        long parsed;
-        try {
-            parsed = Long.parseLong(declared.trim());
-        } catch (NumberFormatException e) {
-            throw new BratException(
-                    "The waitBetweenAttempts '" + declared + "' is not a whole number of milliseconds", e);
-        }
-        if (parsed < 0) {
-            throw new BratException("The waitBetweenAttempts '" + declared + "' must not be negative");
         }
         return parsed;
     }

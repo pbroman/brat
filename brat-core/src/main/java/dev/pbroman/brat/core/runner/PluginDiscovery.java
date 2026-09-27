@@ -17,9 +17,6 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  * {@code META-INF/services/<interface>} and BRAT finds them with no configuration and no BRAT-specific
  * manifest. Discovery happens once, when the runner is built.
  */
-// Never ServiceLoader.load(Class): that uses the thread-context loader, which is ambient, mutable
-// and may be null, so the same build() would discover different plugins depending on the calling
-// thread - the shape of a defect that reproduces in CI and not locally.
 final class PluginDiscovery {
 
     private PluginDiscovery() {
@@ -37,8 +34,8 @@ final class PluginDiscovery {
      * this call, so a missing class, an unimplemented interface or a throwing constructor surfaces
      * while the runner is being built rather than in the middle of a run.
      *
-     * @param service the extension-point interface to look for; never {@code null}
-     * @param classLoader the loader to search; never {@code null} — a {@code null} would mean the
+     * @param service the extension-point interface to look for; must not be {@code null}
+     * @param classLoader the loader to search; must not be {@code null} — a {@code null} would mean the
      *        bootstrap loader, which finds nothing and would look like "no plugins installed"
      * @return the implementations found, in {@code ServiceLoader} order; empty when there are none,
      *         which is the ordinary case
@@ -53,6 +50,9 @@ final class PluginDiscovery {
         // Provider handle exists to name it. Its own message names the offending class either way.
         try {
             var found = new ArrayList<T>();
+            // Never ServiceLoader.load(Class): that uses the thread-context loader, which is ambient,
+            // mutable and may be null, so the same build() would discover different plugins depending
+            // on the calling thread - the shape of a defect that reproduces in CI and not locally.
             for (T implementation : ServiceLoader.load(service, classLoader)) {
                 found.add(implementation);
             }

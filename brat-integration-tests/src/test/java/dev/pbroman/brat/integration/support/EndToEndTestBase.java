@@ -133,7 +133,7 @@ public abstract class EndToEndTestBase {
     }
 
     /**
-     * How many assertions the suite's own requests declare between them.
+     * How many assertions the suite's requests declare between them, at every depth of the tree.
      *
      * @param suite the suite to count
      * @return the number of authored assertions
@@ -144,6 +144,9 @@ public abstract class EndToEndTestBase {
             if (request.responseActions() != null) {
                 authored += request.responseActions().getAssertions().size();
             }
+        }
+        for (var subSuite : suite.subSuites()) {
+            authored += authoredAssertions(subSuite);
         }
         return authored;
     }

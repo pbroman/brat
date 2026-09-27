@@ -1,0 +1,99 @@
+# Three sibling scenarios. The middle one's setup cannot succeed — creating a user without a username
+# answers 400 — so that scenario aborts, runs its teardown, and leaves its siblings untouched.
+name: setup abort
+description: a failed setup request aborts only the suite that declares it
+
+subSuites:
+  - name: alice
+    requests:
+      - name: create alice
+        phase: setup
+        requestDefinition:
+          url: "${env.baseUrl}/create"
+          method: POST
+          headers:
+            Content-Type: application/json
+          body:
+            raw: |
+              {"username": "alice"}
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 201
+
+      - name: list users
+        requestDefinition:
+          url: "${env.baseUrl}/search/alice"
+        responseActions:
+          assertions:
+            - a: "${response.json.$}"
+              func: hasSize
+              b: 1
+
+  - name: broken
+    requests:
+      - name: create a user without a name
+        phase: setup
+        requestDefinition:
+          url: "${env.baseUrl}/create"
+          method: POST
+          headers:
+            Content-Type: application/json
+          body:
+            raw: |
+              {"age": 1}
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"         # the server answers 400, so this setup fails
+              func: isEqualTo
+              b: 201
+              message: the setup must create a user
+
+      - name: never runs
+        requestDefinition:
+          url: "${env.baseUrl}/all"
+
+      - name: clean up anyway
+        phase: teardown                          # still runs: an earlier setup may have acted
+        requestDefinition:
+          url: "${env.baseUrl}/all"
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 200
+
+    subSuites:
+      - name: never entered
+        requests:
+          - name: nor this
+            requestDefinition:
+              url: "${env.baseUrl}/all"
+
+  - name: carol
+    requests:
+      - name: create carol
+        phase: setup
+        requestDefinition:
+          url: "${env.baseUrl}/create"
+          method: POST
+          headers:
+            Content-Type: application/json
+          body:
+            raw: |
+              {"username": "carol"}
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 201
+
+      - name: list users
+        requestDefinition:
+          url: "${env.baseUrl}/search/carol"
+        responseActions:
+          assertions:
+            - a: "${response.json.$}"
+              func: hasSize
+              b: 1

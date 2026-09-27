@@ -34,7 +34,7 @@ public final class FailureMessages {
      * failure records the variable name on itself, so {@code "The capture"} reads better there than
      * naming the variable twice.
      *
-     * @param e the exception a failure site caught; never {@code null}
+     * @param e the exception a failure site caught; must not be {@code null}
      * @param what what failed, as it should read at the start of the message, e.g.
      *        {@code "The capture"} or {@code "Resolving the assertion 'x is 5'"}; never {@code null}
      * @return {@code what}, {@code " failed, reason: "} and the cause; never {@code null}, though the

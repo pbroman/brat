@@ -50,7 +50,7 @@ public final class MapSecretsProvider implements SecretsProvider {
     /**
      * Resolves {@code key} by exact lookup in the map this provider was constructed with.
      *
-     * @param key the logical secret name; never {@code null} or blank
+     * @param key the logical secret name; must not be {@code null} or blank
      * @return the mapped value, or {@link Optional#empty()} if the map has no entry for {@code key};
      *         a mapped empty string resolves to that empty string rather than counting as absent,
      *         since an explicitly empty entry in a document is deliberate

@@ -10,10 +10,10 @@ import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.RequestDefinitionInterpolator;
 import dev.pbroman.brat.core.data.ConfigData;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
+import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.result.HttpResponse;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.interpolation.configdata.AuthInterpolator;
 import dev.pbroman.brat.core.interpolation.configdata.HttpRequestDefinitionInterpolator;
 import dev.pbroman.brat.core.interpolation.configdata.RequestDefinitionInterpolators;
 import org.junit.jupiter.api.Test;
@@ -24,10 +24,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ProtocolRegistryTest {
 
     private static final RequestDefinitionInterpolators HTTP_INTERPOLATORS =
-            new RequestDefinitionInterpolators(List.of(new HttpRequestDefinitionInterpolator(new AuthInterpolator())));
+            new RequestDefinitionInterpolators(List.of(new HttpRequestDefinitionInterpolator()));
 
-    private final HttpRequestDefinition httpRequest =
-            new HttpRequestDefinition("http://x/y", "GET", null, null, null, null);
+    private final HttpRequestDefinition httpRequest = new HttpRequestDefinition("http://x/y", "GET", null, null);
 
     // ---------- the ladder ----------
 
@@ -253,7 +252,7 @@ class ProtocolRegistryTest {
             }
 
             @Override
-            public HttpResponse performRequest(HttpRequestDefinition requestDefinition) {
+            public HttpResponse performRequest(HttpRequestDefinition requestDefinition, RequestOptions options) {
                 return new HttpResponse(200, Map.of(), null);
             }
         };
@@ -270,7 +269,7 @@ class ProtocolRegistryTest {
         }
 
         @Override
-        public Object performRequest(RequestDefinition requestDefinition) {
+        public Object performRequest(RequestDefinition requestDefinition, RequestOptions options) {
             return null;
         }
 

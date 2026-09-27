@@ -53,12 +53,23 @@ class SuiteLoaderTest {
     @Test
     void load_acceptsAnEnumInAnyCase() {
         // given - the suite-author doc writes `phase: setup`, the assertions doc writes `severity: WARN`
-        var lower = underTest.load("name: s\nphase: teardown\n");
-        var upper = underTest.load("name: s\nphase: TEARDOWN\n");
+        var lower = underTest.load("name: s\nrequests:\n  - name: r\n    phase: teardown\n");
+        var upper = underTest.load("name: s\nrequests:\n  - name: r\n    phase: TEARDOWN\n");
 
         // then
-        assertThat(lower.phase()).isEqualTo(Phase.TEARDOWN);
-        assertThat(upper.phase()).isEqualTo(Phase.TEARDOWN);
+        assertThat(lower.requests().getFirst().phase()).isEqualTo(Phase.TEARDOWN);
+        assertThat(upper.requests().getFirst().phase()).isEqualTo(Phase.TEARDOWN);
+    }
+
+    @Test
+    void load_rejectsAPhaseOnASuite() {
+        // given - only requests take a phase
+        var yaml = "name: s\nsubSuites:\n  - name: log in\n    phase: setup\n";
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("phase");
     }
 
     // ---------- anchors, aliases, merge keys ----------
@@ -285,12 +296,12 @@ class SuiteLoaderTest {
     @Test
     void load_rejectsADuplicateKeyNamingItAndItsPosition() {
         // given
-        var yaml = "name: s\nphase: main\nphase: setup\n";
+        var yaml = "name: s\ndescription: one\ndescription: two\n";
 
         // then
         assertThatThrownBy(() -> underTest.load(yaml))
                 .isInstanceOf(BratException.class)
-                .hasMessageContaining("phase")
+                .hasMessageContaining("description")
                 .hasMessageContaining("line 3");
     }
 
@@ -310,6 +321,82 @@ class SuiteLoaderTest {
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("responsActions")
                 .hasMessageContaining("line 4");
+    }
+
+    @Test
+    void load_rejectsATimeoutInsideTheRequestDefinition() {
+        // given - where timeout lived before it moved to the request; loading it would leave it read
+        // by nothing, and the request would run on the default
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      url: http://x
+                      timeout: "5000"
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("timeout");
+    }
+
+    @Test
+    void load_rejectsAuthInsideTheRequestDefinition() {
+        // given
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      url: http://x
+                      auth:
+                        type: none
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("auth");
+    }
+
+    @Test
+    void load_rejectsAuthOnARequest() {
+        // given - nothing reads a request's auth yet, so rejecting it beats binding it inert
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    auth:
+                      type: none
+                    requestDefinition:
+                      url: http://x
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("auth");
+    }
+
+    @Test
+    void load_bindsATimeoutOnTheRequest() {
+        // given
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    timeout: "${vars.t}"
+                    requestDefinition:
+                      url: http://x
+                """;
+
+        // when
+        var suite = underTest.load(yaml);
+
+        // then
+        assertThat(suite.requests().getFirst().timeout()).isEqualTo("${vars.t}");
     }
 
     @Test
@@ -338,7 +425,7 @@ class SuiteLoaderTest {
         var secret = "s3cr3t-token-value";
 
         // then - the accepted values are safe to print, the authored one is not
-        assertThatThrownBy(() -> underTest.load("name: s\nphase: " + secret + "\n"))
+        assertThatThrownBy(() -> underTest.load("name: s\nrequests:\n  - name: r\n    phase: " + secret + "\n"))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("phase")
                 .hasMessageContaining("SETUP")

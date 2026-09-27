@@ -69,7 +69,13 @@ class RequestResultTest {
     void failed_isTrueForAnErroredRequest() {
         // given
         var result = new RequestResult(
-                COORDINATES, null, new RequestStatus.Errored("connection refused"), 12, ResponseActionsResult.NONE);
+                COORDINATES,
+                null,
+                null,
+                new RequestStatus.Errored("connection refused"),
+                12,
+                0,
+                ResponseActionsResult.NONE);
 
         // then
         assertThat(result.failed()).isTrue();
@@ -82,8 +88,10 @@ class RequestResultTest {
         var result = new RequestResult(
                 COORDINATES,
                 null,
+                null,
                 new RequestStatus.GaveUp(lastAttempt, "still processing after 3 attempts"),
                 4000,
+                0,
                 ResponseActionsResult.NONE);
 
         // then
@@ -94,7 +102,13 @@ class RequestResultTest {
     void failed_isFalseForASkippedRequest() {
         // given — a skipped request did not run, so it did not fail
         var result = new RequestResult(
-                COORDINATES, null, new RequestStatus.Skipped("skipCondition held"), 0, ResponseActionsResult.NONE);
+                COORDINATES,
+                null,
+                null,
+                new RequestStatus.Skipped("skipCondition held"),
+                0,
+                0,
+                ResponseActionsResult.NONE);
 
         // then
         assertThat(result.failed()).isFalse();
@@ -103,7 +117,7 @@ class RequestResultTest {
     @Test
     void constructor_defaultsResponseActionsResultToNone() {
         // when
-        var result = new RequestResult(COORDINATES, null, completed(), 5, null);
+        var result = new RequestResult(COORDINATES, null, null, completed(), 5, 0, null);
 
         // then
         assertThat(result.responseActionsResult()).isEqualTo(ResponseActionsResult.NONE);
@@ -141,7 +155,8 @@ class RequestResultTest {
 
     private static RequestResult result(
             RequestStatus status, List<AssertionResult> assertions, List<CaptureFailure> captures) {
-        return new RequestResult(COORDINATES, null, status, 100, new ResponseActionsResult(assertions, captures));
+        return new RequestResult(
+                COORDINATES, null, null, status, 100, 0, new ResponseActionsResult(assertions, captures));
     }
 
     private static AssertionResult assertionResult(boolean passed, AssertionSeverity severity) {

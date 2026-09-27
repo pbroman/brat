@@ -13,12 +13,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Pins that the suite tree binds from YAML with the shape step 1 gave it.
+ * Pins that the suite tree binds from YAML with the shape its types declare.
  * <p>
- * The {@code RequestDefinition} → {@code HttpRequestDefinition} mapping below is the thin slice of
- * step 2 this test needs: {@code Request.requestDefinition} is typed to the interface deliberately,
- * so something has to say which implementation an authored block becomes. Step 2 replaces this module
- * with the two-step protocol lookup — the mapping moves, the field type does not.
+ * The {@code RequestDefinition} → {@code HttpRequestDefinition} mapping below stands in for the
+ * loader's protocol lookup: {@code Request.requestDefinition} is typed to the interface, so something
+ * has to say which implementation an authored block becomes. {@code SuiteLoaderTest} covers the real
+ * lookup.
  */
 class SuiteBindingTest {
 
@@ -63,7 +63,6 @@ class SuiteBindingTest {
                       waitAfter: "500"
                 subSuites:
                   - name: log in
-                    phase: setup
                 """;
 
         // when
@@ -83,7 +82,7 @@ class SuiteBindingTest {
         });
         assertThat(suite.subSuites())
                 .singleElement()
-                .satisfies(sub -> assertThat(sub.phase()).isEqualTo(Phase.SETUP));
+                .satisfies(sub -> assertThat(sub.name()).isEqualTo("log in"));
     }
 
     @Test
@@ -112,15 +111,6 @@ class SuiteBindingTest {
     }
 
     @Test
-    void bind_defaultsPhaseToMain() {
-        // when
-        var suite = mapper.readValue("name: smoke\n", TestSuite.class);
-
-        // then
-        assertThat(suite.phase()).isEqualTo(Phase.MAIN);
-    }
-
-    @Test
     void bind_defaultsEveryCollectionToEmpty() {
         // when
         var suite = mapper.readValue("name: smoke\n", TestSuite.class);
@@ -134,19 +124,33 @@ class SuiteBindingTest {
     }
 
     @Test
-    void bind_acceptsPhaseInAnyCase() {
+    void bind_acceptsARequestPhaseInAnyCase() {
         // given — the docs write `phase: setup`, the severity docs write `severity: WARN`
-        var lower = mapper.readValue("name: s\nphase: teardown\n", TestSuite.class);
-        var upper = mapper.readValue("name: s\nphase: TEARDOWN\n", TestSuite.class);
+        var lower = mapper.readValue("name: s\nrequests:\n  - name: r\n    phase: teardown\n", TestSuite.class);
+        var upper = mapper.readValue("name: s\nrequests:\n  - name: r\n    phase: TEARDOWN\n", TestSuite.class);
 
         // then
-        assertThat(lower.phase()).isEqualTo(Phase.TEARDOWN);
-        assertThat(upper.phase()).isEqualTo(Phase.TEARDOWN);
+        assertThat(lower.requests().getFirst().phase()).isEqualTo(Phase.TEARDOWN);
+        assertThat(upper.requests().getFirst().phase()).isEqualTo(Phase.TEARDOWN);
     }
 
     @Test
-    void bind_bindsFieldsNothingReadsYet() {
-        // given — auth, requestHandlers and skipCondition are read by nothing yet; all must still bind
+    void bind_rejectsAPhaseOnASuite() {
+        // given - only requests take a phase; a suite runs where it is declared
+        var yaml = """
+                name: s
+                subSuites:
+                  - name: log in
+                    phase: setup
+                """;
+
+        // then
+        assertThatThrownBy(() -> mapper.readValue(yaml, TestSuite.class)).hasMessageContaining("phase");
+    }
+
+    @Test
+    void bind_bindsASuitesSkipConditionAndHandlerNames() {
+        // given
         var yaml = """
                 name: order api
                 skipCondition:
@@ -195,10 +199,10 @@ class SuiteBindingTest {
     void constructor_copiesTheCollectionsItWasGiven() {
         // given
         var requests = new java.util.ArrayList<Request>();
-        var suite = new TestSuite("s", null, null, null, null, null, null, null, null, requests, null);
+        var suite = new TestSuite("s", null, null, null, null, null, null, null, requests, null);
 
         // when
-        requests.add(new Request("r", null, null, null, null, null, null, null, null));
+        requests.add(new Request("r", null, null, null, null, null, null, null, null, null));
 
         // then
         assertThat(suite.requests()).isEmpty();
@@ -207,7 +211,7 @@ class SuiteBindingTest {
     @Test
     void constructor_handsOutUnmodifiableCollections() {
         // given
-        var suite = new TestSuite("s", null, null, null, null, null, null, null, null, List.of(), null);
+        var suite = new TestSuite("s", null, null, null, null, null, null, null, List.of(), null);
 
         // then
         assertThatThrownBy(() -> suite.constants().put("k", "v")).isInstanceOf(UnsupportedOperationException.class);
@@ -236,13 +240,34 @@ class SuiteBindingTest {
     }
 
     @Test
+    void bind_aRequestDeclaringItsOwnTimeout() {
+        // given - timeout is orchestration metadata, so it sits on the request beside phase
+        var yaml = """
+                name: order api
+                requests:
+                  - name: slow report
+                    timeout: "${vars.reportTimeout}"
+                    requestDefinition:
+                      url: "${env.baseUrl}/report"
+                """;
+
+        // when
+        var suite = mapper.readValue(yaml, TestSuite.class);
+
+        // then
+        assertThat(suite.requests())
+                .singleElement()
+                .satisfies(request -> assertThat(request.timeout()).isEqualTo("${vars.reportTimeout}"));
+    }
+
+    @Test
     void constructor_keepsADeclaredPhaseAndHandlersOnARequest() {
         // given
         var handlers = new java.util.LinkedHashMap<String, String>();
         handlers.put("http", "mtls");
 
         // when
-        var request = new Request("r", null, null, null, Phase.TEARDOWN, handlers, null, null, null);
+        var request = new Request("r", null, null, null, null, Phase.TEARDOWN, handlers, null, null, null);
         handlers.put("ftp", "other");
 
         // then - declared values survive, and the map is copied
@@ -253,7 +278,7 @@ class SuiteBindingTest {
     @Test
     void constructor_defaultsPhaseOnARequestToo() {
         // when
-        var request = new Request("r", null, null, null, null, null, null, null, null);
+        var request = new Request("r", null, null, null, null, null, null, null, null, null);
 
         // then
         assertThat(request.phase()).isEqualTo(Phase.MAIN);

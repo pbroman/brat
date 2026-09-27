@@ -5,6 +5,7 @@ import java.time.Instant;
 import dev.pbroman.brat.core.data.result.RequestCoordinates;
 import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.data.result.RunResult;
+import dev.pbroman.brat.core.data.result.SuiteStatus;
 
 /**
  * Something that happened during a run, delivered to every {@link RunListener} as it happens.
@@ -17,14 +18,13 @@ import dev.pbroman.brat.core.data.result.RunResult;
  * and no suite totals — anything derivable from the stream is the consumer's to derive, and a second
  * source of truth for a count is a source of disagreement.
  */
-// SuiteEntered/SuiteExited are deliberately not members yet: they mirror a tree walk that does not
-// exist, and SuiteExited would need a SuiteStatus nothing has defined. They join when the walk that
-// emits them does.
 public sealed interface RunEvent
         permits RunEvent.RunStarted,
+                RunEvent.SuiteEntered,
                 RunEvent.RequestStarted,
                 AttemptFinished,
                 RunEvent.RequestFinished,
+                RunEvent.SuiteExited,
                 RunEvent.RunFinished {
 
     /**
@@ -33,6 +33,19 @@ public sealed interface RunEvent
      * @param at when the run started
      */
     record RunStarted(Instant at) implements RunEvent {}
+
+    /**
+     * A suite is being entered.
+     * <p>
+     * Identified by its path and name alone: a suite has no {@code id}, so it has no
+     * {@link RequestCoordinates}. Every suite that is entered is exited, with a {@link SuiteExited}
+     * carrying the same path, and every event for something beneath it falls between the two.
+     *
+     * @param path the suite's address, built from the names from the root down and joined with
+     *        {@code /} — the prefix of every path beneath it; never {@code null}
+     * @param name the suite's own name, the last segment of the path; never {@code null}
+     */
+    record SuiteEntered(String path, String name) implements RunEvent {}
 
     /**
      * A request is about to execute.
@@ -53,6 +66,19 @@ public sealed interface RunEvent
      * @param result what the request did; never {@code null}
      */
     record RequestFinished(RequestResult result) implements RunEvent {}
+
+    /**
+     * A suite has been left, in any terminal state.
+     * <p>
+     * Emitted for a skipped suite too, directly after its {@link SuiteEntered}, so a suite that ran
+     * nothing is still a node a listener can show — the status is what says why it ran nothing.
+     *
+     * @param path the same path its {@link SuiteEntered} carried; never {@code null}
+     * @param status why the walk of this suite ended; never {@code null}
+     * @param elapsedMs wall clock from entering the suite to leaving it, in milliseconds, including
+     *        everything beneath it
+     */
+    record SuiteExited(String path, SuiteStatus status, long elapsedMs) implements RunEvent {}
 
     /**
      * The run has ended, delivered <strong>exactly once</strong> — on success, on cancellation and on
