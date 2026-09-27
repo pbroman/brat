@@ -71,11 +71,192 @@ class JsonConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
         assertThat(resolver.resolve(condition("isEqualTo", a, b))).contains(true);
     }
 
+    // --- equality by value: a YAML operand's scalars arrive as text ---
+
     @Test
-    void resolve_doesNotEquateANumberWithItsText() {
-        // when / then — types are compared as parsed
+    void resolve_equatesANumberWithItsText() {
+        // when / then — JSON parses 42 as a number; `b: [42]` reaches the rule as text
         assertThat(resolver.resolve(condition("isEqualTo", List.of(42), List.of("42"))))
+                .contains(true);
+    }
+
+    @Test
+    void resolve_equatesNumbersOfTheSameValueWhateverTheirForm() {
+        // when / then
+        assertThat(resolver.resolve(condition("isEqualTo", List.of(2.5), List.of("2.50"))))
+                .contains(true);
+        assertThat(resolver.resolve(condition("isEqualTo", List.of(1L), List.of("1.0"))))
+                .contains(true);
+        assertThat(resolver.resolve(condition("isEqualTo", List.of(1), List.of("2"))))
                 .contains(false);
+    }
+
+    @Test
+    void resolve_equatesSignedAndFractionalNumbersWithTheirText() {
+        // when / then - every way text can start a number
+        assertThat(resolver.resolve(condition("isEqualTo", List.of(-1), List.of("-1"))))
+                .contains(true);
+        assertThat(resolver.resolve(condition("isEqualTo", List.of(1), List.of("+1"))))
+                .contains(true);
+        assertThat(resolver.resolve(condition("isEqualTo", List.of(0.5), List.of(".50"))))
+                .contains(true);
+    }
+
+    @Test
+    void resolve_comparesEmptyTextAsText() {
+        // when / then - empty text is not a number, so it is not zero
+        assertThat(resolver.resolve(condition("isEqualTo", List.of(""), List.of(""))))
+                .contains(true);
+        assertThat(resolver.resolve(condition("isEqualTo", List.of(""), List.of("0"))))
+                .contains(false);
+    }
+
+    @Test
+    void resolve_equatesABooleanWithItsText() {
+        // when / then
+        assertThat(resolver.resolve(condition("isEqualTo", List.of(true), List.of("true"))))
+                .contains(true);
+        assertThat(resolver.resolve(condition("isEqualTo", List.of(true), List.of("false"))))
+                .contains(false);
+    }
+
+    @Test
+    void resolve_comparesNestedNumbersByValue() {
+        // given - a JSON object with a number, against the same object written in YAML
+        var a = Map.of("id", 7, "tags", List.of(1, 2));
+        var b = Map.of("id", "7", "tags", List.of("1", "2"));
+
+        // when / then
+        assertThat(resolver.resolve(condition("isEqualTo", a, b))).contains(true);
+    }
+
+    @Test
+    void resolve_stillTellsDifferentTextApart() {
+        // when / then - by-value equality does not blur text that does not read as a number
+        assertThat(resolver.resolve(condition("isEqualTo", List.of("abc"), List.of("abd"))))
+                .contains(false);
+        assertThat(resolver.resolve(condition("isEqualTo", List.of("1a"), List.of("1"))))
+                .contains(false);
+    }
+
+    @Test
+    void resolve_everyElementFuncComparesNumbersByValue() {
+        // given - the probe that found the defect: a JSON list of numbers against YAML-written b
+        var ids = List.of(1, 2, 3);
+
+        // when / then
+        assertThat(resolver.resolve(condition("contains", ids, List.of("1")))).contains(true);
+        assertThat(resolver.resolve(condition("containsAnyOf", ids, List.of("2", "9"))))
+                .contains(true);
+        assertThat(resolver.resolve(condition("containsOnly", ids, List.of("3", "2", "1"))))
+                .contains(true);
+        assertThat(resolver.resolve(condition("containsExactly", ids, List.of("1", "2", "3"))))
+                .contains(true);
+        assertThat(resolver.resolve(condition("containsExactlyInAnyOrder", ids, List.of("3", "1", "2"))))
+                .contains(true);
+    }
+
+    @Test
+    void resolve_keepsMappingKeysAsWritten() {
+        // given - keys that read as the same number are still different keys
+        var a = new LinkedHashMap<String, Object>();
+        a.put("01", "a");
+        a.put("1", "b");
+
+        // when / then - canonical form must not merge them and hide the extra key
+        assertThat(resolver.resolve(condition("isEqualTo", a, Map.of("1", "b"))))
+                .contains(false);
+    }
+
+    @Test
+    void resolve_containsKeyMatchesTheKeyAsWritten() {
+        // when / then
+        assertThat(resolver.resolve(condition("containsKey", Map.of("01", "x"), "01")))
+                .contains(true);
+        assertThat(resolver.resolve(condition("containsKey", Map.of("01", "x"), "1")))
+                .contains(false);
+    }
+
+    @Test
+    void resolve_comparesNumericTextByValueLikeTheScalarRules() {
+        // when / then - documented consequence: a leading zero does not make a different value
+        assertThat(resolver.resolve(condition("isOneOf", "01234", List.of("1234"))))
+                .contains(true);
+        assertThat(resolver.resolve(condition("isOneOf", 1234, List.of("01234"))))
+                .contains(true);
+    }
+
+    @Test
+    void resolve_countsANumberAndItsTextAsDuplicates() {
+        // when / then - one notion of equality, so duplicates agree with contains
+        assertThat(resolver.resolve(condition("doesNotHaveDuplicates", List.of(1, "1"), null)))
+                .contains(false);
+    }
+
+    // --- isOneOf ---
+
+    @Test
+    void resolve_isOneOfHoldsWhenTheScalarIsAnElement() {
+        // when / then
+        assertThat(resolver.resolve(condition("isOneOf", "admin", List.of("user", "admin"))))
+                .contains(true);
+        assertThat(resolver.resolve(condition("isOneOf", "guest", List.of("user", "admin"))))
+                .contains(false);
+    }
+
+    @Test
+    void resolve_isOneOfIsAnsweredForAScalarSubject() {
+        // when / then - the one func this rule accepts whatever a is
+        assertThat(resolver.resolve(condition("isOneOf", "x", List.of("x")))).isPresent();
+    }
+
+    @Test
+    void resolve_isOneOfComparesByValue() {
+        // when / then - the status code case: a JSON number against YAML-written numbers
+        assertThat(resolver.resolve(condition("isOneOf", 201, List.of("200", "201"))))
+                .contains(true);
+        assertThat(resolver.resolve(condition("isOneOf", "200", List.of("200", "201"))))
+                .contains(true);
+    }
+
+    @Test
+    void resolve_isOneOfTreatsAScalarBAsASingleElement() {
+        // when / then
+        assertThat(resolver.resolve(condition("isOneOf", "a", "a"))).contains(true);
+        assertThat(resolver.resolve(condition("isOneOf", "a", "b"))).contains(false);
+    }
+
+    @Test
+    void resolve_isOneOfComparesASequenceSubjectAsOneValue() {
+        // when / then - not element by element: [1, 2] is one of [[1, 2], [3]], and not of [1, 2]
+        assertThat(resolver.resolve(condition("isOneOf", List.of(1, 2), List.of(List.of("1", "2"), List.of("3")))))
+                .contains(true);
+        assertThat(resolver.resolve(condition("isOneOf", List.of(1, 2), List.of("1", "2"))))
+                .contains(false);
+    }
+
+    @Test
+    void resolve_isNotOneOfIsTheNegation() {
+        // when / then
+        assertThat(resolver.resolve(condition("isNotOneOf", "guest", List.of("user", "admin"))))
+                .contains(true);
+        assertThat(resolver.resolve(condition("isNotOneOf", "admin", List.of("user", "admin"))))
+                .contains(false);
+    }
+
+    @Test
+    void resolve_isOneOfRejectsAnyArgument() {
+        // when / then
+        assertThatThrownBy(() -> resolver.resolve(withArgs("isOneOf", "a", List.of("a"), Map.of("ignore", "x"))))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("ignore");
+    }
+
+    @Test
+    void resolve_isOneOfThrowsForAMissingB() {
+        // when / then
+        assertThatThrownBy(() -> resolver.resolve(condition("isOneOf", "a", null)))
+                .isInstanceOf(BratException.class);
     }
 
     // --- ignoring volatile fields ---

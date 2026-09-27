@@ -71,7 +71,7 @@ public final class DateConditionResolverRule extends AbstractConditionResolverRu
     }
 
     @Override
-    protected boolean accepts(Condition condition) {
+    protected boolean accepts(Condition condition, String function) {
         return isDate(condition.getA()) && (condition.getB() == null || isDate(condition.getB()));
     }
 

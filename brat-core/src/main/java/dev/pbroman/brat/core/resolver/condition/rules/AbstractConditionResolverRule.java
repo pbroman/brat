@@ -38,7 +38,7 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
         nonNull(condition, "The condition may not be null");
         var prepared = prepare(condition.getFunc());
         if (predicateMap.containsKey(prepared.function())) {
-            if (!accepts(condition)) {
+            if (!accepts(condition, prepared.function())) {
                 return Optional.empty();
             }
             nullCheckB(condition, prepared.function());
@@ -70,10 +70,13 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
      * fallback rule of a category chain wants.
      *
      * @param condition the condition about to be resolved, its func already matched
+     * @param function the func, normalised the way the predicate map is keyed — lower case, with the
+     *         {@code is} prefix and any negation removed — so a rule can accept some of its funcs for
+     *         operands it declines for others
      * @return {@code true} if this rule should resolve {@code condition}, {@code false} to decline
      *         it and let the dispatcher try the next rule
      */
-    protected boolean accepts(Condition condition) {
+    protected boolean accepts(Condition condition, String function) {
         return true;
     }
 

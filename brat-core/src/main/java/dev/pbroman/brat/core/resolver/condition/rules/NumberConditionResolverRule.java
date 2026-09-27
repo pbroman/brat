@@ -105,7 +105,7 @@ public final class NumberConditionResolverRule extends AbstractConditionResolver
     }
 
     @Override
-    protected boolean accepts(Condition condition) {
+    protected boolean accepts(Condition condition, String function) {
         return isNumber(condition.getA()) && (condition.getB() == null || isNumber(condition.getB()));
     }
 

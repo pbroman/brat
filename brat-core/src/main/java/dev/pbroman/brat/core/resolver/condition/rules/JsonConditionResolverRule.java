@@ -30,6 +30,7 @@ import static dev.pbroman.brat.core.util.Constants.HAS_SIZE;
 import static dev.pbroman.brat.core.util.Constants.HAS_SIZE_BETWEEN;
 import static dev.pbroman.brat.core.util.Constants.HAS_SIZE_GREATER_THAN;
 import static dev.pbroman.brat.core.util.Constants.JSON_CONDITION;
+import static dev.pbroman.brat.core.util.Constants.ONE_OF;
 import static dev.pbroman.brat.core.util.Constants.SORTED;
 import static dev.pbroman.brat.core.util.Constants.SORTED_DESCENDING;
 import static java.util.stream.Collectors.toSet;
@@ -41,11 +42,29 @@ import static java.util.stream.Collectors.toSet;
  * It answers only when {@code a} is a {@link Map} or a {@link List}, which is what lets it share func
  * names with the string rule: {@code contains} on text is the string rule's, {@code contains} on a
  * sequence is this one's, and the operand decides. Its priority sits above the string rule so it is
- * offered those conditions first.
+ * offered those conditions first. The one exception is {@code isOneOf}, which only this rule answers
+ * and which it accepts for any {@code a}.
  * <p>
- * Comparison is by value, using the structures' own {@code equals}: a mapping ignores key order, a
- * sequence does not. Types must match as parsed — JSON {@code 42} is an {@code Integer} and does not
- * equal the text {@code "42"}.
+ * <strong>Comparison is by value.</strong> A mapping ignores key order, a sequence does not, and two
+ * scalars are equal when they read the same: a number equals any number or numeric text of the same
+ * value ({@code 42}, {@code "42"} and {@code 42.0} are equal), and anything else is compared by its
+ * text ({@code true} equals {@code "true"}). This is what lets a {@code b} written in YAML — whose
+ * scalars reach the rule as text — match the numbers and booleans a JSON response parsed into. Every
+ * func here that compares elements uses this one notion of equality.
+ * <p>
+ * It follows that <strong>text that reads as a number compares as that number</strong>: {@code "007"}
+ * equals {@code "7"}, and {@code "01234"} equals {@code 1234} — the same as a scalar {@code isEqualTo},
+ * which the number rule resolves by value. Where the exact text matters, a single value is checked with
+ * the string rule's {@code equals}; no func here compares a sequence's elements as exact text. Mapping
+ * keys are the exception: they are compared as written, so a key {@code "01"} is not the key
+ * {@code "1"}.
+ * <p>
+ * <strong>{@code isOneOf}</strong> holds when {@code a} equals one of the elements of {@code b}, by the
+ * equality above — {@code containsAnyOf} with the operands' roles swapped. A {@code b} that is not a
+ * sequence is one element. An {@code a} that is itself a sequence or mapping is compared as a single
+ * value against each element, never element by element. It takes no {@code args}, and a failure is
+ * reported with the func the author wrote, so {@code isOneOf} never reads as a collection check on
+ * {@code a}. {@code isNotOneOf} is its negation.
  */
 public final class JsonConditionResolverRule extends AbstractConditionResolverRule {
 
@@ -61,13 +80,17 @@ public final class JsonConditionResolverRule extends AbstractConditionResolverRu
         predicates.put(EQUAL_TO, (a, b, args) -> {
             rejectUnknownArgs(args, JSON_CONDITION, EQUAL_TO, ARG_IGNORE);
             var ignored = ignoredKeys(args);
-            return Objects.equals(withoutIgnored(a, ignored), withoutIgnored(b, ignored));
+            return Objects.equals(canonical(withoutIgnored(a, ignored)), canonical(withoutIgnored(b, ignored)));
         });
-        predicates.put(CONTAINS, (a, b, args) -> asList(a).containsAll(asList(b)));
-        predicates.put(CONTAINS_ONLY, (a, b, args) -> new HashSet<>(asList(a)).equals(new HashSet<>(asList(b))));
-        predicates.put(CONTAINS_ANY_OF, (a, b, args) -> asList(a).stream().anyMatch(asList(b)::contains));
-        predicates.put(CONTAINS_EXACTLY, (a, b, args) -> asList(a).equals(asList(b)));
-        predicates.put(CONTAINS_EXACTLY_IN_ANY_ORDER, (a, b, args) -> sameElements(asList(a), asList(b)));
+        predicates.put(CONTAINS, (a, b, args) -> elements(a).containsAll(elements(b)));
+        predicates.put(CONTAINS_ONLY, (a, b, args) -> new HashSet<>(elements(a)).equals(new HashSet<>(elements(b))));
+        predicates.put(CONTAINS_ANY_OF, (a, b, args) -> elements(a).stream().anyMatch(elements(b)::contains));
+        predicates.put(CONTAINS_EXACTLY, (a, b, args) -> elements(a).equals(elements(b)));
+        predicates.put(CONTAINS_EXACTLY_IN_ANY_ORDER, (a, b, args) -> sameElements(elements(a), elements(b)));
+        predicates.put(ONE_OF, (a, b, args) -> {
+            rejectUnknownArgs(args, JSON_CONDITION, ONE_OF);
+            return elements(b).contains(canonical(a));
+        });
         predicates.put(CONTAINS_KEY, (a, b, args) -> asMap(a).containsKey(b));
         predicates.put(HAS_SIZE, (a, b, args) -> sizeOf(a) == size(b));
         predicates.put(HAS_SIZE_GREATER_THAN, (a, b, args) -> sizeOf(a) > size(b));
@@ -78,12 +101,83 @@ public final class JsonConditionResolverRule extends AbstractConditionResolverRu
                     && size <= size(requiredArg(args, JSON_CONDITION, HAS_SIZE_BETWEEN, ARG_MAX));
         });
         predicates.put(DOES_NOT_HAVE_DUPLICATES, (a, b, args) -> {
-            var elements = asList(a);
+            var elements = elements(a);
             return new HashSet<>(elements).size() == elements.size();
         });
         predicates.put(SORTED, (a, b, args) -> isOrdered(asList(a), true));
         predicates.put(SORTED_DESCENDING, (a, b, args) -> isOrdered(asList(a), false));
         return predicates;
+    }
+
+    /**
+     * The elements of {@code value} in their canonical form, ready to compare by value.
+     *
+     * @param value a sequence, or anything else as a single element
+     * @return the canonical elements; empty for {@code null}
+     */
+    private static List<?> elements(Object value) {
+        return asList(canonical(value));
+    }
+
+    /**
+     * The form every comparison in this rule is made in, so that equality is by value across the
+     * types a JSON response and a YAML operand arrive as.
+     *
+     * @param value any value, possibly {@code null}
+     * @return {@code null} for {@code null}; for a mapping, a mapping of the same keys to the
+     *         canonical values, in the same order — keys are left as they are, so two keys that differ
+     *         as text never merge; for a sequence, a list of the canonical elements, in
+     *         the same order; for a finite number, or for text that is a decimal number as written, one
+     *         normalised text per value ({@code 42}, {@code "42"} and {@code 42.0} all become
+     *         {@code "42"}); for anything else, its text
+     */
+    private static Object canonical(Object value) {
+        return switch (value) {
+            case null -> null;
+            case Map<?, ?> map -> {
+                var canonical = new LinkedHashMap<>();
+                for (var entry : map.entrySet()) {
+                    canonical.put(entry.getKey(), canonical(entry.getValue()));
+                }
+                yield canonical;
+            }
+            case List<?> list -> {
+                var canonical = new ArrayList<>(list.size());
+                for (var element : list) {
+                    canonical.add(canonical(element));
+                }
+                yield canonical;
+            }
+            default -> {
+                var text = String.valueOf(value);
+                var decimal = decimalOrNull(text);
+                yield decimal == null ? text : decimal.stripTrailingZeros().toString();
+            }
+        };
+    }
+
+    /**
+     * Reads {@code text} as a decimal number, if it is one.
+     * <p>
+     * The first-character check keeps ordinary text off the exception path, which is the common case.
+     *
+     * @param text the text to read
+     * @return the number, or {@code null} if {@code text} is not a decimal number as written — which
+     *         includes {@code NaN} and {@code Infinity}, since those are not decimals
+     */
+    private static BigDecimal decimalOrNull(String text) {
+        if (text.isEmpty()) {
+            return null;
+        }
+        var first = text.charAt(0);
+        if (!Character.isDigit(first) && first != '-' && first != '+' && first != '.') {
+            return null;
+        }
+        try {
+            return new BigDecimal(text);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**
@@ -241,8 +335,8 @@ public final class JsonConditionResolverRule extends AbstractConditionResolverRu
      * rule, and declining is what routes it there.
      */
     @Override
-    protected boolean accepts(Condition condition) {
-        return condition.getA() instanceof Map || condition.getA() instanceof List;
+    protected boolean accepts(Condition condition, String function) {
+        return ONE_OF.equals(function) || condition.getA() instanceof Map || condition.getA() instanceof List;
     }
 
     /**
