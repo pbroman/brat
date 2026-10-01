@@ -3,8 +3,10 @@ package dev.pbroman.brat.core.api.rendering;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import dev.pbroman.brat.core.data.ConfigData;
 import dev.pbroman.brat.core.exception.BratException;
 
 import static dev.pbroman.brat.core.util.Require.nonNull;
@@ -39,5 +41,25 @@ public record RenderTarget(String label, Map<String, InterpolationOutcome> outco
      */
     public RenderTarget(Map<String, InterpolationOutcome> outcomes) {
         this(null, outcomes);
+    }
+
+    /**
+     * The target for what an interpolated object resolved to, labelled with its type.
+     * <p>
+     * An as-authored object has no outcomes to render, so it yields no target rather than an empty
+     * one: the caller can tell "nothing was interpolated" from "nothing needed substituting".
+     *
+     * @param data the object to render; must not be {@code null}
+     * @return a target over {@code data}'s outcomes, labelled with the simple name of its runtime
+     *         type ({@code "HttpRequestDefinition"}), if {@code data} is an interpolated copy;
+     *         otherwise {@link Optional#empty()}
+     * @throws BratException if {@code data} is {@code null}
+     */
+    public static Optional<RenderTarget> of(ConfigData data) {
+        nonNull(data, "Cannot render a null ConfigData");
+        if (!data.isInterpolated()) {
+            return Optional.empty();
+        }
+        return Optional.of(new RenderTarget(data.getClass().getSimpleName(), data.getOutcomes()));
     }
 }

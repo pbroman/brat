@@ -1,7 +1,9 @@
 package dev.pbroman.brat.core.data;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -18,6 +20,8 @@ import lombok.Getter;
  */
 @Getter
 public sealed class Condition extends ConfigData permits Assertion {
+
+    private static final String MASK = "***";
 
     private final String func;
     private final Object a;
@@ -90,11 +94,60 @@ public sealed class Condition extends ConfigData permits Assertion {
     }
 
     /**
-     * Renders the condition as {@code a func b}, which is how it appears in a failure message.
+     * Renders the condition as {@code a func b}, or {@code a func} when {@code b} is {@code null} —
+     * the form it takes in skip reasons and failure messages. {@code args} are not shown.
+     * <p>
+     * <strong>An interpolated copy is masked</strong>, so the text is safe to print wherever it
+     * ends up. Each operand keeps its shape — a mapping as {@code {k=v, …}}, a sequence as
+     * {@code [x, …]} — and is shown part by part, from the operand down. A part with an outcome
+     * recorded at its path ({@code b}, {@code b.name}, {@code b[0]}) is shown as {@code ***} when that
+     * outcome {@linkplain InterpolationOutcome#containsSecret() contains a secret} and as its value
+     * otherwise, whatever its shape — so a structure one token resolved to is masked or shown whole.
+     * A mapping or sequence with no outcome of its own is walked. A non-{@code null} scalar with no
+     * recorded outcome is shown as {@code ***}, since nothing says it is safe; {@code null} is shown
+     * as {@code null}.
+     * <p>
+     * Only what interpolation knows to be secret is masked. A secret that reached an operand some
+     * other way — echoed back in a response and read through {@code ${response.…}} — is an ordinary
+     * value to interpolation and is shown as one.
+     * <p>
+     * An as-authored condition is shown as written: its operands still hold the {@code ${…}}
+     * expressions, not what they resolve to.
      *
-     * @return the rendered condition
+     * @return the rendered condition; never {@code null}
      */
+    @Override
     public String toString() {
-        return String.format("%s %s %s", a, func, b == null ? "" : b);
+        var shownA = isInterpolated() ? masked("a", a) : a;
+        if (b == null) {
+            return shownA + " " + func;
+        }
+        var shownB = isInterpolated() ? masked("b", b) : b;
+        return shownA + " " + func + " " + shownB;
+    }
+
+    private Object masked(String path, Object value) {
+        var outcome = getOutcomes().get(path);
+        if (outcome != null) {
+            return outcome.containsSecret() ? MASK : value;
+        }
+        return switch (value) {
+            case null -> null;
+            case Map<?, ?> map -> {
+                var shown = new LinkedHashMap<Object, Object>();
+                for (var entry : map.entrySet()) {
+                    shown.put(entry.getKey(), masked(path + "." + entry.getKey(), entry.getValue()));
+                }
+                yield shown;
+            }
+            case List<?> list -> {
+                var shown = new ArrayList<>();
+                for (var i = 0; i < list.size(); i++) {
+                    shown.add(masked(path + "[" + i + "]", list.get(i)));
+                }
+                yield shown;
+            }
+            default -> MASK;
+        };
     }
 }

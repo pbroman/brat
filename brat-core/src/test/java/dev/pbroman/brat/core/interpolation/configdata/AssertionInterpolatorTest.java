@@ -161,4 +161,19 @@ class AssertionInterpolatorTest {
         assertThatThrownBy(() -> interpolator.interpolated(assertion, interpolation, runtimeData))
                 .isInstanceOf(BratException.class);
     }
+
+    @Test
+    void interpolated_keepsTheAuthoredMessageWhenItResolvedToASecret() {
+        // given
+        when(interpolation.outcome(eq("token ${secrets.token} rejected"), any()))
+                .thenReturn(new InterpolationOutcome(
+                        "token s3cr3t rejected", "token ${secrets.token} rejected → token *** rejected", true));
+        var target = new Assertion("isEqualTo", "a", "b", "token ${secrets.token} rejected");
+
+        // when
+        var result = interpolator.interpolated(target, interpolation, runtimeData);
+
+        // then
+        assertThat(result.getMessage()).isEqualTo("token ${secrets.token} rejected");
+    }
 }

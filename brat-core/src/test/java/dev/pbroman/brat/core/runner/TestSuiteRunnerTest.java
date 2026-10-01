@@ -272,6 +272,28 @@ class TestSuiteRunnerTest {
     // ---------- requests ----------
 
     @Test
+    void walk_carriesEachRequestsPhaseOnItsStartEventAndItsResult() {
+        // given
+        var suite = suite(
+                "s",
+                List.of(request("logout", Phase.TEARDOWN), request("work", Phase.MAIN), request("login", Phase.SETUP)),
+                List.of());
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then - the phase is known before any result exists, so an IDE can mark a setup node as it starts
+        assertThat(events)
+                .filteredOn(RunEvent.RequestStarted.class::isInstance)
+                .extracting(
+                        event -> ((RunEvent.RequestStarted) event).coordinates().phase())
+                .containsExactly(Phase.SETUP, Phase.MAIN, Phase.TEARDOWN);
+        assertThat(results)
+                .extracting(result -> result.coordinates().phase())
+                .containsExactly(Phase.SETUP, Phase.MAIN, Phase.TEARDOWN);
+    }
+
+    @Test
     void walk_handsEveryResultOnInExecutionOrder() {
         // given
         var suite = suite("s", List.of(request("a", Phase.MAIN), request("b", Phase.MAIN)), List.of());

@@ -1,5 +1,6 @@
 package dev.pbroman.brat.core.rendering.rules;
 
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import dev.pbroman.brat.core.api.rendering.OutcomeRendererRule;
@@ -25,18 +26,18 @@ public final class LogOutcomeRendererRule implements OutcomeRendererRule {
     private static final String LABEL_KEY = "_label";
 
     @Override
-    public String render(String kind, RenderTarget target) {
+    public Optional<String> render(String kind, RenderTarget target) {
         if (!KIND.equals(kind)) {
-            return null;
+            return Optional.empty();
         }
         var pairs = target.outcomes().entrySet().stream()
                 .map(entry -> entry.getKey() + "=\"" + escape(entry.getValue().reportingString()) + "\"")
                 .collect(Collectors.joining(" "));
         if (target.label() == null) {
-            return pairs;
+            return Optional.of(pairs);
         }
         var labelPair = LABEL_KEY + "=\"" + escape(target.label()) + "\"";
-        return pairs.isEmpty() ? labelPair : labelPair + " " + pairs;
+        return Optional.of(pairs.isEmpty() ? labelPair : labelPair + " " + pairs);
     }
 
     private String escape(String value) {

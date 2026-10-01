@@ -5,6 +5,7 @@ import java.util.Map;
 
 import dev.pbroman.brat.core.data.AssertionSeverity;
 import dev.pbroman.brat.core.data.Condition;
+import dev.pbroman.brat.core.data.Phase;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -12,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RequestResultTest {
 
     private static final RequestCoordinates COORDINATES =
-            new RequestCoordinates("suite/request", "req-1", "request", 1);
+            new RequestCoordinates("suite/request", "req-1", "request", Phase.MAIN, 1);
 
     @Test
     void failed_isFalseForACompletedRequestWithPassingAssertions() {

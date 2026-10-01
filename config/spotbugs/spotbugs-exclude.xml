@@ -27,9 +27,20 @@
       cleared five findings *and* `AssertionResult` - a record whose `condition` component had been
       excluded pending exactly this decision. `RenderTarget` turned out to be a genuine defect rather
       than a false positive and now copies. Nothing is excluded by name any more.
+    - 2026-10-01: one named EI_EXPOSE_REP2 exclusion, `ConsoleRunReporter`, below - the first
+      collaborator rather than data to trip the storing half.
 -->
 <FindBugsFilter>
     <Match>
         <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+    <!--
+        The console reporter keeps the PrintStream it is constructed with. A stream is a sink handed
+        over to be written to, not state to protect: printing into the caller's stream is the whole
+        contract, and a copy is not a thing a stream has.
+    -->
+    <Match>
+        <Class name="dev.pbroman.brat.core.reporting.ConsoleRunReporter"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
 </FindBugsFilter>

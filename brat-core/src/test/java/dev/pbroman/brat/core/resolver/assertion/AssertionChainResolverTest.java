@@ -1,6 +1,7 @@
 package dev.pbroman.brat.core.resolver.assertion;
 
 import java.util.List;
+import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
@@ -235,6 +236,35 @@ class AssertionChainResolverTest {
     }
 
     @Test
+    void resolve_carriesEveryLeafOutcomeOfAStructuredSubjectOntoEachLink() {
+        // given - a structured a records one outcome per leaf and none keyed plain "a"
+        var chain = List.of(new ChainedCondition("isNotEmpty", null));
+        var assertion =
+                new Assertion("isNotNull", Map.of("user", "${secrets.user}", "roles", List.of("admin")), null, chain);
+        when(conditionResolver.resolve(any())).thenReturn(true);
+
+        // when
+        var result = assertionResolver.resolve(assertion, runtimeData);
+
+        // then - the link sees the same leaves as the assertion, so masking them stays possible
+        assertThat(result.getLast().condition().getOutcomes()).containsKeys("a.user", "a.roles[0]");
+    }
+
+    @Test
+    void resolve_carriesEveryElementOutcomeOfASequenceSubjectOntoEachLink() {
+        // given - a sequence a records its elements as a[0], a[1], with no "a." prefix at all
+        var chain = List.of(new ChainedCondition("isNotEmpty", null));
+        var assertion = new Assertion("isNotNull", List.of("${vars.x}", "${secrets.y}"), null, chain);
+        when(conditionResolver.resolve(any())).thenReturn(true);
+
+        // when
+        var result = assertionResolver.resolve(assertion, runtimeData);
+
+        // then
+        assertThat(result.getLast().condition().getOutcomes()).containsKeys("a[0]", "a[1]");
+    }
+
+    @Test
     void allAssertionsAreInterpolated() {
         // given
         var chain = List.of(new ChainedCondition("!equals", "c", "chainedFail"));
@@ -278,5 +308,30 @@ class AssertionChainResolverTest {
         assertThat(result).hasSize(2);
         assertThat(result.getLast().condition().getA()).isNull();
         assertThat(result.getLast().condition().getOutcomes()).doesNotContainKey("a");
+    }
+
+    @Test
+    void resolve_neverReportsASecretInAMessage() {
+        // given - the link inherits the assertion's message, the second link has its own
+        when(interpolation.outcome(any(), any())).thenAnswer(invocation -> {
+            String input = invocation.getArgument(0);
+            return input != null && input.contains("${secrets.")
+                    ? new InterpolationOutcome(input.replace("${secrets.token}", "s3cr3t"), "masked", true)
+                    : new InterpolationOutcome(input == null ? "" : input, "reported");
+        });
+        var chain = List.of(
+                new ChainedCondition("isNotEmpty", null),
+                new ChainedCondition("isNotBlank", null, "still ${secrets.token}"));
+        var assertion = new Assertion("isEqualTo", "a", "b", chain, "token ${secrets.token} rejected");
+        when(conditionResolver.resolve(any())).thenReturn(false);
+
+        // when
+        var result = assertionResolver.resolve(assertion, runtimeData);
+
+        // then
+        assertThat(result)
+                .extracting(AssertionResult::message)
+                .containsExactly(
+                        "token ${secrets.token} rejected", "token ${secrets.token} rejected", "still ${secrets.token}");
     }
 }

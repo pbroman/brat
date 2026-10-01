@@ -8,7 +8,7 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * The full record of one run: every request that executed, every suite that was aborted, how long the
- * run took, and whether it was cancelled.
+ * run took, whether it was cancelled, and the failure that ended it early, if one did.
  * <p>
  * <strong>A run is not necessarily a suite.</strong> Running a single request is a run, and a runner
  * may execute a flat list of requests with no tree at all — which is why this is named for the run
@@ -29,9 +29,17 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  *        measures delivery instead of work
  * @param cancelled whether the run stopped because it was cancelled rather than because it finished.
  *        A cancelled run still carries the results of every request that completed before the stop
+ * @param error what ended the run early when a structural failure did — a handler this wiring lacks,
+ *        a secrets source that cannot be built — or {@code null} for a run that ended on its own or by
+ *        cancellation. The run's caller receives the failure itself as an exception; this is the record
+ *        of it a listener sees
  */
 public record RunResult(
-        List<RequestResult> requestResults, List<SuiteError> suiteErrors, long elapsedMs, boolean cancelled) {
+        List<RequestResult> requestResults,
+        List<SuiteError> suiteErrors,
+        long elapsedMs,
+        boolean cancelled,
+        String error) {
 
     /**
      * Freezes the results, matching every other data type in the model.
@@ -46,7 +54,8 @@ public record RunResult(
     }
 
     /**
-     * Whether this run failed — any request failed, any suite was aborted, or the run was cancelled.
+     * Whether this run failed — any request failed, any suite was aborted, the run was cancelled, or it
+     * ended on a structural failure.
      * <p>
      * Derived, never stored, for the same reason {@link RequestResult#failed()} is: a verdict that
      * can disagree with the results it summarises is worse than one computed on demand.
@@ -61,6 +70,9 @@ public record RunResult(
      *         {@code false} for an empty, uncancelled run with no suite errors, which failed nothing
      */
     public boolean failed() {
-        return cancelled || !suiteErrors.isEmpty() || requestResults.stream().anyMatch(RequestResult::failed);
+        return error != null
+                || cancelled
+                || !suiteErrors.isEmpty()
+                || requestResults.stream().anyMatch(RequestResult::failed);
     }
 }
