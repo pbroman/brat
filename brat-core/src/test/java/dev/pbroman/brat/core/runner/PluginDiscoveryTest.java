@@ -2,6 +2,8 @@ package dev.pbroman.brat.core.runner;
 
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
@@ -117,6 +119,87 @@ class PluginDiscoveryTest {
         // when / then — a null would mean the bootstrap loader, which finds nothing and would be
         // indistinguishable from "no plugins installed"
         assertThatThrownBy(() -> PluginDiscovery.discover(BratFunction.class, null))
+                .isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void collect_ordersCoreThenAddedThenDiscovered() {
+        // given
+        var core = BratFunction.of("core", args -> "core");
+        var added = BratFunction.of("added", args -> "added");
+
+        // when
+        var all = PluginDiscovery.collect(
+                List.of(core), List.of(added), BratFunction.class, loaderOver("plugin-fixture"));
+
+        // then - the order every registry and dispatcher overrides by
+        assertThat(all).hasSize(3);
+        assertThat(all.get(0)).isSameAs(core);
+        assertThat(all.get(1)).isSameAs(added);
+        assertThat(all.get(2)).isInstanceOf(DiscoverableFunction.class);
+    }
+
+    @Test
+    void collect_acceptsEmptySources() {
+        // when
+        var all = PluginDiscovery.collect(
+                List.of(), List.of(), BratFunction.class, PluginDiscoveryTest.class.getClassLoader());
+
+        // then
+        assertThat(all).isEmpty();
+    }
+
+    @Test
+    void collect_returnsAnUnmodifiableListThatRetainsNeitherArgument() {
+        // given
+        var core = new ArrayList<BratFunction>(List.of(BratFunction.of("core", args -> "core")));
+        var added = new ArrayList<BratFunction>();
+
+        // when
+        var all = PluginDiscovery.collect(core, added, BratFunction.class, PluginDiscoveryTest.class.getClassLoader());
+        core.add(BratFunction.of("late", args -> "late"));
+        added.add(BratFunction.of("later", args -> "later"));
+
+        // then
+        assertThat(all).hasSize(1);
+        assertThatThrownBy(() -> all.add(BratFunction.of("x", args -> "x")))
+                .isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void collect_throwsForANullArgument() {
+        // given
+        var loader = PluginDiscoveryTest.class.getClassLoader();
+
+        // when / then
+        assertThatThrownBy(() -> PluginDiscovery.collect(null, List.of(), BratFunction.class, loader))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> PluginDiscovery.collect(List.of(), null, BratFunction.class, loader))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> PluginDiscovery.collect(List.of(), List.of(), null, loader))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> PluginDiscovery.collect(List.of(), List.of(), BratFunction.class, null))
+                .isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void collect_failsLikeDiscoverForABrokenPlugin() {
+        // when / then
+        assertThatThrownBy(() -> PluginDiscovery.collect(
+                        List.of(), List.of(), BratFunction.class, loaderOver("broken-plugin-fixture")))
+                .isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void collect_throwsForANullImplementation() {
+        // given
+        var loader = PluginDiscoveryTest.class.getClassLoader();
+        var withNull = Arrays.asList(BratFunction.of("core", args -> "core"), null);
+
+        // when / then
+        assertThatThrownBy(() -> PluginDiscovery.collect(withNull, List.of(), BratFunction.class, loader))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> PluginDiscovery.collect(List.of(), withNull, BratFunction.class, loader))
                 .isInstanceOf(BratException.class);
     }
 }
