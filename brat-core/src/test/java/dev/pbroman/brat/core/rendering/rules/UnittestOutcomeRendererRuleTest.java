@@ -15,7 +15,7 @@ class UnittestOutcomeRendererRuleTest {
 
     @Test
     void render_returnsNullForOtherKinds() {
-        assertThat(underTest.render("console", new RenderTarget(Map.of()))).isNull();
+        assertThat(underTest.render("console", new RenderTarget(Map.of()))).isEmpty();
     }
 
     @Test
@@ -26,7 +26,7 @@ class UnittestOutcomeRendererRuleTest {
         outcomes.put("method", new InterpolationOutcome("GET", "GET"));
 
         // when
-        var result = underTest.render("unittest", new RenderTarget(outcomes));
+        var result = underTest.render("unittest", new RenderTarget(outcomes)).orElseThrow();
 
         // then
         assertThat(result).isEqualTo("[url=${x} → resolved, method=GET]");
@@ -39,7 +39,9 @@ class UnittestOutcomeRendererRuleTest {
         outcomes.put("url", new InterpolationOutcome("resolved", "resolved"));
 
         // when
-        var result = underTest.render("unittest", new RenderTarget("HttpRequestDefinition", outcomes));
+        var result = underTest
+                .render("unittest", new RenderTarget("HttpRequestDefinition", outcomes))
+                .orElseThrow();
 
         // then
         assertThat(result).isEqualTo("HttpRequestDefinition[url=resolved]");
@@ -48,7 +50,8 @@ class UnittestOutcomeRendererRuleTest {
     @Test
     void render_isEmptyBracketsWhenThereAreNoOutcomes() {
         // when
-        var result = underTest.render("unittest", new RenderTarget("Auth", Map.of()));
+        var result =
+                underTest.render("unittest", new RenderTarget("Auth", Map.of())).orElseThrow();
 
         // then
         assertThat(result).isEqualTo("Auth[]");

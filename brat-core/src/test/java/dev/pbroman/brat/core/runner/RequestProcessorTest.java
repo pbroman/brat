@@ -14,6 +14,7 @@ import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
+import dev.pbroman.brat.core.data.Phase;
 import dev.pbroman.brat.core.data.Request;
 import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.ResponseActions;
@@ -92,7 +93,7 @@ class RequestProcessorTest {
     }
 
     private final RequestCoordinates coordinates =
-            new RequestCoordinates("happy path/create an order", "create-order", "create an order", 3);
+            new RequestCoordinates("happy path/create an order", "create-order", "create an order", Phase.MAIN, 3);
 
     private Request requestWith(Condition skipCondition, ResponseActions responseActions) {
         return new Request(
@@ -251,6 +252,32 @@ class RequestProcessorTest {
         assertThat(result.failed()).isFalse();
         verify(requestHandler, never()).performRequest(any(), any());
         verify(responseHandler, never()).handleResponse(any(), any());
+    }
+
+    @Test
+    void process_masksASecretInTheSkipReason() {
+        // given
+        var skipCondition = new Condition("isNotEmpty", "${secrets.flag}");
+        var interpolatedSkip = new Condition(
+                "isNotEmpty",
+                "s3cr3t",
+                null,
+                null,
+                Map.of("a", new InterpolationOutcome("s3cr3t", "${secrets.flag} → ***", true)));
+        when(conditionInterpolator.interpolated(any(), any(), any())).thenReturn(interpolatedSkip);
+        when(conditionResolver.resolve(any())).thenReturn(true);
+
+        // when
+        var result =
+                underTest.process(requestWith(skipCondition, null), OPTIONS, coordinates, runtimeData, requestHandler);
+
+        // then
+        assertThat(result.status())
+                .asInstanceOf(type(RequestStatus.Skipped.class))
+                .extracting(RequestStatus.Skipped::reason)
+                .asString()
+                .contains("***")
+                .doesNotContain("s3cr3t");
     }
 
     @Test

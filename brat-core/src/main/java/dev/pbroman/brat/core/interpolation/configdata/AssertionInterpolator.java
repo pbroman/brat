@@ -10,10 +10,9 @@ import dev.pbroman.brat.core.data.Assertion;
 import dev.pbroman.brat.core.data.ChainedCondition;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 
-import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.asStringOrNull;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateArgs;
-import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateIfPresent;
+import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateDisplayText;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateStructure;
 
 /**
@@ -47,6 +46,9 @@ public final class AssertionInterpolator implements ConfigDataInterpolator<Asser
      * an enum and is copied through as-is. Each chain link is interpolated by the injected
      * {@code ChainedCondition} interpolator and appears on the copy in declaration order.
      * <p>
+     * The copy's {@code message} never holds a secret: if a token in it resolved to one, the copy keeps
+     * the authored text, {@code ${…}} expressions and all.
+     * <p>
      * Outcome keys are {@code a}, {@code b}, {@code args.<name>} and {@code message}, in that order —
      * the same keys {@code ConditionInterpolator} produces plus {@code message}. A link's own
      * outcomes stay on that link and are <em>not</em> merged into this map, so an assertion's outcome
@@ -70,8 +72,7 @@ public final class AssertionInterpolator implements ConfigDataInterpolator<Asser
         var aValue = interpolateStructure(interpolation, runtimeData, outcomes, "a", target.getA());
         var bValue = interpolateStructure(interpolation, runtimeData, outcomes, "b", target.getB());
         var argsValues = interpolateArgs(target.getArgs(), interpolation, runtimeData, outcomes);
-        var messageValue = asStringOrNull(
-                interpolateIfPresent(interpolation, runtimeData, outcomes, "message", target.getMessage()));
+        var messageValue = interpolateDisplayText(interpolation, runtimeData, outcomes, "message", target.getMessage());
 
         var chainValues = new ArrayList<ChainedCondition>();
         for (ChainedCondition chainedCondition : target.getChain()) {

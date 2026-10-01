@@ -1,8 +1,10 @@
 package dev.pbroman.brat.core.resolver.condition;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
+import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.resolver.condition.rules.BooleanConditionResolverRule;
@@ -154,5 +156,22 @@ class ConditionResolverIntegrationTest {
     void resolve_throwsForANullCondition() {
         // when / then — the dispatcher answers or throws; it never returns "no verdict"
         assertThatThrownBy(() -> ruleDispatcher.resolve(null)).isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void resolve_masksASecretWhenNoRuleResolvesTheCondition() {
+        // given
+        var interpolated = new Condition(
+                "isNoSuchFunc",
+                "s3cr3t",
+                null,
+                null,
+                Map.of("a", new InterpolationOutcome("s3cr3t", "${secrets.flag} → ***", true)));
+
+        // when / then
+        assertThatThrownBy(() -> ruleDispatcher.resolve(interpolated))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("***")
+                .hasMessageNotContaining("s3cr3t");
     }
 }

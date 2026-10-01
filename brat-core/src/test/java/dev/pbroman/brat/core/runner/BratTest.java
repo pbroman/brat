@@ -42,6 +42,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 class BratTest {
 
@@ -915,15 +916,105 @@ class BratTest {
                 new SecretsProviderConfig(Map.of(), List.of(new SecretsSource("nosuch", Map.of()))));
 
         // when / then — the exception reaches the caller
-        assertThatThrownBy(() -> brat().run(
-                                suite(request("r", "${env.baseUrl}/a")),
-                                broken,
-                                List.of(events::add),
-                                new StubRunControl()))
-                .isInstanceOf(BratException.class);
+        var thrown = catchThrowable(() -> brat().run(
+                        suite(request("r", "${env.baseUrl}/a")), broken, List.of(events::add), new StubRunControl()));
+        assertThat(thrown).isInstanceOf(BratException.class);
 
         // and the terminal event still arrived, which is what a file-writing listener depends on
         assertThat(events.getLast()).isInstanceOf(RunEvent.RunFinished.class);
+
+        // and it says what ended the run, so a listener does not report the run as passed
+        var reported = ((RunEvent.RunFinished) events.getLast()).result();
+        assertThat(reported.error()).isEqualTo(thrown.getMessage());
+        assertThat(reported.failed()).isTrue();
+    }
+
+    @Test
+    void run_namesTheTypeOfAnUnplannedFailureThatEndedTheRun() {
+        // given — a defect, not a BratException: its type is part of what the listener needs to see
+        var events = new ArrayList<RunEvent>();
+        var broken = new RunControl() {
+            @Override
+            public void cancel() {
+                // never called
+            }
+
+            @Override
+            public boolean isCancelled() {
+                throw new IllegalStateException("boom");
+            }
+        };
+
+        // when
+        assertThatThrownBy(() ->
+                        brat().run(suite(request("r", "${env.baseUrl}/a")), environment, List.of(events::add), broken))
+                .isInstanceOf(IllegalStateException.class);
+
+        // then
+        assertThat(((RunEvent.RunFinished) events.getLast()).result().error()).isEqualTo("IllegalStateException: boom");
+    }
+
+    @Test
+    void run_deliversRunFinishedEvenWhenTheRunControlKeepsThrowing() {
+        // given — the runner asks the control again while assembling the final result
+        var events = new ArrayList<RunEvent>();
+        var broken = new RunControl() {
+            @Override
+            public void cancel() {
+                // never called
+            }
+
+            @Override
+            public boolean isCancelled() {
+                throw new IllegalStateException("boom");
+            }
+        };
+
+        // when
+        assertThatThrownBy(() ->
+                        brat().run(suite(request("r", "${env.baseUrl}/a")), environment, List.of(events::add), broken))
+                .isInstanceOf(IllegalStateException.class);
+
+        // then — the guarantee a file-writing listener depends on survives the control's failure
+        assertThat(events).filteredOn(RunEvent.RunFinished.class::isInstance).hasSize(1);
+        assertThat(((RunEvent.RunFinished) events.getLast()).result().cancelled())
+                .isFalse();
+    }
+
+    @Test
+    void run_recordsAnErrorThatEndedTheRun() {
+        // given — an Error, not an exception: it ends the run all the same
+        var events = new ArrayList<RunEvent>();
+        var broken = new RunControl() {
+            @Override
+            public void cancel() {
+                // never called
+            }
+
+            @Override
+            public boolean isCancelled() {
+                throw new AssertionError("broken double");
+            }
+        };
+
+        // when
+        assertThatThrownBy(() ->
+                        brat().run(suite(request("r", "${env.baseUrl}/a")), environment, List.of(events::add), broken))
+                .isInstanceOf(AssertionError.class);
+
+        // then — a listener must not read it as a run that passed
+        var reported = ((RunEvent.RunFinished) events.getLast()).result();
+        assertThat(reported.error()).isEqualTo("AssertionError: broken double");
+        assertThat(reported.failed()).isTrue();
+    }
+
+    @Test
+    void run_reportsNoErrorForARunThatEndedOnItsOwn() {
+        // when
+        var result = brat().run(suite(request("r", "${env.baseUrl}/a")), environment);
+
+        // then
+        assertThat(result.error()).isNull();
     }
 
     // --- stubs ---

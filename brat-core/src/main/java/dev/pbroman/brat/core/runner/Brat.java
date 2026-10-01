@@ -17,6 +17,10 @@ import dev.pbroman.brat.core.api.listener.AttemptFinished;
 import dev.pbroman.brat.core.api.listener.RunControl;
 import dev.pbroman.brat.core.api.listener.RunEvent;
 import dev.pbroman.brat.core.api.listener.RunListener;
+import dev.pbroman.brat.core.api.rendering.OutcomeRenderer;
+import dev.pbroman.brat.core.api.rendering.OutcomeRendererRule;
+import dev.pbroman.brat.core.api.reporting.ReporterContext;
+import dev.pbroman.brat.core.api.reporting.RunReporter;
 import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.api.secrets.SecretsProvider;
@@ -55,6 +59,13 @@ import dev.pbroman.brat.core.interpolation.rules.ResponseStatusCodeInterpolation
 import dev.pbroman.brat.core.interpolation.rules.SecretsInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.VarsInterpolationRule;
 import dev.pbroman.brat.core.loader.SuiteLoader;
+import dev.pbroman.brat.core.rendering.OutcomeRendererRuleDispatcher;
+import dev.pbroman.brat.core.rendering.rules.ConsoleOutcomeRendererRule;
+import dev.pbroman.brat.core.rendering.rules.LogOutcomeRendererRule;
+import dev.pbroman.brat.core.rendering.rules.UnittestOutcomeRendererRule;
+import dev.pbroman.brat.core.rendering.rules.VerboseCliOutcomeRendererRule;
+import dev.pbroman.brat.core.reporting.ConsoleRunReporter;
+import dev.pbroman.brat.core.reporting.RunReporterRegistry;
 import dev.pbroman.brat.core.resolver.assertion.AssertionChainResolver;
 import dev.pbroman.brat.core.resolver.condition.ConditionResolverRuleDispatcher;
 import dev.pbroman.brat.core.resolver.condition.rules.BooleanConditionResolverRule;
@@ -94,7 +105,7 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  * therefore safe to keep and reuse, and two runs never share a provider.
  * <p>
  * <strong>This is the batteries-included path, not the only one.</strong> The builder accepts
- * <em>additions</em> — rules, functions, factories, a handler — and no replacements for the
+ * <em>additions</em> — rules, functions, factories, handlers, reporters — and no replacements for the
  * collaborators it assembles. A consumer wanting a different {@code Interpolation},
  * {@code ConditionResolver} or {@code ResponseHandler} constructs a {@code RequestProcessor} itself.
  */
@@ -110,6 +121,9 @@ public final class Brat {
     private final ConfigDataInterpolator<Condition> conditionInterpolator;
     private final ConfigDataInterpolator<Assertion> assertionInterpolator;
     private final ConfigDataInterpolator<FlowControl> flowControlInterpolator;
+    private final OutcomeRenderer renderer;
+    private final RunReporterRegistry reporters;
+    private final List<String> defaultReporters;
 
     private Brat(Builder builder) {
         var functions = new ArrayList<>(StandardFunctions.all());
@@ -158,6 +172,43 @@ public final class Brat {
         this.conditionInterpolator = new ConditionInterpolator();
         this.assertionInterpolator = new AssertionInterpolator(chainedConditionInterpolator);
         this.flowControlInterpolator = new FlowControlInterpolator(new RepeatUntilInterpolator());
+
+        var rendererRules = new ArrayList<>(List.of(
+                new ConsoleOutcomeRendererRule(),
+                new VerboseCliOutcomeRendererRule(),
+                new LogOutcomeRendererRule(),
+                new UnittestOutcomeRendererRule()));
+        rendererRules.addAll(builder.outcomeRendererRules);
+        rendererRules.addAll(PluginDiscovery.discover(OutcomeRendererRule.class, builder.classLoader));
+        this.renderer = new OutcomeRendererRuleDispatcher(rendererRules);
+
+        var runReporters = new ArrayList<RunReporter>(List.of(new ConsoleRunReporter(System.out)));
+        runReporters.addAll(builder.runReporters);
+        runReporters.addAll(PluginDiscovery.discover(RunReporter.class, builder.classLoader));
+        this.reporters = new RunReporterRegistry(runReporters);
+        this.defaultReporters = List.copyOf(builder.defaultReporters);
+        checkDefaultReporters();
+    }
+
+    /**
+     * Rejects a default reporter this runner cannot create a listener for, so that the mistake fails
+     * the build rather than every {@link #run(TestSuite, Environment)}.
+     * <p>
+     * Each default is looked up and created once with empty arguments — the arguments a default
+     * reporter always gets — and the listener is discarded. That is safe because creating a listener
+     * acquires nothing.
+     *
+     * @throws BratException if a default names no registered reporter, or if its reporter rejects
+     *         empty arguments
+     */
+    private void checkDefaultReporters() {
+        for (String name : defaultReporters) {
+            try {
+                reporter(name, Map.of());
+            } catch (BratException e) {
+                throw new BratException("The default reporter '" + name + "' cannot be used: " + e.getMessage(), e);
+            }
+        }
     }
 
     /**
@@ -255,6 +306,10 @@ public final class Brat {
      * Nothing about a request escapes as an exception: a definition that cannot be interpolated, a
      * failed assertion and a failed capture all become data on that request's result. What throws is
      * structural — a suite that cannot be walked, a handler that is missing.
+     * <p>
+     * <strong>The run is reported by this runner's default reporters</strong> (see
+     * {@link Builder#defaultReporters(List)}), each with a listener created for this run and empty
+     * arguments. With none, the run is silent.
      *
      * @param suite the suite to run; must not be {@code null}
      * @param environment the launch namespaces and secrets configuration for this run; never
@@ -267,16 +322,53 @@ public final class Brat {
      *         naming an unregistered provider type, say
      */
     public RunResult run(TestSuite suite, Environment environment) {
-        return run(suite, environment, List.of(), new NoOpRunControl());
+        nonNull(suite, "The suite to run must not be null");
+        nonNull(environment, "The environment to run against must not be null");
+        var listeners =
+                defaultReporters.stream().map(name -> reporter(name, Map.of())).toList();
+        return run(suite, environment, listeners, new NoOpRunControl());
+    }
+
+    /**
+     * Creates the listener the named reporter reports one run with, for passing to
+     * {@link #run(TestSuite, Environment, List, RunControl)}.
+     *
+     * <pre>{@code
+     * brat.run(suite, environment, List.of(brat.reporter("console", Map.of("detail", "all"))), control);
+     * }</pre>
+     *
+     * Every call creates a fresh listener. It belongs to one run: handing the same listener to a
+     * second run is undefined. Every reporter receives the same renderer, which knows the core render
+     * kinds plus every {@code OutcomeRendererRule} this runner was given or discovered.
+     *
+     * @param name the reporter's {@code name()}, matched exactly; must not be {@code null}
+     * @param args the reporter's arguments for this run, empty for none; must not be {@code null}
+     * @return a new listener; never {@code null}
+     * @throws BratException if either argument is {@code null}, if no reporter is registered under
+     *         {@code name} — the message names the registered ones — if the reporter rejects
+     *         {@code args}, or if it creates no listener
+     */
+    public RunListener reporter(String name, Map<String, String> args) {
+        Require.nonNull(name, "The reporter name must not be null");
+        Require.nonNull(args, "The reporter args must not be null");
+
+        var listener = reporters.get(name).create(new ReporterContext(args, renderer));
+        Require.nonNull(
+                listener, String.format("The reporter must create a listener, the '%s' reporter did not", name));
+        return listener;
     }
 
     /**
      * Runs {@code suite}, reporting events as they happen and stopping when asked.
      * <p>
-     * {@code RunStarted} is delivered before any other event and {@code RunFinished} <strong>exactly
-     * once</strong> — on success, on cancellation and on a fatal error alike — so a listener holding a
-     * file handle always has a point at which to flush and close. A listener that throws is logged at
-     * WARN and the run continues; a reporting bug must not turn a green suite red.
+     * {@code RunStarted} is delivered before any other event and, once it has been, {@code RunFinished}
+     * <strong>exactly once</strong> — on success, on cancellation and on a fatal error alike — so a
+     * listener holding a file handle always has a point at which to flush and close; when a structural
+     * failure ended the run, its {@link RunResult#error()} says what it was. A run that fails
+     * at launch, before {@code RunStarted}, delivers no event at all. A listener that throws is logged
+     * at WARN and the run continues; a reporting bug must not turn a green suite red.
+     * <p>
+     * Exactly {@code listeners} are called: the default reporters are not added.
      * <p>
      * Cancellation is checked <strong>before every suite and every request</strong>, so an in-flight
      * request finishes and nothing starts after it — teardown included. Every suite already entered
@@ -311,15 +403,25 @@ public final class Brat {
         var results = new ArrayList<RequestResult>();
         var errors = new ArrayList<SuiteError>();
         RunResult result = null;
+        String error = null;
         try {
             openRun(suite, environment, listeners, runControl, results, errors);
-            result = finish(results, errors, startedAt, runControl);
+            result = finish(results, errors, startedAt, runControl.isCancelled(), null);
             return result;
+        } catch (BratException e) {
+            error = e.getMessage();
+            throw e;
+        } catch (RuntimeException | Error e) {
+            // An Error ends the run as surely as an exception; a listener must not read it as a pass.
+            error = e.getClass().getSimpleName() + ": " + e.getMessage();
+            throw e;
         } finally {
             // In a finally so the terminal event survives a fatal error: a listener holding a file
             // handle has no other point at which to flush and close. The instance the caller gets is
             // the one the listener sees, so the two can never disagree.
-            var reported = result == null ? finish(results, errors, startedAt, runControl) : result;
+            var reported = result == null
+                    ? finish(results, errors, startedAt, cancelledAfterFailure(runControl), error)
+                    : result;
             emit(listeners, new RunEvent.RunFinished(reported));
         }
     }
@@ -330,12 +432,36 @@ public final class Brat {
      * @param results the request results collected
      * @param errors the suite errors collected
      * @param startedAt when the run began, in milliseconds
-     * @param runControl the cancellation channel
+     * @param cancelled whether the run was cancelled
+     * @param error what ended the run early, or {@code null}
      * @return the record
      */
     private static RunResult finish(
-            List<RequestResult> results, List<SuiteError> errors, long startedAt, RunControl runControl) {
-        return new RunResult(results, errors, System.currentTimeMillis() - startedAt, runControl.isCancelled());
+            List<RequestResult> results, List<SuiteError> errors, long startedAt, boolean cancelled, String error) {
+        return new RunResult(results, errors, System.currentTimeMillis() - startedAt, cancelled, error);
+    }
+
+    /**
+     * Whether the run was cancelled, asked once a failure has already ended it.
+     * <p>
+     * The control is the caller's code, and it may be what failed. Throwing again here would lose the
+     * terminal event every listener is promised and replace the failure the caller is about to receive,
+     * so a failure of any kind is logged and read as not cancelled — the run's own error already says
+     * it did not finish.
+     *
+     * @param runControl the cancellation channel
+     * @return whether the run was cancelled; {@code false} if asking failed
+     */
+    private static boolean cancelledAfterFailure(RunControl runControl) {
+        try {
+            return runControl.isCancelled();
+        } catch (RuntimeException | Error e) {
+            log.warn(
+                    "The run control {} threw while the run was ending",
+                    runControl.getClass().getName(),
+                    e);
+            return false;
+        }
     }
 
     /**
@@ -459,7 +585,7 @@ public final class Brat {
      * is consulted after the core one and must declare a higher {@code priority()} to override it. A
      * <em>function</em> or a <em>provider factory</em> is collapsed into a registry keyed by
      * {@code name()} or {@code type()}, so an added one with a key core already uses replaces it,
-     * logged at WARN. Priorities 0-100 are reserved for core.
+     * logged at WARN; so is a <em>run reporter</em>. Priorities 0-100 are reserved for core.
      */
     public static final class Builder {
 
@@ -470,6 +596,9 @@ public final class Brat {
         private final List<RequestHandler<?, ?>> requestHandlers = new ArrayList<>();
         private final List<RequestDefinitionInterpolator<?>> requestDefinitionInterpolators = new ArrayList<>();
         private final Map<String, String> defaultRequestHandlers = new LinkedHashMap<>();
+        private final List<OutcomeRendererRule> outcomeRendererRules = new ArrayList<>();
+        private final List<RunReporter> runReporters = new ArrayList<>();
+        private List<String> defaultReporters = List.of(ConsoleRunReporter.NAME);
         private ClassLoader classLoader = Brat.class.getClassLoader();
 
         /**
@@ -586,6 +715,61 @@ public final class Brat {
         }
 
         /**
+         * Adds a rule for rendering interpolation outcomes, consulted after the core rules at the same
+         * priority. A rule for a new kind needs no priority; one replacing a core kind needs one above
+         * 100.
+         *
+         * @param rule the rule to add; must not be {@code null}
+         * @return this builder
+         * @throws BratException if {@code rule} is {@code null}
+         */
+        public Builder outcomeRendererRule(OutcomeRendererRule rule) {
+            nonNull(rule, "The rule to add must not be null");
+            outcomeRendererRules.add(rule);
+            return this;
+        }
+
+        /**
+         * Adds a run reporter, selectable by its own {@code name()}.
+         * <p>
+         * Core registers {@code console}, printing to {@code System.out}; adding a
+         * {@link dev.pbroman.brat.core.reporting.ConsoleRunReporter} over another stream redirects it.
+         *
+         * @param reporter the reporter to add; must not be {@code null}. One whose name another
+         *        registration already used replaces it, logged at WARN naming both
+         * @return this builder
+         * @throws BratException if {@code reporter} is {@code null}
+         */
+        public Builder runReporter(RunReporter reporter) {
+            nonNull(reporter, "The run reporter to add must not be null");
+            runReporters.add(reporter);
+            return this;
+        }
+
+        /**
+         * Sets which reporters report a run started with {@link Brat#run(TestSuite, Environment)},
+         * replacing the previous setting. Unless this is called, the default is the console reporter
+         * alone, {@code ["console"]}. An empty list makes such a run silent.
+         * <p>
+         * A default reporter always gets empty arguments; to pass arguments, create its listener with
+         * {@link Brat#reporter(String, Map)} and pass the listeners explicitly.
+         *
+         * @param names the reporters' names, in the order their listeners are called; must not be
+         *        {@code null}, nor hold a {@code null} or blank name. Each must be registered by the
+         *        time {@link #build()} runs, and must accept empty arguments
+         * @return this builder
+         * @throws BratException if {@code names} is {@code null} or holds a {@code null} or blank name
+         */
+        public Builder defaultReporters(List<String> names) {
+            nonNull(names, "The default reporters must not be null");
+            for (var name : names) {
+                Require.nonBlank(name, "The name of a default reporter must not be blank");
+            }
+            this.defaultReporters = List.copyOf(names);
+            return this;
+        }
+
+        /**
          * Sets the classloader plugins are discovered through, replacing the default.
          * <p>
          * The default is <strong>this class's own classloader</strong>, which finds a plugin jar on the
@@ -606,21 +790,24 @@ public final class Brat {
          * Discovers plugins and assembles everything that does not depend on a run.
          * <p>
          * Discovery happens here and once: every {@link InterpolationRule},
-         * {@link ConditionResolverRule}, {@link BratFunction} and {@link SecretsProviderFactory} the
-         * classloader declares is appended after the core defaults and after anything added on this
-         * builder. A plugin that cannot be loaded fails here, while nothing is running.
+         * {@link ConditionResolverRule}, {@link BratFunction}, {@link SecretsProviderFactory},
+         * {@link OutcomeRendererRule} and {@link RunReporter} the classloader declares is appended after
+         * the core defaults and after anything added on this builder. A plugin that cannot be loaded
+         * fails here, while nothing is running.
          * <p>
          * The builder may be reused afterwards; the returned runner is unaffected by later calls.
          *
          * <strong>What it refuses to build</strong>, so that a wiring mistake is never discovered by a
          * request: a runner with no handler at all; a protocol whose definition type has no
          * interpolator; two handlers for one protocol disagreeing about which class an authored
-         * {@code requestDefinition:} binds to; and a default naming a handler nobody registered.
+         * {@code requestDefinition:} binds to; a default naming a handler nobody registered; and a
+         * default reporter nobody registered, or one that rejects the empty arguments it will get.
          *
          * @return a runner ready to run suites
          * @throws BratException if no request handler was registered, if a declared plugin cannot be
-         *         loaded or instantiated, or if the registered protocols are inconsistent in any of
-         *         the ways above — each naming what is wrong and what was registered
+         *         loaded or instantiated, or if the registered protocols or default reporters are
+         *         inconsistent in any of the ways above — each naming what is wrong and what was
+         *         registered
          */
         public Brat build() {
             if (requestHandlers.isEmpty()) {

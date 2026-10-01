@@ -1,5 +1,6 @@
 package dev.pbroman.brat.core.rendering.rules;
 
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import dev.pbroman.brat.core.api.rendering.OutcomeRendererRule;
@@ -17,13 +18,13 @@ public final class UnittestOutcomeRendererRule implements OutcomeRendererRule {
     private static final String KIND = "unittest";
 
     @Override
-    public String render(String kind, RenderTarget target) {
+    public Optional<String> render(String kind, RenderTarget target) {
         if (!KIND.equals(kind)) {
-            return null;
+            return Optional.empty();
         }
         var fields = target.outcomes().entrySet().stream()
                 .map(entry -> entry.getKey() + "=" + entry.getValue().reportingString())
                 .collect(Collectors.joining(", ", "[", "]"));
-        return target.label() == null ? fields : target.label() + fields;
+        return Optional.of(target.label() == null ? fields : target.label() + fields);
     }
 }

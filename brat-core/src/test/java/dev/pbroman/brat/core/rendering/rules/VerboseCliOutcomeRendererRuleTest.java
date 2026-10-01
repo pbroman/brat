@@ -15,7 +15,7 @@ class VerboseCliOutcomeRendererRuleTest {
 
     @Test
     void render_returnsNullForOtherKinds() {
-        assertThat(underTest.render("console", new RenderTarget(Map.of()))).isNull();
+        assertThat(underTest.render("console", new RenderTarget(Map.of()))).isEmpty();
     }
 
     @Test
@@ -28,7 +28,7 @@ class VerboseCliOutcomeRendererRuleTest {
         outcomes.put("auth.type", new InterpolationOutcome("none", "none"));
 
         // when
-        var result = underTest.render("verbose-cli", new RenderTarget(outcomes));
+        var result = underTest.render("verbose-cli", new RenderTarget(outcomes)).orElseThrow();
 
         // then
         assertThat(result)
@@ -46,7 +46,9 @@ class VerboseCliOutcomeRendererRuleTest {
         outcomes.put("url", new InterpolationOutcome("resolved", "resolved"));
 
         // when
-        var result = underTest.render("verbose-cli", new RenderTarget("HttpRequestDefinition", outcomes));
+        var result = underTest
+                .render("verbose-cli", new RenderTarget("HttpRequestDefinition", outcomes))
+                .orElseThrow();
 
         // then
         assertThat(result).startsWith("HttpRequestDefinition:" + System.lineSeparator());
@@ -55,7 +57,9 @@ class VerboseCliOutcomeRendererRuleTest {
     @Test
     void render_isTheLabelAloneWhenThereAreNoOutcomes() {
         // when
-        var result = underTest.render("verbose-cli", new RenderTarget("Auth", Map.of()));
+        var result = underTest
+                .render("verbose-cli", new RenderTarget("Auth", Map.of()))
+                .orElseThrow();
 
         // then
         assertThat(result).isEqualTo("Auth:");

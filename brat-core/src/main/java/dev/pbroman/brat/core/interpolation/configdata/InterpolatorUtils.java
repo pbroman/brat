@@ -101,6 +101,40 @@ public final class InterpolatorUtils {
     }
 
     /**
+     * Interpolates a text field that exists only to be shown, such as an assertion's {@code message},
+     * and records its outcome in {@code outcomes} under {@code field} unless {@code value} is
+     * {@code null}.
+     * <p>
+     * What is returned is what the field will display, so it never holds a secret: when any token in
+     * {@code value} resolved to a secret, the authored text is returned unchanged — its
+     * {@code ${…}} expressions name the secret without revealing it — and every other token in it
+     * stays unresolved too. Otherwise the resolved text is returned. The recorded outcome is the
+     * interpolation's own either way, with its masked {@code reportingString}.
+     *
+     * @param interpolation the interpolation implementation
+     * @param runtimeData the runtime data
+     * @param outcomes the map to record the outcome in — <strong>mutated</strong>: one entry is added
+     *        under {@code field} when {@code value} is not {@code null}
+     * @param field the key to record the outcome under
+     * @param value the authored text, or {@code null}
+     * @return the resolved text, or {@code value} itself if a token in it resolved to a secret;
+     *         {@code null} if {@code value} was {@code null}
+     * @throws BratException if the text resolved to a {@code null} value
+     */
+    public static String interpolateDisplayText(
+            Interpolation interpolation,
+            RuntimeData runtimeData,
+            Map<String, InterpolationOutcome> outcomes,
+            String field,
+            String value) {
+        var outcome = interpolateIfPresent(interpolation, runtimeData, outcomes, field, value);
+        if (outcome != null && outcome.containsSecret()) {
+            return value;
+        }
+        return asStringOrNull(outcome);
+    }
+
+    /**
      * Returns the outcome as string, or {@code null} if there is no outcome at all.
      * <p>
      * The {@code null} it answers for is the <em>outcome</em>'s, meaning the field was not authored.

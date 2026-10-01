@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
+import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.TestSuite;
 import dev.pbroman.brat.core.data.result.SuiteStatus;
@@ -127,6 +128,31 @@ class SuiteEntryEvaluatorTest {
     }
 
     // ---------- skipCondition ----------
+
+    @Test
+    void enter_masksASecretInTheSkipReason() {
+        // given
+        var interpolated = new Condition(
+                "isNotEmpty",
+                "s3cr3t",
+                null,
+                null,
+                Map.of("a", new InterpolationOutcome("s3cr3t", "${secrets.flag} → ***", true)));
+        when(conditionEvaluator.evaluate(any(), any()))
+                .thenReturn(new ConditionEvaluator.Evaluation(interpolated, true));
+
+        // when
+        var verdict = underTest.enter(suite(Map.of(), skipCondition()), runtimeData);
+
+        // then
+        assertThat(verdict)
+                .get()
+                .asInstanceOf(type(SuiteStatus.Skipped.class))
+                .extracting(SuiteStatus.Skipped::reason)
+                .asString()
+                .contains("***")
+                .doesNotContain("s3cr3t");
+    }
 
     @Test
     void enter_skipsNamingTheInterpolatedConditionWhenItHolds() {

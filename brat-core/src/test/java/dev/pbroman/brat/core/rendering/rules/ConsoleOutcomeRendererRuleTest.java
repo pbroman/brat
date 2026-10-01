@@ -15,7 +15,7 @@ class ConsoleOutcomeRendererRuleTest {
 
     @Test
     void render_returnsNullForOtherKinds() {
-        assertThat(underTest.render("log", new RenderTarget(Map.of()))).isNull();
+        assertThat(underTest.render("log", new RenderTarget(Map.of()))).isEmpty();
     }
 
     @Test
@@ -26,7 +26,7 @@ class ConsoleOutcomeRendererRuleTest {
         outcomes.put("method", new InterpolationOutcome("GET", "GET"));
 
         // when
-        var result = underTest.render("console", new RenderTarget(outcomes));
+        var result = underTest.render("console", new RenderTarget(outcomes)).orElseThrow();
 
         // then
         assertThat(result).isEqualTo("url: ${x} → resolved" + System.lineSeparator() + "method: GET");
@@ -39,7 +39,8 @@ class ConsoleOutcomeRendererRuleTest {
         outcomes.put("type", new InterpolationOutcome("basic", "basic"));
 
         // when
-        var result = underTest.render("console", new RenderTarget("Auth", outcomes));
+        var result =
+                underTest.render("console", new RenderTarget("Auth", outcomes)).orElseThrow();
 
         // then
         assertThat(result).isEqualTo("Auth:" + System.lineSeparator() + "type: basic");
@@ -48,7 +49,8 @@ class ConsoleOutcomeRendererRuleTest {
     @Test
     void render_isTheLabelAloneWhenThereAreNoOutcomes() {
         // when
-        var result = underTest.render("console", new RenderTarget("Auth", Map.of()));
+        var result =
+                underTest.render("console", new RenderTarget("Auth", Map.of())).orElseThrow();
 
         // then
         assertThat(result).isEqualTo("Auth:");
@@ -57,7 +59,7 @@ class ConsoleOutcomeRendererRuleTest {
     @Test
     void render_isEmptyWhenThereIsNeitherLabelNorOutcomes() {
         // when
-        var result = underTest.render("console", new RenderTarget(Map.of()));
+        var result = underTest.render("console", new RenderTarget(Map.of())).orElseThrow();
 
         // then
         assertThat(result).isEmpty();

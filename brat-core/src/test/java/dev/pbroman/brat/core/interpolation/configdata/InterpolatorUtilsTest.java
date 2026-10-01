@@ -321,4 +321,70 @@ class InterpolatorUtilsTest {
         assertThatThrownBy(() -> InterpolatorUtils.interpolatedBodyFile(null, interpolation, withSuiteAt(null)))
                 .isInstanceOf(BratException.class);
     }
+
+    @Test
+    void interpolateDisplayText_returnsTheResolvedTextWhenNoSecretIsInvolved() {
+        // given
+        var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
+
+        // when
+        var text = InterpolatorUtils.interpolateDisplayText(interpolation, runtimeData, outcomes, "message", "hi");
+
+        // then
+        assertThat(text).isEqualTo("hi-resolved");
+    }
+
+    @Test
+    void interpolateDisplayText_returnsTheAuthoredTextWhenATokenResolvedToASecret() {
+        // given
+        Interpolation secretInterpolation =
+                (input, data) -> new InterpolationOutcome("token s3cr3t for bob", input + " → token *** for bob", true);
+        var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
+
+        // when
+        var text = InterpolatorUtils.interpolateDisplayText(
+                secretInterpolation, runtimeData, outcomes, "message", "token ${secrets.token} for ${vars.user}");
+
+        // then - the other token stays unresolved too
+        assertThat(text).isEqualTo("token ${secrets.token} for ${vars.user}");
+    }
+
+    @Test
+    void interpolateDisplayText_recordsTheInterpolationsOwnOutcomeEvenForASecret() {
+        // given
+        var secretOutcome = new InterpolationOutcome("s3cr3t", "${secrets.token} → ***", true);
+        Interpolation secretInterpolation = (input, data) -> secretOutcome;
+        var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
+
+        // when
+        InterpolatorUtils.interpolateDisplayText(
+                secretInterpolation, runtimeData, outcomes, "message", "${secrets.token}");
+
+        // then
+        assertThat(outcomes).containsExactly(Map.entry("message", secretOutcome));
+    }
+
+    @Test
+    void interpolateDisplayText_returnsNullAndRecordsNothingForANullValue() {
+        // given
+        var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
+
+        // when
+        var text = InterpolatorUtils.interpolateDisplayText(interpolation, runtimeData, outcomes, "message", null);
+
+        // then
+        assertThat(text).isNull();
+        assertThat(outcomes).isEmpty();
+    }
+
+    @Test
+    void interpolateDisplayText_throwsIfTheTextResolvedToNull() {
+        // given
+        Interpolation nullInterpolation = (input, data) -> new InterpolationOutcome(null, input + " → null");
+
+        // when / then
+        assertThatThrownBy(() -> InterpolatorUtils.interpolateDisplayText(
+                        nullInterpolation, runtimeData, new LinkedHashMap<>(), "message", "${vars.none}"))
+                .isInstanceOf(BratException.class);
+    }
 }

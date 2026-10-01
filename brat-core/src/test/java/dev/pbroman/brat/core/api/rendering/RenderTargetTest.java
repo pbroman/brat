@@ -4,6 +4,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import dev.pbroman.brat.core.data.Auth;
+import dev.pbroman.brat.core.data.Condition;
+import dev.pbroman.brat.core.data.ConfigData;
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
 
@@ -62,5 +65,51 @@ class RenderTargetTest {
 
         // when / then - no rule can mutate what it was handed
         assertThatThrownBy(() -> target.outcomes().clear()).isInstanceOf(UnsupportedOperationException.class);
+    }
+
+    @Test
+    void of_targetsTheOutcomesOfAnInterpolatedCopyUnderItsTypeName() {
+        // given
+        var outcomes = Map.of("a", new InterpolationOutcome("secret", "${secrets.token} → ***", true));
+        var interpolated = new Condition("isEmpty", "secret", null, null, outcomes);
+
+        // when
+        var underTest = RenderTarget.of(interpolated);
+
+        // then
+        assertThat(underTest).hasValueSatisfying(target -> {
+            assertThat(target.label()).isEqualTo("Condition");
+            assertThat(target.outcomes()).isEqualTo(outcomes);
+        });
+    }
+
+    @Test
+    void of_labelsWithTheRuntimeTypeNotTheDeclaredOne() {
+        // given - held as ConfigData, as a reporter holding a request's sent definition would
+        ConfigData interpolated = new Auth("basic", "user", "pw", null, Map.of());
+
+        // when
+        var underTest = RenderTarget.of(interpolated);
+
+        // then
+        assertThat(underTest).map(RenderTarget::label).hasValue("Auth");
+    }
+
+    @Test
+    void of_isEmptyForAnAsAuthoredObject() {
+        // given
+        var authored = new Condition("isEmpty", "${secrets.token}");
+
+        // when
+        var underTest = RenderTarget.of(authored);
+
+        // then
+        assertThat(underTest).isEmpty();
+    }
+
+    @Test
+    void of_throwsIfDataIsNull() {
+        // when / then
+        assertThatThrownBy(() -> RenderTarget.of(null)).isInstanceOf(BratException.class);
     }
 }
