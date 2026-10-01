@@ -1,45 +1,29 @@
 package dev.pbroman.brat.core.runner;
 
-import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 import dev.pbroman.brat.core.api.handler.RequestHandler;
 import dev.pbroman.brat.core.api.interpolation.BratFunction;
-import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.api.interpolation.RequestDefinitionInterpolator;
-import dev.pbroman.brat.core.api.listener.AttemptFinished;
 import dev.pbroman.brat.core.api.listener.RunControl;
-import dev.pbroman.brat.core.api.listener.RunEvent;
 import dev.pbroman.brat.core.api.listener.RunListener;
 import dev.pbroman.brat.core.api.rendering.OutcomeRenderer;
 import dev.pbroman.brat.core.api.rendering.OutcomeRendererRule;
 import dev.pbroman.brat.core.api.reporting.ReporterContext;
 import dev.pbroman.brat.core.api.reporting.RunReporter;
-import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
-import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.api.secrets.SecretsProviderFactory;
-import dev.pbroman.brat.core.data.Assertion;
-import dev.pbroman.brat.core.data.Condition;
-import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.TestSuite;
-import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.data.result.RunResult;
 import dev.pbroman.brat.core.data.result.SuiteError;
-import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.handler.ApacheHttpRequestHandler;
-import dev.pbroman.brat.core.handler.ResponseActionsHandler;
 import dev.pbroman.brat.core.interpolation.FunctionEvaluator;
 import dev.pbroman.brat.core.interpolation.FunctionRegistry;
-import dev.pbroman.brat.core.interpolation.InterpolationRuleDispatcher;
-import dev.pbroman.brat.core.interpolation.InterpolationScanner;
 import dev.pbroman.brat.core.interpolation.configdata.AssertionInterpolator;
 import dev.pbroman.brat.core.interpolation.configdata.ChainedConditionInterpolator;
 import dev.pbroman.brat.core.interpolation.configdata.ConditionInterpolator;
@@ -47,7 +31,6 @@ import dev.pbroman.brat.core.interpolation.configdata.FlowControlInterpolator;
 import dev.pbroman.brat.core.interpolation.configdata.HttpRequestDefinitionInterpolator;
 import dev.pbroman.brat.core.interpolation.configdata.RepeatUntilInterpolator;
 import dev.pbroman.brat.core.interpolation.configdata.RequestDefinitionInterpolators;
-import dev.pbroman.brat.core.interpolation.configdata.RequestOptionsInterpolator;
 import dev.pbroman.brat.core.interpolation.functions.StandardFunctions;
 import dev.pbroman.brat.core.interpolation.rules.ConstantsInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.EnvInterpolationRule;
@@ -56,7 +39,6 @@ import dev.pbroman.brat.core.interpolation.rules.ResponseBodyInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.ResponseHeaderInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.ResponseJsonInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.ResponseStatusCodeInterpolationRule;
-import dev.pbroman.brat.core.interpolation.rules.SecretsInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.VarsInterpolationRule;
 import dev.pbroman.brat.core.loader.SuiteLoader;
 import dev.pbroman.brat.core.rendering.OutcomeRendererRuleDispatcher;
@@ -66,7 +48,6 @@ import dev.pbroman.brat.core.rendering.rules.UnittestOutcomeRendererRule;
 import dev.pbroman.brat.core.rendering.rules.VerboseCliOutcomeRendererRule;
 import dev.pbroman.brat.core.reporting.ConsoleRunReporter;
 import dev.pbroman.brat.core.reporting.RunReporterRegistry;
-import dev.pbroman.brat.core.resolver.assertion.AssertionChainResolver;
 import dev.pbroman.brat.core.resolver.condition.ConditionResolverRuleDispatcher;
 import dev.pbroman.brat.core.resolver.condition.rules.BooleanConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.DateConditionResolverRule;
@@ -78,7 +59,6 @@ import dev.pbroman.brat.core.resolver.condition.rules.StringConditionResolverRul
 import dev.pbroman.brat.core.secrets.FileSecretsProviderFactory;
 import dev.pbroman.brat.core.secrets.SecretsBootstrap;
 import dev.pbroman.brat.core.util.Require;
-import lombok.extern.slf4j.Slf4j;
 
 import static dev.pbroman.brat.core.util.Constants.HTTP;
 import static dev.pbroman.brat.core.util.Require.nonNull;
@@ -109,44 +89,37 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  * collaborators it assembles. A consumer wanting a different {@code Interpolation},
  * {@code ConditionResolver} or {@code ResponseHandler} constructs a {@code RequestProcessor} itself.
  */
-@Slf4j
 public final class Brat {
 
-    private final List<InterpolationRule> coreInterpolationRules;
-    private final List<InterpolationRule> extraInterpolationRules;
-    private final ConditionResolver conditionResolver;
-    private final FunctionEvaluator functionEvaluator;
-    private final SecretsBootstrap secretsBootstrap;
-    private final ProtocolRegistry protocolRegistry;
-    private final ConfigDataInterpolator<Condition> conditionInterpolator;
-    private final ConfigDataInterpolator<Assertion> assertionInterpolator;
-    private final ConfigDataInterpolator<FlowControl> flowControlInterpolator;
+    private final RunCollaborators collaborators;
     private final OutcomeRenderer renderer;
     private final RunReporterRegistry reporters;
     private final List<String> defaultReporters;
 
     private Brat(Builder builder) {
-        var functions = new ArrayList<>(StandardFunctions.all());
-        functions.addAll(builder.functions);
-        functions.addAll(PluginDiscovery.discover(BratFunction.class, builder.classLoader));
-
-        var conditionRules = new ArrayList<>(List.of(
-                new StringConditionResolverRule(),
-                new NumberConditionResolverRule(),
-                new BooleanConditionResolverRule(),
-                new DateConditionResolverRule(),
-                new FormatConditionResolverRule(),
-                new JsonConditionResolverRule(),
-                new NullConditionResolverRule()));
-        conditionRules.addAll(builder.conditionResolverRules);
-        conditionRules.addAll(PluginDiscovery.discover(ConditionResolverRule.class, builder.classLoader));
-
-        var factories = new ArrayList<SecretsProviderFactory>(List.of(new FileSecretsProviderFactory()));
-        factories.addAll(builder.secretsProviderFactories);
-        factories.addAll(PluginDiscovery.discover(SecretsProviderFactory.class, builder.classLoader));
-
-        var extras = new ArrayList<>(builder.interpolationRules);
-        extras.addAll(PluginDiscovery.discover(InterpolationRule.class, builder.classLoader));
+        var loader = builder.classLoader;
+        var functions = PluginDiscovery.collect(StandardFunctions.all(), builder.functions, BratFunction.class, loader);
+        var conditionRules = PluginDiscovery.collect(
+                List.of(
+                        new StringConditionResolverRule(),
+                        new NumberConditionResolverRule(),
+                        new BooleanConditionResolverRule(),
+                        new DateConditionResolverRule(),
+                        new FormatConditionResolverRule(),
+                        new JsonConditionResolverRule(),
+                        new NullConditionResolverRule()),
+                builder.conditionResolverRules,
+                ConditionResolverRule.class,
+                loader);
+        var factories = PluginDiscovery.collect(
+                List.of(new FileSecretsProviderFactory()),
+                builder.secretsProviderFactories,
+                SecretsProviderFactory.class,
+                loader);
+        // Core's interpolation rules are not collected with the rest: the run's secrets rule goes
+        // between core's and everyone else's, so the two halves are kept apart.
+        var extraInterpolationRules =
+                PluginDiscovery.collect(List.of(), builder.interpolationRules, InterpolationRule.class, loader);
 
         // Only the three launch namespaces resolve a secrets provider's own parameters. Everything
         // here runs before any secret exists, so a rule needing one could never work.
@@ -154,7 +127,7 @@ public final class Brat {
         var env = new EnvInterpolationRule();
         var params = new ParamsInterpolationRule();
         var launchRules = List.<InterpolationRule>of(constants, env, params);
-        this.coreInterpolationRules = List.of(
+        var coreInterpolationRules = List.of(
                 constants,
                 env,
                 params,
@@ -163,29 +136,28 @@ public final class Brat {
                 new ResponseStatusCodeInterpolationRule(),
                 new ResponseHeaderInterpolationRule(),
                 new ResponseJsonInterpolationRule());
-        this.extraInterpolationRules = List.copyOf(extras);
-        this.conditionResolver = new ConditionResolverRuleDispatcher(conditionRules);
-        this.functionEvaluator = new FunctionEvaluator(new FunctionRegistry(functions));
-        this.secretsBootstrap = new SecretsBootstrap(factories, launchRules);
-        this.protocolRegistry = protocolRegistryOf(builder);
-        var chainedConditionInterpolator = new ChainedConditionInterpolator();
-        this.conditionInterpolator = new ConditionInterpolator();
-        this.assertionInterpolator = new AssertionInterpolator(chainedConditionInterpolator);
-        this.flowControlInterpolator = new FlowControlInterpolator(new RepeatUntilInterpolator());
+        this.collaborators = new RunCollaborators(
+                coreInterpolationRules,
+                extraInterpolationRules,
+                new FunctionEvaluator(new FunctionRegistry(functions)),
+                new ConditionResolverRuleDispatcher(conditionRules),
+                new SecretsBootstrap(factories, launchRules),
+                protocolRegistryOf(builder),
+                new ConditionInterpolator(),
+                new AssertionInterpolator(new ChainedConditionInterpolator()),
+                new FlowControlInterpolator(new RepeatUntilInterpolator()));
 
-        var rendererRules = new ArrayList<>(List.of(
-                new ConsoleOutcomeRendererRule(),
-                new VerboseCliOutcomeRendererRule(),
-                new LogOutcomeRendererRule(),
-                new UnittestOutcomeRendererRule()));
-        rendererRules.addAll(builder.outcomeRendererRules);
-        rendererRules.addAll(PluginDiscovery.discover(OutcomeRendererRule.class, builder.classLoader));
-        this.renderer = new OutcomeRendererRuleDispatcher(rendererRules);
-
-        var runReporters = new ArrayList<RunReporter>(List.of(new ConsoleRunReporter(System.out)));
-        runReporters.addAll(builder.runReporters);
-        runReporters.addAll(PluginDiscovery.discover(RunReporter.class, builder.classLoader));
-        this.reporters = new RunReporterRegistry(runReporters);
+        this.renderer = new OutcomeRendererRuleDispatcher(PluginDiscovery.collect(
+                List.of(
+                        new ConsoleOutcomeRendererRule(),
+                        new VerboseCliOutcomeRendererRule(),
+                        new LogOutcomeRendererRule(),
+                        new UnittestOutcomeRendererRule()),
+                builder.outcomeRendererRules,
+                OutcomeRendererRule.class,
+                loader));
+        this.reporters = new RunReporterRegistry(PluginDiscovery.collect(
+                List.of(new ConsoleRunReporter(System.out)), builder.runReporters, RunReporter.class, loader));
         this.defaultReporters = List.copyOf(builder.defaultReporters);
         checkDefaultReporters();
     }
@@ -290,7 +262,7 @@ public final class Brat {
      * @return a loader over this runner's registered protocols; never {@code null}
      */
     public SuiteLoader loader() {
-        return new SuiteLoader(protocolRegistry.protocolBindings());
+        return new SuiteLoader(collaborators.protocolRegistry().protocolBindings());
     }
 
     /**
@@ -398,169 +370,7 @@ public final class Brat {
         // started and then went wrong.
         BodyFileChecks.check(suite, environment.suiteLocation());
 
-        var startedAt = System.currentTimeMillis();
-        emit(listeners, new RunEvent.RunStarted(Instant.now()));
-        var results = new ArrayList<RequestResult>();
-        var errors = new ArrayList<SuiteError>();
-        RunResult result = null;
-        String error = null;
-        try {
-            openRun(suite, environment, listeners, runControl, results, errors);
-            result = finish(results, errors, startedAt, runControl.isCancelled(), null);
-            return result;
-        } catch (BratException e) {
-            error = e.getMessage();
-            throw e;
-        } catch (RuntimeException | Error e) {
-            // An Error ends the run as surely as an exception; a listener must not read it as a pass.
-            error = e.getClass().getSimpleName() + ": " + e.getMessage();
-            throw e;
-        } finally {
-            // In a finally so the terminal event survives a fatal error: a listener holding a file
-            // handle has no other point at which to flush and close. The instance the caller gets is
-            // the one the listener sees, so the two can never disagree.
-            var reported = result == null
-                    ? finish(results, errors, startedAt, cancelledAfterFailure(runControl), error)
-                    : result;
-            emit(listeners, new RunEvent.RunFinished(reported));
-        }
-    }
-
-    /**
-     * Builds the run's record from what has been collected so far.
-     *
-     * @param results the request results collected
-     * @param errors the suite errors collected
-     * @param startedAt when the run began, in milliseconds
-     * @param cancelled whether the run was cancelled
-     * @param error what ended the run early, or {@code null}
-     * @return the record
-     */
-    private static RunResult finish(
-            List<RequestResult> results, List<SuiteError> errors, long startedAt, boolean cancelled, String error) {
-        return new RunResult(results, errors, System.currentTimeMillis() - startedAt, cancelled, error);
-    }
-
-    /**
-     * Whether the run was cancelled, asked once a failure has already ended it.
-     * <p>
-     * The control is the caller's code, and it may be what failed. Throwing again here would lose the
-     * terminal event every listener is promised and replace the failure the caller is about to receive,
-     * so a failure of any kind is logged and read as not cancelled — the run's own error already says
-     * it did not finish.
-     *
-     * @param runControl the cancellation channel
-     * @return whether the run was cancelled; {@code false} if asking failed
-     */
-    private static boolean cancelledAfterFailure(RunControl runControl) {
-        try {
-            return runControl.isCancelled();
-        } catch (RuntimeException | Error e) {
-            log.warn(
-                    "The run control {} threw while the run was ending",
-                    runControl.getClass().getName(),
-                    e);
-            return false;
-        }
-    }
-
-    /**
-     * Builds the run's namespaces and secrets chain, and closes the chain when the run ends.
-     *
-     * @param suite the suite to run
-     * @param environment the launch namespaces and secrets configuration
-     * @param listeners the listeners to emit to
-     * @param runControl the cancellation channel
-     * @param results collects one result per request that ran, in order
-     * @param errors collects one error per suite that was aborted, in order
-     */
-    private void openRun(
-            TestSuite suite,
-            Environment environment,
-            List<RunListener> listeners,
-            RunControl runControl,
-            List<RequestResult> results,
-            List<SuiteError> errors) {
-        var runtimeData = new RuntimeData(
-                suite.constants(),
-                environment.env(),
-                new HashMap<>(),
-                environment.params(),
-                environment.suiteLocation());
-        // try-with-resources rather than a finally: a chain holding a lease or a file handle is built
-        // per run and must not outlive it, and this is the form that suppresses a close failure when
-        // the run itself threw, instead of replacing the failure the caller needs to see.
-        try (var secretsProvider = secretsBootstrap.build(environment.secretsConfig(), runtimeData)) {
-            walk(suite, listeners, runControl, results, errors, runtimeData, secretsProvider);
-        }
-    }
-
-    /**
-     * Composes the per-run collaborators around the run's secrets chain and walks the suite tree.
-     *
-     * @param suite the suite to run
-     * @param listeners the listeners to emit to
-     * @param runControl the cancellation channel
-     * @param results collects one result per request that ran, in order
-     * @param errors collects one error per suite that was aborted, in order
-     * @param runtimeData the run's namespaces
-     * @param secretsProvider the chain {@code ${secrets.…}} resolves through
-     */
-    private void walk(
-            TestSuite suite,
-            List<RunListener> listeners,
-            RunControl runControl,
-            List<RequestResult> results,
-            List<SuiteError> errors,
-            RuntimeData runtimeData,
-            SecretsProvider secretsProvider) {
-        var rules = new ArrayList<>(coreInterpolationRules);
-        rules.add(new SecretsInterpolationRule(secretsProvider));
-        rules.addAll(extraInterpolationRules);
-        var interpolation = new InterpolationScanner(new InterpolationRuleDispatcher(rules), functionEvaluator);
-
-        var conditionEvaluator = new ConditionEvaluator(interpolation, conditionInterpolator, conditionResolver);
-        var responseHandler = new ResponseActionsHandler(
-                interpolation, new AssertionChainResolver(interpolation, conditionResolver, assertionInterpolator));
-        Consumer<AttemptFinished> attemptListener = attempt -> emit(listeners, attempt);
-        var processor = new RequestProcessor(
-                interpolation,
-                protocolRegistry.interpolators(),
-                conditionEvaluator,
-                responseHandler,
-                flowControlInterpolator,
-                new RequestOptionsInterpolator(),
-                new RequestExecutor(conditionEvaluator, attemptListener));
-
-        new TestSuiteRunner(
-                        processor,
-                        protocolRegistry,
-                        new SuiteEntryEvaluator(interpolation, conditionEvaluator),
-                        event -> emit(listeners, event),
-                        results::add,
-                        errors::add,
-                        runControl)
-                .walk(suite, runtimeData);
-    }
-
-    /**
-     * Delivers one event to every listener, one at a time.
-     *
-     * @param listeners the listeners to deliver to
-     * @param event the event to deliver
-     */
-    private static void emit(List<RunListener> listeners, RunEvent event) {
-        for (var listener : listeners) {
-            try {
-                listener.on(event);
-            } catch (RuntimeException e) {
-                log.warn(
-                        "The listener {} threw on {}; the run continues",
-                        listener.getClass().getName(),
-                        event.getClass().getSimpleName(),
-                        e);
-            }
-        }
+        return new Run(collaborators, listeners, runControl).execute(suite, environment);
     }
 
     /** The control a run with no caller-supplied one uses: nothing ever cancels it. */

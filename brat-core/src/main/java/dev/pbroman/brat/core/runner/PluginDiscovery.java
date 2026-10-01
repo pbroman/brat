@@ -62,4 +62,39 @@ final class PluginDiscovery {
                     "A plugin declared as a " + service.getSimpleName() + " could not be loaded: " + e.getMessage(), e);
         }
     }
+
+    /**
+     * Every implementation of {@code service} a runner has, in registration order: core's own, then
+     * those added on the builder, then those {@code classLoader} declares.
+     * <p>
+     * <strong>The order is the override order</strong>, and every caller depends on it being the same.
+     * A collection collapsed by key keeps the last entry of a name, so a builder addition replaces a
+     * core default and a plugin replaces both; a rule dispatcher consults equal priorities in this
+     * order, so an added rule needs a higher priority to win.
+     *
+     * @param core core's own implementations; must not be {@code null} nor hold a {@code null},
+     *        possibly empty
+     * @param added the implementations added on the builder; must not be {@code null} nor hold a
+     *        {@code null}, possibly empty
+     * @param service the extension-point interface to discover; must not be {@code null}
+     * @param classLoader the loader to discover through; must not be {@code null}
+     * @param <T> the extension-point type
+     * @return a new, unmodifiable list of all three sources in that order. Neither argument list is
+     *         retained
+     * @throws BratException if an argument is {@code null}, if {@code core} or {@code added} holds a
+     *         {@code null}, or under the conditions of
+     *         {@link #discover(Class, ClassLoader)}
+     */
+    static <T> List<T> collect(
+            List<? extends T> core, List<? extends T> added, Class<T> service, ClassLoader classLoader) {
+        nonNull(core, "The core implementations must not be null");
+        nonNull(added, "The added implementations must not be null");
+        var all = new ArrayList<T>(core);
+        all.addAll(added);
+        for (var implementation : all) {
+            nonNull(implementation, "A " + service.getSimpleName() + " to register must not be null");
+        }
+        all.addAll(discover(service, classLoader));
+        return List.copyOf(all);
+    }
 }
