@@ -81,16 +81,19 @@ public sealed interface RunEvent
     record SuiteExited(String path, SuiteStatus status, long elapsedMs) implements RunEvent {}
 
     /**
-     * The run has ended, delivered <strong>exactly once</strong> — on success, on cancellation and on
-     * a fatal error alike.
+     * The run has ended, delivered <strong>exactly once</strong> after {@link RunStarted} — on success,
+     * on cancellation and on a fatal error alike.
      * <p>
      * That guarantee is what makes a file-writing listener possible: without a terminal event
      * promised in every ending, a listener holding a handle has no point at which to flush and close.
-     *
+     * A run that fails at launch delivers neither event, so a listener that acquires on
+     * {@code RunStarted} holds nothing to release.
+     * <p>
      * It carries the result alone, which already answers whether the run was cancelled — spelling
      * that beside a result holding it would be the same value twice, free to disagree.
      *
-     * @param result the whole run's record; never {@code null}, even when the run was cancelled
+     * @param result the whole run's record; never {@code null}, even when the run was cancelled or ended
+     *        on a structural failure — then {@link RunResult#error()} names it
      */
     record RunFinished(RunResult result) implements RunEvent {}
 }

@@ -129,22 +129,27 @@ public final class AssertionChainResolver implements AssertionResolver {
      * only {@code b}, {@code args.*} and {@code message}, never an {@code a} — so the returned
      * condition carries the substitutions of both and a report loses nothing.
      * <p>
-     * Both arguments are interpolated copies, so neither outcome map can be {@code null}; only the
-     * {@code a} entry is optional, absent when the assertion's own {@code a} was {@code null}.
+     * Both arguments are interpolated copies, so neither outcome map can be {@code null}. The
+     * assertion's {@code a} outcomes are optional: none when its own {@code a} was {@code null},
+     * one keyed {@code a} for a scalar, one per leaf ({@code a.x}, {@code a[0]}) for a structure.
      *
      * @param assertion the interpolated assertion the link hangs off
      * @param link the interpolated chain link
-     * @return an interpolated condition combining the two, whose {@code getOutcomes()} holds the
-     *         assertion's {@code a} outcome, where it recorded one, plus every outcome the link
-     *         recorded
+     * @return an interpolated condition combining the two, whose {@code getOutcomes()} holds every
+     *         outcome the assertion recorded for {@code a}, plus every outcome the link recorded
      */
     private Condition linkCondition(Assertion assertion, ChainedCondition link) {
         var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
-        var aOutcome = assertion.getOutcomes().get("a");
-        if (aOutcome != null) {
-            outcomes.put("a", aOutcome);
+        for (var entry : assertion.getOutcomes().entrySet()) {
+            if (isOperandA(entry.getKey())) {
+                outcomes.put(entry.getKey(), entry.getValue());
+            }
         }
         outcomes.putAll(link.getOutcomes());
         return new Condition(link.getFunc(), assertion.getA(), link.getB(), link.getArgs(), outcomes);
+    }
+
+    private static boolean isOperandA(String outcomeKey) {
+        return outcomeKey.equals("a") || outcomeKey.startsWith("a.") || outcomeKey.startsWith("a[");
     }
 }

@@ -15,6 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -120,5 +121,20 @@ class ChainedConditionInterpolatorTest {
         assertThatThrownBy(() -> interpolator.interpolated(link, interpolation, runtimeData))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("offset");
+    }
+
+    @Test
+    void interpolated_keepsTheAuthoredMessageWhenItResolvedToASecret() {
+        // given
+        when(interpolation.outcome(eq("token ${secrets.token} rejected"), any()))
+                .thenReturn(new InterpolationOutcome(
+                        "token s3cr3t rejected", "token ${secrets.token} rejected → token *** rejected", true));
+        var target = new ChainedCondition("contains", "b", "token ${secrets.token} rejected");
+
+        // when
+        var result = interpolator.interpolated(target, interpolation, runtimeData);
+
+        // then
+        assertThat(result.getMessage()).isEqualTo("token ${secrets.token} rejected");
     }
 }

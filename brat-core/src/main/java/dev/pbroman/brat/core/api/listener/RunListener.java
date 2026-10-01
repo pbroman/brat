@@ -10,6 +10,10 @@ package dev.pbroman.brat.core.api.listener;
  * run — and <strong>serialized</strong>: core calls one listener at a time even once execution runs in
  * parallel, rather than handing third-party code concurrent events. An implementation therefore needs
  * no synchronization of its own.
+ * <p>
+ * <strong>{@code RunStarted} may never arrive; if it does, {@code RunFinished} will.</strong> A run
+ * that fails at launch delivers no event at all. So a listener that needs a resource acquires it on
+ * {@code RunStarted} and releases it on {@code RunFinished}, and is never left holding one.
  */
 public interface RunListener {
 

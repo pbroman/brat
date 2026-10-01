@@ -305,7 +305,11 @@ final class TestSuiteRunner {
                 return Optional.of(new SuiteStatus.Cancelled());
             }
             var coordinates = new RequestCoordinates(
-                    childPath(path, request.name()), request.id(), request.name(), requestNo.incrementAndGet());
+                    childPath(path, request.name()),
+                    request.id(),
+                    request.name(),
+                    request.phase(),
+                    requestNo.incrementAndGet());
             // Resolved before the request is announced: a handler this wiring lacks aborts the run,
             // and a RequestStarted with no RequestFinished would leave a listener's test tree holding
             // a node that never ends.

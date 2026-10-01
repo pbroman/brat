@@ -9,9 +9,9 @@ import dev.pbroman.brat.core.exception.BratException;
  * One pluggable rule of the condition-resolving chain: it answers the funcs it knows, for the
  * operands it can handle, and declines everything else.
  * <p>
- * Unlike the other rule interfaces in BRAT, this does not extend the capability interface it serves
- * ({@link ConditionResolver}), because the two contracts genuinely differ: a rule may decline, and
- * whatever finally produces a verdict may not.
+ * It does not extend the capability interface it serves ({@link ConditionResolver}), because the
+ * two contracts genuinely differ: a rule may decline, and whatever finally produces a verdict may
+ * not.
  */
 public interface ConditionResolverRule {
 

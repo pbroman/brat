@@ -8,10 +8,9 @@ import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.ChainedCondition;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 
-import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.asStringOrNull;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateArgs;
-import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateIfPresent;
+import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateDisplayText;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateStructure;
 
 /**
@@ -25,6 +24,9 @@ public final class ChainedConditionInterpolator implements ConfigDataInterpolato
      * {@code func} is a name, not a value, and is copied through uninterpolated — the same treatment
      * {@code ConditionInterpolator} gives it. The link's {@code a} is not its own: it belongs to the
      * parent assertion and is interpolated exactly once there.
+     * <p>
+     * The copy's {@code message} never holds a secret: if a token in it resolved to one, the copy keeps
+     * the authored text, {@code ${…}} expressions and all.
      * <p>
      * Outcome keys are {@code b}, {@code args.<name>} and {@code message}, chosen so they compose
      * without collision with the {@code a} outcome the parent contributes when a resolver builds this
@@ -48,8 +50,7 @@ public final class ChainedConditionInterpolator implements ConfigDataInterpolato
         var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
         var bValue = interpolateStructure(interpolation, runtimeData, outcomes, "b", target.getB());
         var argsValues = interpolateArgs(target.getArgs(), interpolation, runtimeData, outcomes);
-        var messageValue = asStringOrNull(
-                interpolateIfPresent(interpolation, runtimeData, outcomes, "message", target.getMessage()));
+        var messageValue = interpolateDisplayText(interpolation, runtimeData, outcomes, "message", target.getMessage());
 
         return new ChainedCondition(target.getFunc(), bValue, messageValue, argsValues, outcomes);
     }
