@@ -2,6 +2,7 @@ package dev.pbroman.brat.core.rendering;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import dev.pbroman.brat.core.api.rendering.OutcomeRendererRule;
 import dev.pbroman.brat.core.api.rendering.RenderTarget;
@@ -18,8 +19,8 @@ class OutcomeRendererRuleDispatcherTest {
     @Test
     void render_returnsFirstMatchingRuleResult() {
         // given
-        OutcomeRendererRule declining = (kind, renderTarget) -> null;
-        OutcomeRendererRule matching = (kind, renderTarget) -> "matched";
+        OutcomeRendererRule declining = (kind, renderTarget) -> Optional.empty();
+        OutcomeRendererRule matching = (kind, renderTarget) -> Optional.of("matched");
         var underTest = new OutcomeRendererRuleDispatcher(List.of(declining, matching));
 
         // when
@@ -34,8 +35,8 @@ class OutcomeRendererRuleDispatcherTest {
         // given
         OutcomeRendererRule low = new OutcomeRendererRule() {
             @Override
-            public String render(String kind, RenderTarget renderTarget) {
-                return "low";
+            public Optional<String> render(String kind, RenderTarget renderTarget) {
+                return Optional.of("low");
             }
         };
         OutcomeRendererRule high = new OutcomeRendererRule() {
@@ -45,8 +46,8 @@ class OutcomeRendererRuleDispatcherTest {
             }
 
             @Override
-            public String render(String kind, RenderTarget renderTarget) {
-                return "high";
+            public Optional<String> render(String kind, RenderTarget renderTarget) {
+                return Optional.of("high");
             }
         };
         var underTest = new OutcomeRendererRuleDispatcher(List.of(low, high));
@@ -59,9 +60,32 @@ class OutcomeRendererRuleDispatcherTest {
     }
 
     @Test
+    void render_propagatesARulesFailureInsteadOfTryingTheNextRule() {
+        // given
+        OutcomeRendererRule failing = new OutcomeRendererRule() {
+            @Override
+            public int priority() {
+                return 200;
+            }
+
+            @Override
+            public Optional<String> render(String kind, RenderTarget renderTarget) {
+                throw new BratException("cannot render");
+            }
+        };
+        OutcomeRendererRule fallback = (kind, renderTarget) -> Optional.of("fallback");
+        var underTest = new OutcomeRendererRuleDispatcher(List.of(fallback, failing));
+
+        // when / then
+        assertThatThrownBy(() -> underTest.render("any", target))
+                .isInstanceOf(BratException.class)
+                .hasMessage("cannot render");
+    }
+
+    @Test
     void render_throwsIfNoRuleMatches() {
         // given
-        OutcomeRendererRule declining = (kind, renderTarget) -> null;
+        OutcomeRendererRule declining = (kind, renderTarget) -> Optional.empty();
         var underTest = new OutcomeRendererRuleDispatcher(List.of(declining));
 
         // when / then

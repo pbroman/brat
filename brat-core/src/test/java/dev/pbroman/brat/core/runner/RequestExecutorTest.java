@@ -10,6 +10,7 @@ import dev.pbroman.brat.core.api.listener.AttemptFinished;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
+import dev.pbroman.brat.core.data.Phase;
 import dev.pbroman.brat.core.data.RepeatUntil;
 import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.result.HttpResponse;
@@ -45,7 +46,7 @@ class RequestExecutorTest {
     private final Condition pollCondition = new Condition("isEqualTo", "${response.statusCode}", "200");
     private final HttpRequestDefinition definition =
             new HttpRequestDefinition("http://x/jobs/1", "GET", null, null, Map.of());
-    private final RequestCoordinates coordinates = new RequestCoordinates("s/poll", null, "poll", 1);
+    private final RequestCoordinates coordinates = new RequestCoordinates("s/poll", null, "poll", Phase.MAIN, 1);
 
     @BeforeEach
     void setUp() {

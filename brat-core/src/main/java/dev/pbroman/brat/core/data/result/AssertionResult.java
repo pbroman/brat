@@ -37,13 +37,4 @@ public record AssertionResult(Condition condition, String message, boolean passe
     public AssertionResult(Condition condition, String message, boolean passed) {
         this(condition, message, passed, AssertionSeverity.FAIL);
     }
-
-    @Override
-    public String toString() {
-        var s = String.format("%s failed.", condition);
-        if (message != null) {
-            s += String.format(" Message: %s", message);
-        }
-        return s;
-    }
 }

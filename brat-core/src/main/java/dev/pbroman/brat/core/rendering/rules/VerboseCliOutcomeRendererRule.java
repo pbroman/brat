@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
@@ -23,9 +24,9 @@ public final class VerboseCliOutcomeRendererRule implements OutcomeRendererRule 
     private static final String KIND = "verbose-cli";
 
     @Override
-    public String render(String kind, RenderTarget target) {
+    public Optional<String> render(String kind, RenderTarget target) {
         if (!KIND.equals(kind)) {
-            return null;
+            return Optional.empty();
         }
 
         var grouped = new LinkedHashMap<String, List<Map.Entry<String, InterpolationOutcome>>>();
@@ -47,7 +48,7 @@ public final class VerboseCliOutcomeRendererRule implements OutcomeRendererRule 
                     .collect(Collectors.joining(System.lineSeparator()));
             sections.add(group.isEmpty() ? lines : capitalize(group) + ":" + System.lineSeparator() + lines);
         }
-        return String.join(System.lineSeparator(), sections);
+        return Optional.of(String.join(System.lineSeparator(), sections));
     }
 
     private String fieldName(String group, String key) {

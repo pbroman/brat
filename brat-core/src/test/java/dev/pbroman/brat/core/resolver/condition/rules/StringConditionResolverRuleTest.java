@@ -1,5 +1,8 @@
 package dev.pbroman.brat.core.resolver.condition.rules;
 
+import java.util.Map;
+
+import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.BeforeEach;
@@ -108,5 +111,22 @@ class StringConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
 
         // when / then
         assertThatThrownBy(() -> resolver.resolve(condition)).isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void resolve_masksASecretWhenAPredicateFails() {
+        // given - an invalid pattern makes the matches predicate throw
+        var interpolated = new Condition(
+                "matches",
+                "s3cr3t",
+                "[",
+                null,
+                Map.of("a", new InterpolationOutcome("s3cr3t", "${secrets.flag} → ***", true)));
+
+        // when / then
+        assertThatThrownBy(() -> resolver.resolve(interpolated))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("***")
+                .hasMessageNotContaining("s3cr3t");
     }
 }

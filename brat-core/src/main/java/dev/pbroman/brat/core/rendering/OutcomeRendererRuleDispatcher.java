@@ -12,7 +12,7 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * Priority-ordered dispatcher over {@link OutcomeRendererRule}s: tries each rule in priority order
- * and returns the first non-null rendering.
+ * and returns the first rendering a rule does not decline.
  */
 public class OutcomeRendererRuleDispatcher implements OutcomeRenderer {
 
@@ -29,23 +29,14 @@ public class OutcomeRendererRuleDispatcher implements OutcomeRenderer {
                 .toList();
     }
 
-    /**
-     * Unlike a single {@link OutcomeRendererRule}, the dispatcher never returns {@code null} —
-     * strengthened from {@link OutcomeRenderer#render}'s general contract to guarantee a rendering
-     * as long as some rule recognizes {@code kind}.
-     *
-     * @return the rendered text; never {@code null}
-     * @throws BratException if {@code kind} or {@code target} is {@code null}, or no rule
-     *         recognizes {@code kind}
-     */
     @Override
     public String render(String kind, RenderTarget target) {
         nonNull(kind, "Cannot render for a null kind");
         nonNull(target, "Cannot render a null target");
         for (var rule : rules) {
             var result = rule.render(kind, target);
-            if (result != null) {
-                return result;
+            if (result.isPresent()) {
+                return result.get();
             }
         }
         throw new BratException(String.format("No OutcomeRendererRule recognizes render kind '%s'", kind));

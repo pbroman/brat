@@ -12,15 +12,18 @@ public interface OutcomeRenderer {
 
     /**
      * Renders {@code target} in the shape identified by {@code kind}.
+     * <p>
+     * Every outcome is shown by its
+     * {@link dev.pbroman.brat.core.api.interpolation.InterpolationOutcome#reportingString()
+     * reportingString}, never by its value, so a secret appears masked.
      *
-     * @param kind the render kind (e.g. {@code "console"}, {@code "verbose-cli"}, {@code "log"})
-     * @param target what to render: the named outcomes, and an optional label naming them
-     * @return the rendered text, or {@code null} if this implementation does not recognize
-     *         {@code kind}
-     * @throws BratException if this implementation recognizes {@code kind} but cannot produce a
-     *         rendering — declining by returning {@code null} is reserved for a {@code kind} that
-     *         belongs to some other implementation, so a failure must be raised rather than
-     *         returned
+     * @param kind the render kind (e.g. {@code "console"}, {@code "verbose-cli"}, {@code "log"});
+     *        must not be {@code null}
+     * @param target what to render: the named outcomes, and an optional label naming them; must not
+     *        be {@code null}
+     * @return the rendered text; never {@code null}
+     * @throws BratException if {@code kind} or {@code target} is {@code null}, if no rendering is
+     *         known for {@code kind}, or if producing it fails
      */
     String render(String kind, RenderTarget target);
 }
