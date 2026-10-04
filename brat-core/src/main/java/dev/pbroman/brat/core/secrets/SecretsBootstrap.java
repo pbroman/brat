@@ -1,6 +1,7 @@
 package dev.pbroman.brat.core.secrets;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -97,6 +98,16 @@ public final class SecretsBootstrap {
         }
         this.bootstrapRules = bootstrapRules;
         this.envLookup = envLookup;
+    }
+
+    /**
+     * The factories this bootstrap creates providers with, one per type: where two declared the same
+     * type, the later — the one that is used.
+     *
+     * @return an unmodifiable collection in no particular order; never {@code null}
+     */
+    public Collection<SecretsProviderFactory> factories() {
+        return List.copyOf(type2factoryMap.values());
     }
 
     /**

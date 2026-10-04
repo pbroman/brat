@@ -54,6 +54,20 @@ class SecretsBootstrapTest {
     }
 
     @Test
+    void factories_holdsOnePerTypeTheLaterWinning() {
+        // given
+        var builtIn = new StubFactory("file");
+        var override = new StubFactory("file");
+        var vault = new StubFactory("vault");
+
+        // when
+        var result = bootstrap(builtIn, override, vault).factories();
+
+        // then
+        assertThat(result).containsExactlyInAnyOrder(override, vault);
+    }
+
+    @Test
     void constructor_bindsTheSysenvProviderToTheProcessEnvironment() {
         // given a real variable of this JVM, restricted to a name upper-snake-casing leaves alone
         var variable = System.getenv().entrySet().stream()

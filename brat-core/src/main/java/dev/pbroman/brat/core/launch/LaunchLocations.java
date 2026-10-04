@@ -6,6 +6,9 @@ import java.nio.file.Path;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.Require;
 
+import static dev.pbroman.brat.core.util.Constants.CLASSPATH_PREFIX;
+import static dev.pbroman.brat.core.util.Constants.FILE_PREFIX;
+
 /**
  * Converts the locations given at launch — the suite file, the environment directory — into the
  * prefixed, absolute form the rest of BRAT reads.
@@ -16,9 +19,6 @@ import dev.pbroman.brat.core.util.Require;
  * ever sees the string as given.
  */
 final class LaunchLocations {
-
-    private static final String CLASSPATH_PREFIX = "classpath:";
-    private static final String FILE_PREFIX = "file:";
 
     private LaunchLocations() {
         // utility class

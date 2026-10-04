@@ -1,7 +1,10 @@
 package dev.pbroman.brat.core.runner;
 
+import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +42,7 @@ import dev.pbroman.brat.core.handler.ApacheHttpRequestHandler;
 import dev.pbroman.brat.core.secrets.SecretsProviderConfig;
 import dev.pbroman.brat.core.secrets.SecretsSource;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -90,6 +94,32 @@ class BratTest {
 
     private Brat brat() {
         return Brat.builder().requestHandler(handler).build();
+    }
+
+    /**
+     * A secrets provider factory that answers {@code recognises} with a fixed verdict.
+     *
+     * @param type its type
+     * @param claims what it answers for every file
+     * @return the factory
+     */
+    private static SecretsProviderFactory recognisingFactory(String type, boolean claims) {
+        return new SecretsProviderFactory() {
+            @Override
+            public String type() {
+                return type;
+            }
+
+            @Override
+            public SecretsProvider create(Map<String, String> params) {
+                throw new UnsupportedOperationException("never created here");
+            }
+
+            @Override
+            public boolean recognises(String content) {
+                return claims;
+            }
+        };
     }
 
     /** A request naming which handler should execute it. */
@@ -235,6 +265,43 @@ class BratTest {
                 .singleElement()
                 .satisfies(
                         request -> assertThat(request.requestDefinition()).isInstanceOf(HttpRequestDefinition.class));
+    }
+
+    @Test
+    void environmentReader_letsAFactoryAddedOnTheBuilderRecogniseASecretsFile(@TempDir Path dir) throws IOException {
+        // given
+        var brat = Brat.builder()
+                .requestHandler(handler)
+                .secretsProviderFactory(recognisingFactory("enc", true))
+                .build();
+        Files.writeString(dir.resolve("secrets.yaml"), "enc: ciphertext\n");
+
+        // when
+        var environment = brat.environmentReader().read(dir.toString(), Map.of());
+
+        // then
+        assertThat(environment.secretsConfig().sources())
+                .extracting(SecretsSource::type)
+                .containsExactly("enc");
+    }
+
+    @Test
+    void environmentReader_doesNotAskAFactoryReplacedByOneOfTheSameType(@TempDir Path dir) throws IOException {
+        // given - the later 'enc' factory replaces the earlier one, which would have claimed the file
+        var brat = Brat.builder()
+                .requestHandler(handler)
+                .secretsProviderFactory(recognisingFactory("enc", true))
+                .secretsProviderFactory(recognisingFactory("enc", false))
+                .build();
+        Files.writeString(dir.resolve("secrets.yaml"), "enc: ciphertext\n");
+
+        // when
+        var environment = brat.environmentReader().read(dir.toString(), Map.of());
+
+        // then - nobody claims it, so it falls back to a plaintext file
+        assertThat(environment.secretsConfig().sources())
+                .extracting(SecretsSource::type)
+                .containsExactly("file");
     }
 
     @Test

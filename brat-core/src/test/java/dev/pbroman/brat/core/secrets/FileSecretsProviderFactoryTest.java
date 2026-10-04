@@ -140,14 +140,22 @@ class FileSecretsProviderFactoryTest {
     }
 
     @Test
-    void create_rejectsATokenInTheTypeEntry(@TempDir Path dir) throws IOException {
-        // given - the type is not served, but it is still part of a literal file
+    void create_neitherServesNorChecksTheTypeEntry(@TempDir Path dir) throws IOException {
+        // given - the type routed the file here; whatever routed it is what checks it
         var location = secretsFile(dir, "type: \"${env.kind}\"\napiKey: s3cret\n");
 
+        // when
+        var result = underTest.create(Map.of(FileSecretsProviderFactory.LOCATION_PARAM, location));
+
         // then
-        assertThatThrownBy(() -> underTest.create(Map.of(FileSecretsProviderFactory.LOCATION_PARAM, location)))
-                .isInstanceOf(BratException.class)
-                .hasMessageContaining("secrets.type");
+        assertThat(result.getSecret("apiKey")).contains("s3cret");
+        assertThat(result.getSecret("type")).isEmpty();
+    }
+
+    @Test
+    void recognises_claimsNothing() {
+        // then - plaintext is what a file nobody claims defaults to, so this factory never claims one
+        assertThat(underTest.recognises("type: file\napiKey: s3cret\n")).isFalse();
     }
 
     @Test

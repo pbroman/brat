@@ -28,6 +28,8 @@ public final class Constants {
     public static final String MISC = "misc";
     public static final String FALLBACK_DELIMITER = ":-";
     public static final String TOKEN_PREFIX = "${";
+    public static final String CLASSPATH_PREFIX = "classpath:";
+    public static final String FILE_PREFIX = "file:";
     public static final String TOKEN_SUFFIX = "}";
 
     /** The protocol of a request core can execute without a plugin, and the default when none is declared. */

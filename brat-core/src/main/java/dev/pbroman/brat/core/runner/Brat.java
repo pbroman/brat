@@ -40,6 +40,7 @@ import dev.pbroman.brat.core.interpolation.rules.ResponseHeaderInterpolationRule
 import dev.pbroman.brat.core.interpolation.rules.ResponseJsonInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.ResponseStatusCodeInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.VarsInterpolationRule;
+import dev.pbroman.brat.core.launch.EnvironmentReader;
 import dev.pbroman.brat.core.loader.SuiteLoader;
 import dev.pbroman.brat.core.rendering.OutcomeRendererRuleDispatcher;
 import dev.pbroman.brat.core.rendering.rules.ConsoleOutcomeRendererRule;
@@ -263,6 +264,21 @@ public final class Brat {
      */
     public SuiteLoader loader() {
         return new SuiteLoader(collaborators.protocolRegistry().protocolBindings());
+    }
+
+    /**
+     * A reader for environment directories this runner can run against.
+     * <p>
+     * The reader asks this runner's secrets provider factories whether they recognise a secrets
+     * file's content — core's, the builder's and the discovered ones, one per type: a factory
+     * replaced by a later one of the same {@code type()} is not asked, exactly as it is not used.
+     * That is what lets a format brought by a plugin be recognised without its files declaring a
+     * {@code type}.
+     *
+     * @return a reader over this runner's secrets provider factories; never {@code null}
+     */
+    public EnvironmentReader environmentReader() {
+        return new EnvironmentReader(collaborators.secretsBootstrap().factories());
     }
 
     /**
