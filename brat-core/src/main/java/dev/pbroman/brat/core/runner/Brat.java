@@ -40,7 +40,11 @@ import dev.pbroman.brat.core.interpolation.rules.ResponseHeaderInterpolationRule
 import dev.pbroman.brat.core.interpolation.rules.ResponseJsonInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.ResponseStatusCodeInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.VarsInterpolationRule;
+import dev.pbroman.brat.core.launch.Environment;
 import dev.pbroman.brat.core.launch.EnvironmentReader;
+import dev.pbroman.brat.core.launch.Launch;
+import dev.pbroman.brat.core.launch.LaunchReader;
+import dev.pbroman.brat.core.launch.PreparedRun;
 import dev.pbroman.brat.core.loader.SuiteLoader;
 import dev.pbroman.brat.core.rendering.OutcomeRendererRuleDispatcher;
 import dev.pbroman.brat.core.rendering.rules.ConsoleOutcomeRendererRule;
@@ -387,6 +391,61 @@ public final class Brat {
         BodyFileChecks.check(suite, environment.suiteLocation());
 
         return new Run(collaborators, listeners, runControl).execute(suite, environment);
+    }
+
+    /**
+     * Reads {@code launch} and runs it, reported by this runner's default reporters.
+     * <p>
+     * The launch is read with this runner's own {@link #loader()} and {@link #environmentReader()} —
+     * the suite file, then the environment directory if it names one — and the suite's location is
+     * handed to the environment, so a bare path in the suite resolves next to the suite file. Then it
+     * runs exactly as {@link #run(TestSuite, Environment)} runs.
+     * <p>
+     * <strong>Reading happens before the run starts.</strong> A launch that cannot be read throws
+     * before any event is delivered, as a body file that is not there does.
+     *
+     * @param launch the launch to read and run; must not be {@code null}
+     * @return the run's record
+     * @throws BratException if {@code launch} is {@code null}, for anything reading it rejects — see
+     *         {@link LaunchReader#read(Launch)} — or under the same conditions as
+     *         {@link #run(TestSuite, Environment)}
+     */
+    public RunResult run(Launch launch) {
+        var prepared = read(launch);
+        return run(prepared.suite(), prepared.environment());
+    }
+
+    /**
+     * Reads {@code launch} and runs it, reporting to {@code listeners} and stopping when asked.
+     * <p>
+     * Reads the launch as {@link #run(Launch)} does, before any event, then runs exactly as
+     * {@link #run(TestSuite, Environment, List, RunControl)} runs — exactly {@code listeners} are
+     * called.
+     *
+     * @param launch the launch to read and run; must not be {@code null}
+     * @param listeners the listeners to deliver events to, in order; must not be {@code null}
+     * @param runControl the channel the run is stopped through; must not be {@code null}
+     * @return the run's record
+     * @throws BratException if any argument is {@code null}, for anything reading the launch rejects,
+     *         or under the same conditions as {@link #run(TestSuite, Environment, List, RunControl)}
+     */
+    public RunResult run(Launch launch, List<RunListener> listeners, RunControl runControl) {
+        nonNull(listeners, "The listeners must not be null");
+        nonNull(runControl, "The run control must not be null");
+        var prepared = read(launch);
+        return run(prepared.suite(), prepared.environment(), listeners, runControl);
+    }
+
+    /**
+     * Reads {@code launch} with this runner's own loader and environment reader.
+     *
+     * @param launch the launch to read
+     * @return the suite and its environment, joined
+     * @throws BratException if {@code launch} is {@code null}, or for anything reading it rejects
+     */
+    private PreparedRun read(Launch launch) {
+        nonNull(launch, "The launch to run must not be null");
+        return new LaunchReader(loader(), environmentReader()).read(launch);
     }
 
     /** The control a run with no caller-supplied one uses: nothing ever cancels it. */

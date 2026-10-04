@@ -5,7 +5,7 @@ import java.util.Map;
 
 import dev.pbroman.brat.core.data.ConfigData;
 import dev.pbroman.brat.core.data.result.RequestStatus;
-import dev.pbroman.brat.core.runner.Environment;
+import dev.pbroman.brat.core.launch.Environment;
 import dev.pbroman.brat.core.secrets.SecretsProviderConfig;
 import dev.pbroman.brat.core.secrets.SecretsSource;
 import dev.pbroman.brat.integration.support.EndToEndTestBase;

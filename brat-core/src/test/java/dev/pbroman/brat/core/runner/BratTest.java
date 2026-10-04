@@ -39,11 +39,14 @@ import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.handler.ApacheHttpRequestHandler;
+import dev.pbroman.brat.core.launch.Environment;
+import dev.pbroman.brat.core.launch.Launch;
 import dev.pbroman.brat.core.secrets.SecretsProviderConfig;
 import dev.pbroman.brat.core.secrets.SecretsSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -1152,5 +1155,145 @@ class BratTest {
         assertThatThrownBy(() -> brat().run(suite(request), environment))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("body.json");
+    }
+
+    // ---------- run(Launch) ----------
+
+    @Test
+    void runLaunch_runsASuiteFileAgainstAnEnvironmentDirectory(@TempDir Path dir) throws IOException {
+        // given
+        var suite = Files.writeString(dir.resolve("orders.brat.yaml"), """
+                name: orders
+                requests:
+                  - name: list orders
+                    requestDefinition:
+                      url: "${env.baseUrl}/orders"
+                """);
+        var dev = Files.createDirectory(dir.resolve("dev"));
+        Files.writeString(dev.resolve("env.yaml"), "baseUrl: http://dev.example.com\n");
+        var capturing = new CapturingHandler();
+
+        // when
+        var result = Brat.builder()
+                .requestHandler(capturing)
+                .build()
+                .run(Launch.of(suite.toString()).withEnvironmentDirectory(dev.toString()));
+
+        // then
+        assertThat(result.requestResults()).hasSize(1);
+        assertThat(capturing.sent)
+                .singleElement()
+                .satisfies(sent -> assertThat(sent.getUrl()).isEqualTo("http://dev.example.com/orders"));
+    }
+
+    @Test
+    void runLaunch_resolvesABareBodyPathNextToTheSuiteFile(@TempDir Path dir) throws IOException {
+        // given - a bare path, which only resolves because the launch told the run where the suite is
+        var suite = Files.writeString(dir.resolve("orders.brat.yaml"), """
+                name: orders
+                requests:
+                  - name: create an order
+                    requestDefinition:
+                      url: http://localhost/orders
+                      method: POST
+                      body:
+                        file: bodies/create-order.json
+                """);
+        Files.createDirectory(dir.resolve("bodies"));
+        Files.writeString(dir.resolve("bodies/create-order.json"), "{\"item\": \"widget\"}");
+        var capturing = new CapturingHandler();
+
+        // when
+        Brat.builder().requestHandler(capturing).build().run(Launch.of(suite.toString()));
+
+        // then
+        assertThat(capturing.sent)
+                .singleElement()
+                .satisfies(sent -> assertThat(sent.getBody()).containsEntry(BODY_STRING, "{\"item\": \"widget\"}"));
+    }
+
+    @Test
+    void runLaunch_failsBeforeAnyEventWhenTheLaunchCannotBeRead(@TempDir Path dir) {
+        // given
+        var events = new ArrayList<RunEvent>();
+        var launch = Launch.of(dir.resolve("missing.brat.yaml").toString());
+
+        // then
+        assertThatThrownBy(() -> brat().run(launch, List.of(events::add), new StubRunControl()))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("missing.brat.yaml");
+        assertThat(events).isEmpty();
+    }
+
+    @Test
+    void runLaunch_failsBeforeAnyEventWhenABareBodyFileIsNotNextToTheSuite(@TempDir Path dir) throws IOException {
+        // given
+        var suite = Files.writeString(dir.resolve("orders.brat.yaml"), """
+                name: orders
+                requests:
+                  - name: create an order
+                    requestDefinition:
+                      url: http://localhost/orders
+                      method: POST
+                      body:
+                        file: bodies/absent.json
+                """);
+        var events = new ArrayList<RunEvent>();
+
+        // then
+        assertThatThrownBy(() -> brat().run(Launch.of(suite.toString()), List.of(events::add), new StubRunControl()))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("absent.json");
+        assertThat(events).isEmpty();
+    }
+
+    @Test
+    void runLaunch_deliversTheRunToExactlyTheGivenListeners(@TempDir Path dir) throws IOException {
+        // given
+        var suite = Files.writeString(dir.resolve("orders.brat.yaml"), """
+                name: orders
+                requests:
+                  - name: list orders
+                    requestDefinition:
+                      url: http://localhost/orders
+                """);
+        var events = new ArrayList<RunEvent>();
+
+        // when
+        var result = brat().run(Launch.of(suite.toString()), List.of(events::add), new StubRunControl());
+
+        // then
+        assertThat(events).first().isInstanceOf(RunEvent.RunStarted.class);
+        assertThat(events).last().isEqualTo(new RunEvent.RunFinished(result));
+    }
+
+    @Test
+    void runLaunch_throwsForANullArgument() {
+        // given
+        var launch = Launch.of("orders.brat.yaml");
+        var control = new StubRunControl();
+
+        // then
+        assertThatThrownBy(() -> brat().run((Launch) null)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> brat().run(null, List.of(), control)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> brat().run(launch, null, control)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> brat().run(launch, List.of(), null)).isInstanceOf(BratException.class);
+    }
+
+    /** A handler recording every request definition it was asked to send. */
+    private static final class CapturingHandler implements HttpRequestHandler {
+
+        private final List<HttpRequestDefinition> sent = new ArrayList<>();
+
+        @Override
+        public String name() {
+            return "capturing";
+        }
+
+        @Override
+        public HttpResponse performRequest(HttpRequestDefinition definition, RequestOptions options) {
+            sent.add(definition);
+            return new HttpResponse(200, Map.of(), "{}");
+        }
     }
 }

@@ -18,7 +18,6 @@ import java.util.regex.Pattern;
 
 import dev.pbroman.brat.core.api.secrets.SecretsProviderFactory;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.runner.Environment;
 import dev.pbroman.brat.core.secrets.FileSecretsProviderFactory;
 import dev.pbroman.brat.core.secrets.FlatYamlLoader;
 import dev.pbroman.brat.core.secrets.SecretsProviderConfig;

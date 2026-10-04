@@ -1,6 +1,5 @@
 package dev.pbroman.brat.core.loader;
 
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -9,7 +8,6 @@ import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.TestSuite;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.Require;
-import dev.pbroman.brat.core.util.ResourceReader;
 import org.apache.commons.lang3.StringUtils;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DeserializationFeature;
@@ -196,22 +194,5 @@ public final class SuiteLoader {
      */
     public TestSuite load(String yaml) {
         return load(yaml, null);
-    }
-
-    /**
-     * Reads a file and loads it, using the path as the origin.
-     * <p>
-     * ⚠ <strong>Temporary.</strong> It is I/O on a type whose job is parsing in-memory content, which
-     * the naming convention separates deliberately. It exists so a caller can point at a file before
-     * anything else can read one; it belongs to whatever ends up owning file access, and goes from
-     * here when that exists.
-     *
-     * @param path the file to read
-     * @return the bound suite
-     * @throws BratException if the file cannot be read, or for any reason
-     *         {@link #load(String, String)} throws
-     */
-    public TestSuite load(Path path) {
-        return load(ResourceReader.readFileToString("file:" + path), String.valueOf(path));
     }
 }

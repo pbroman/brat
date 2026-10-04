@@ -22,6 +22,7 @@ import dev.pbroman.brat.core.interpolation.InterpolationRuleDispatcher;
 import dev.pbroman.brat.core.interpolation.InterpolationScanner;
 import dev.pbroman.brat.core.interpolation.configdata.RequestOptionsInterpolator;
 import dev.pbroman.brat.core.interpolation.rules.SecretsInterpolationRule;
+import dev.pbroman.brat.core.launch.Environment;
 import dev.pbroman.brat.core.resolver.assertion.AssertionChainResolver;
 import lombok.extern.slf4j.Slf4j;
 
