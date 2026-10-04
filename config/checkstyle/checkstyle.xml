@@ -86,6 +86,15 @@
         <module name="FinalClass"/>
         <module name="OneTopLevelClass"/>
         <module name="UnusedLocalVariable"/>
+        <!-- ...except a pattern variable. BRAT targets Java 21, which has no unnamed variable (`_`
+             is Java 22), and a type pattern in a switch must bind a name even where only the type
+             matters - so an unused binding there is unavoidable, and flagging it reports what nobody
+             can fix. Every other unused local is still flagged. Remove this when the baseline reaches
+             22, and turn the bindings back into `_`. -->
+        <module name="SuppressionXpathSingleFilter">
+            <property name="checks" value="UnusedLocalVariable"/>
+            <property name="query" value="//PATTERN_VARIABLE_DEF/IDENT"/>
+        </module>
 
 
         <!-- "Every public or protected type ... gets a Javadoc block" -->

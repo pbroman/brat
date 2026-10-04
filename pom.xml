@@ -10,7 +10,7 @@
     <packaging>pom</packaging>
 
     <properties>
-        <java.version>25</java.version>
+        <java.version>21</java.version>
         <!-- Overridden by jacoco:prepare-agent under -Pchecks; empty otherwise, so surefire's
              @{argLine} resolves either way. -->
         <argLine></argLine>
@@ -156,8 +156,9 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.16.0</version>
                 <configuration>
-                    <source>25</source>
-                    <target>25</target>
+                    <!-- `release`, not source/target: it also checks every JDK API used against 21,
+                         so a newer method called while building on a newer JDK fails here. -->
+                    <release>${java.version}</release>
                     <compilerArgs>
                         <!-- Javadoc correctness (broken {@link}s, malformed tags) at compile time.
                              `-missing` because "is a Javadoc block required here" is checkstyle's

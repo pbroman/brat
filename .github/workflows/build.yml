@@ -50,3 +50,27 @@ jobs:
             **/target/spotbugsXml.xml
           retention-days: 7
           if-no-files-found: ignore
+
+  # BRAT targets Java 21, so the tests also run on a Java 21 runtime: compiled by JDK 25 with
+  # `--release 21` (which already rejects any API newer than 21), then forked onto 21, which is
+  # what catches a difference in runtime behaviour. The gates run once, in `build`; this job only
+  # answers "does it work on 21".
+  test-on-21:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Both JDKs: the last one listed becomes JAVA_HOME and runs Maven; each also gets
+      # JAVA_HOME_<version>_X64, which is how Surefire is pointed at 21.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            25
+          cache: maven
+
+      - name: Test on Java 21
+        run: mvn -B --no-transfer-progress clean test -Djvm="$JAVA_HOME_21_X64/bin/java"
