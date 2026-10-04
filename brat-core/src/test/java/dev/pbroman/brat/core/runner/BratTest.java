@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
@@ -216,9 +217,49 @@ class BratTest {
     // --- wiring ---
 
     @Test
-    void build_throwsWithoutARequestHandler() {
-        // when / then — a runner that cannot perform a request is not a runner
-        assertThatThrownBy(() -> Brat.builder().build()).isInstanceOf(BratException.class);
+    void build_suppliesAWorkingHttpHandlerWhenNoneIsAddedOrDiscovered() {
+        // given - nothing listens on port 1, so only a real HTTP client gets as far as being refused
+        try (var brat = Brat.builder().build()) {
+
+            // when
+            var result = brat.run(suite(request("r", "http://127.0.0.1:1/x")), environment);
+
+            // then - the request was attempted and failed on the wire, not for want of a handler
+            assertThat(result.requestResults())
+                    .singleElement()
+                    .satisfies(request -> assertThat(request.status()).isInstanceOf(RequestStatus.Errored.class));
+        }
+    }
+
+    @Test
+    void build_suppliesNoHttpHandlerWhenOneIsAdded() {
+        // given - were one supplied beside it, the built-in default would take the request
+        var brat = Brat.builder().requestHandler(handler).build();
+
+        // when
+        var result = brat.run(suite(request("r", "http://127.0.0.1:1/x")), environment);
+
+        // then
+        assertThat(result.requestResults())
+                .singleElement()
+                .satisfies(request -> assertThat(request.status()).isInstanceOf(RequestStatus.Completed.class));
+    }
+
+    @Test
+    void build_buildsWithOnlyDiscoveredHandlersAndSuppliesNoOther() {
+        // given - no handler added: the command-line case, where every handler comes from a jar
+        var brat = Brat.builder()
+                .classLoader(closeableHandlerLoader())
+                .defaultRequestHandler("http", ClosingHandler.NAME)
+                .build();
+
+        // when
+        var result = brat.run(suite(request("r", "http://127.0.0.1:1/x")), environment);
+
+        // then
+        assertThat(result.requestResults())
+                .singleElement()
+                .satisfies(request -> assertThat(request.status()).isInstanceOf(RequestStatus.Completed.class));
     }
 
     @Test
@@ -1450,6 +1491,186 @@ class BratTest {
         public HttpResponse performRequest(HttpRequestDefinition definition, RequestOptions options) {
             sent.add(definition);
             return new HttpResponse(200, Map.of(), "{\"id\": \"7\"}");
+        }
+    }
+
+    // ---------- close ----------
+
+    @Test
+    void close_closesTheHandlersItDiscoveredEvenWhenOneOfThemThrows() {
+        // given
+        ClosingHandler.CLOSES.set(0);
+        ThrowingCloseHandler.ATTEMPTS.set(0);
+        var brat = Brat.builder()
+                .classLoader(closeableHandlerLoader())
+                .defaultRequestHandler("http", ClosingHandler.NAME)
+                .build();
+
+        // when - and it does not throw, though one handler does
+        brat.close();
+
+        // then
+        assertThat(ClosingHandler.CLOSES).hasValue(1);
+        assertThat(ThrowingCloseHandler.ATTEMPTS).hasValue(1);
+    }
+
+    @Test
+    void build_closesTheHandlersItCreatedWhenItFails() {
+        // given - discovery creates the handler, then a default reporter nobody registered fails the build
+        ClosingHandler.CLOSES.set(0);
+        var builder = Brat.builder()
+                .classLoader(closeableHandlerLoader())
+                .defaultRequestHandler("http", ClosingHandler.NAME)
+                .defaultReporters(List.of("nobody"));
+
+        // when
+        assertThatThrownBy(builder::build).isInstanceOf(BratException.class);
+
+        // then - no runner was returned, so nothing else could ever close it
+        assertThat(ClosingHandler.CLOSES).hasValue(1);
+    }
+
+    @Test
+    void close_leavesAHandlerAddedOnTheBuilderOpen() {
+        // given
+        var closed = new AtomicBoolean();
+        var wired = new CloseableHandler(closed);
+        var brat = Brat.builder().requestHandler(wired).build();
+
+        // when
+        brat.close();
+
+        // then - whoever created it closes it
+        assertThat(closed).isFalse();
+    }
+
+    @Test
+    void close_passesOverADiscoveredHandlerWithNothingToClose() {
+        // given - this fixture's handler is not AutoCloseable
+        var root = BratTest.class.getClassLoader().getResource("handler-plugin-fixture/");
+        var brat = Brat.builder()
+                .classLoader(new URLClassLoader(new URL[] {root}, BratTest.class.getClassLoader()))
+                .defaultRequestHandler("http", "discovered-handler")
+                .build();
+
+        // when
+        brat.close();
+
+        // then - closed all the same: it runs nothing more
+        assertThatThrownBy(() -> brat.run(suite(request("r", "http://h/x")), environment))
+                .isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void close_doesNothingTheSecondTime() {
+        // given
+        ClosingHandler.CLOSES.set(0);
+        var brat = Brat.builder()
+                .classLoader(closeableHandlerLoader())
+                .defaultRequestHandler("http", ClosingHandler.NAME)
+                .build();
+        brat.close();
+
+        // when
+        brat.close();
+
+        // then
+        assertThat(ClosingHandler.CLOSES).hasValue(1);
+    }
+
+    @Test
+    void run_throwsOnceTheRunnerIsClosed(@TempDir Path dir) throws IOException {
+        // given
+        var brat = brat();
+        var file = Files.writeString(dir.resolve("s.brat.yaml"), oneRequest("http://h/x"));
+        brat.close();
+
+        // then
+        assertThatThrownBy(() -> brat.run(suite(request("r", "http://h/x")), environment))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> brat.run(Launch.of(file.toString()))).isInstanceOf(BratException.class);
+    }
+
+    /**
+     * A classloader declaring {@link ClosingHandler} and {@link ThrowingCloseHandler} as plugins.
+     *
+     * @return the loader
+     */
+    private static ClassLoader closeableHandlerLoader() {
+        var root = BratTest.class.getClassLoader().getResource("closeable-handler-plugin-fixture/");
+        return new URLClassLoader(new URL[] {root}, BratTest.class.getClassLoader());
+    }
+
+    /** A discoverable HTTP handler counting how often it is closed. */
+    public static final class ClosingHandler implements HttpRequestHandler, AutoCloseable {
+
+        /** Its name. */
+        static final String NAME = "closing";
+
+        /** How often any instance was closed. */
+        static final AtomicInteger CLOSES = new AtomicInteger();
+
+        @Override
+        public String name() {
+            return NAME;
+        }
+
+        @Override
+        public HttpResponse performRequest(HttpRequestDefinition definition, RequestOptions options) {
+            return new HttpResponse(200, Map.of(), "{}");
+        }
+
+        @Override
+        public void close() {
+            CLOSES.incrementAndGet();
+        }
+    }
+
+    /** A discoverable HTTP handler whose close always fails. */
+    public static final class ThrowingCloseHandler implements HttpRequestHandler, AutoCloseable {
+
+        /** How often any instance was asked to close. */
+        static final AtomicInteger ATTEMPTS = new AtomicInteger();
+
+        @Override
+        public String name() {
+            return "throwing-close";
+        }
+
+        @Override
+        public HttpResponse performRequest(HttpRequestDefinition definition, RequestOptions options) {
+            return new HttpResponse(200, Map.of(), "{}");
+        }
+
+        @Override
+        public void close() {
+            ATTEMPTS.incrementAndGet();
+            throw new IllegalStateException("cannot close");
+        }
+    }
+
+    /** A handler that records being closed, for adding on the builder. */
+    private static final class CloseableHandler implements HttpRequestHandler, AutoCloseable {
+
+        private final AtomicBoolean closed;
+
+        private CloseableHandler(AtomicBoolean closed) {
+            this.closed = closed;
+        }
+
+        @Override
+        public String name() {
+            return "wired";
+        }
+
+        @Override
+        public HttpResponse performRequest(HttpRequestDefinition definition, RequestOptions options) {
+            return new HttpResponse(200, Map.of(), "{}");
+        }
+
+        @Override
+        public void close() {
+            closed.set(true);
         }
     }
 }
