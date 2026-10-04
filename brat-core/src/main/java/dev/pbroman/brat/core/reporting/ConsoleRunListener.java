@@ -76,11 +76,11 @@ final class ConsoleRunListener implements RunListener {
     @Override
     public void on(RunEvent event) {
         switch (event) {
-            case RunEvent.RunStarted _ -> {
+            case RunEvent.RunStarted started -> {
                 // the first suite header is the start
             }
             case RunEvent.SuiteEntered entered -> out.println(indent(depth(entered.path())) + entered.name());
-            case RunEvent.RequestStarted _ -> {
+            case RunEvent.RequestStarted started -> {
                 // a request prints once, when it has finished
             }
             case AttemptFinished attempt -> attemptFinished(attempt);
@@ -110,8 +110,8 @@ final class ConsoleRunListener implements RunListener {
         var failed = result.failed();
         var verdict =
                 switch (status) {
-                    case RequestStatus.Errored _ -> Verdict.ERROR;
-                    case RequestStatus.Skipped _ -> Verdict.SKIP;
+                    case RequestStatus.Errored errored -> Verdict.ERROR;
+                    case RequestStatus.Skipped skipped -> Verdict.SKIP;
                     default -> failed ? Verdict.FAIL : Verdict.PASS;
                 };
         count(status, failed);
@@ -203,7 +203,7 @@ final class ConsoleRunListener implements RunListener {
         var name = exited.path().substring(exited.path().lastIndexOf('/') + 1);
         var indent = indent(depth(exited.path()) + 1);
         switch (exited.status()) {
-            case SuiteStatus.Completed _ -> {
+            case SuiteStatus.Completed completed -> {
                 // a completed suite needs no line of its own
             }
             case SuiteStatus.Skipped skipped -> {
@@ -214,7 +214,7 @@ final class ConsoleRunListener implements RunListener {
                 suitesAborted++;
                 out.println(indent + "ABORTED " + name + DASH + aborted.reason());
             }
-            case SuiteStatus.Cancelled _ -> {
+            case SuiteStatus.Cancelled cancelled -> {
                 suitesCancelled++;
                 out.println(indent + "CANCELLED " + name);
             }
@@ -272,7 +272,7 @@ final class ConsoleRunListener implements RunListener {
             case RequestStatus.Skipped skipped -> skipped.reason();
             case RequestStatus.Errored errored -> errored.message();
             case RequestStatus.GaveUp gaveUp -> gaveUp.message();
-            case RequestStatus.Completed _ -> null;
+            case RequestStatus.Completed completed -> null;
         };
     }
 

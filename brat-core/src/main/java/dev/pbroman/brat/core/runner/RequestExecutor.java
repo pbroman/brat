@@ -159,12 +159,23 @@ class RequestExecutor {
         // compile here instead of falling silently into a default arm. A null cannot reach this - a
         // positive maxAttempts means the loop always assigned one - so it is not handled either.
         return switch (lastStatus) {
-            case RequestStatus.Errored _ -> lastStatus;
+            case RequestStatus.Errored errored -> lastStatus;
             case RequestStatus.Completed completed -> new RequestStatus.GaveUp(completed, messageOnFail);
-            case RequestStatus.Skipped _, RequestStatus.GaveUp _ ->
-                new RequestStatus.Errored("The last performed request has a disallowed status: "
-                        + lastStatus.getClass().getSimpleName());
+            case RequestStatus.Skipped skipped -> disallowed(lastStatus);
+            case RequestStatus.GaveUp gaveUp -> disallowed(lastStatus);
         };
+    }
+
+    /**
+     * The status an exhausted loop reports when its last attempt ended in a status no attempt may end
+     * in.
+     *
+     * @param lastStatus the status the last attempt ended in
+     * @return an error naming that status
+     */
+    private static RequestStatus disallowed(RequestStatus lastStatus) {
+        return new RequestStatus.Errored("The last performed request has a disallowed status: "
+                + lastStatus.getClass().getSimpleName());
     }
 
     private void attemptFinished(
