@@ -294,6 +294,24 @@ class SuiteLoaderTest {
     // ---------- structural rejections ----------
 
     @Test
+    void load_rejectsATokenInConstantsNamingTheOriginAndTheKey() {
+        // given - a ${...} in a constant would never be resolved, so it is refused rather than kept as text
+        var yaml = """
+                name: s
+                constants:
+                  db:
+                    url: "${env.host}/db"
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml, "orders.brat.yaml"))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("orders.brat.yaml")
+                .hasMessageContaining("constants.db.url")
+                .hasMessageNotContaining("env.host");
+    }
+
+    @Test
     void load_rejectsADuplicateKeyNamingItAndItsPosition() {
         // given
         var yaml = "name: s\ndescription: one\ndescription: two\n";

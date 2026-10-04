@@ -4,6 +4,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
+import static dev.pbroman.brat.core.util.Constants.TOKEN_PREFIX;
+import static dev.pbroman.brat.core.util.Constants.TOKEN_SUFFIX;
 import static dev.pbroman.brat.core.util.Constants.VARIABLE_GROUP_NAME;
 
 /**
@@ -17,16 +19,6 @@ import static dev.pbroman.brat.core.util.Constants.VARIABLE_GROUP_NAME;
  * since the set of namespaces is open — a plugin brings its own.
  */
 public final class InterpolationPatterns {
-
-    /**
-     * Opens a token.
-     */
-    public static final String TOKEN_PREFIX = "${";
-
-    /**
-     * Closes a token.
-     */
-    public static final String TOKEN_SUFFIX = "}";
 
     /**
      * Marks a token as a function call rather than a namespace lookup. Syntax, not part of the

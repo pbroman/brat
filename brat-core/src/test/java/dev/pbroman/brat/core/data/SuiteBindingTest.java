@@ -1,8 +1,11 @@
 package dev.pbroman.brat.core.data;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import dev.pbroman.brat.core.api.data.RequestDefinition;
+import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.MapperFeature;
@@ -283,5 +286,48 @@ class SuiteBindingTest {
         // then
         assertThat(request.phase()).isEqualTo(Phase.MAIN);
         assertThat(request.requestHandlers()).isEmpty();
+    }
+
+    @Test
+    void bind_flattensNestedConstantsToDottedKeys() {
+        // given
+        var yaml = """
+                name: s
+                constants:
+                  db:
+                    host: db.internal
+                    port: 5432
+                """;
+
+        // when
+        var suite = mapper.readValue(yaml, TestSuite.class);
+
+        // then - reachable as ${constants.db.host}, which looks up the whole dotted key
+        assertThat(suite.constants()).containsOnlyKeys("db.host", "db.port").containsEntry("db.host", "db.internal");
+    }
+
+    @Test
+    void constructor_rejectsATokenInConstantsNamingTheKeyButNotTheValue() {
+        // given
+        Map<String, Object> constants = Map.of("runId", "${__uuid}");
+
+        // then - constants are literal; computing a value is what suite-level setVars is for
+        assertThatThrownBy(() -> new TestSuite("s", null, constants, null, null, null, null, null, null, null))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("constants.runId")
+                .hasMessageNotContaining("__uuid");
+    }
+
+    @Test
+    void constructor_rejectsANestedConstantCollidingWithADottedOne() {
+        // given
+        var constants = new LinkedHashMap<String, Object>();
+        constants.put("db", Map.of("host", "a"));
+        constants.put("db.host", "b");
+
+        // then
+        assertThatThrownBy(() -> new TestSuite("s", null, constants, null, null, null, null, null, null, null))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("constants.db.host");
     }
 }

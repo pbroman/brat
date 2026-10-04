@@ -10,7 +10,7 @@ import dev.pbroman.brat.core.exception.BratException;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
 import static dev.pbroman.brat.core.interpolation.InterpolationPatterns.FUNCTION_CALL_PREFIX;
-import static dev.pbroman.brat.core.interpolation.InterpolationPatterns.TOKEN_SUFFIX;
+import static dev.pbroman.brat.core.util.Constants.TOKEN_SUFFIX;
 import static dev.pbroman.brat.core.util.Require.nonBlank;
 import static dev.pbroman.brat.core.util.Require.nonNull;
 
@@ -84,7 +84,7 @@ public final class FunctionEvaluator {
      *         masked as {@code ***} when it is secret-bearing
      * @throws BratException if {@code call} is {@code null}, or is not a call token — one opening
      *         with {@link InterpolationPatterns#FUNCTION_CALL_PREFIX} and closing with
-     *         {@link InterpolationPatterns#TOKEN_SUFFIX}; if {@code interpolation} is {@code null};
+     *         {@link dev.pbroman.brat.core.util.Constants#TOKEN_SUFFIX}; if {@code interpolation} is {@code null};
      *         if the argument list is unclosed or is not followed immediately by the closing brace;
      *         if a quoted argument has no closing quote; if no function is registered under the
      *         name; if the function throws; if the function returns {@code null}; or if

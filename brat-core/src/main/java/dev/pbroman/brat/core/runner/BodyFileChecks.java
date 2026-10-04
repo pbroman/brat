@@ -9,9 +9,9 @@ import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.Require;
 import dev.pbroman.brat.core.util.ResourceReader;
 
-import static dev.pbroman.brat.core.interpolation.InterpolationPatterns.TOKEN_PREFIX;
 import static dev.pbroman.brat.core.util.Constants.FILE_BODY;
 import static dev.pbroman.brat.core.util.Constants.PATH_DELIMITER;
+import static dev.pbroman.brat.core.util.Constants.TOKEN_PREFIX;
 
 /**
  * The body files a suite names, checked once before the run starts.
