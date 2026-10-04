@@ -1591,6 +1591,19 @@ class BratTest {
         assertThatThrownBy(() -> brat.run(Launch.of(file.toString()))).isInstanceOf(BratException.class);
     }
 
+    @Test
+    void runLaunch_saysTheRunnerIsClosedBeforeReadingAnything() {
+        // given - the suite does not exist, so reading it first would report that instead
+        var brat = brat();
+        brat.close();
+
+        // then
+        assertThatThrownBy(() -> brat.run(Launch.of("missing.brat.yaml")))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("closed")
+                .hasMessageNotContaining("missing.brat.yaml");
+    }
+
     /**
      * A classloader declaring {@link ClosingHandler} and {@link ThrowingCloseHandler} as plugins.
      *

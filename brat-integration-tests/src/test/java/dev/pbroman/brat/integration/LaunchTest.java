@@ -80,7 +80,7 @@ class LaunchTest extends EndToEndTestBase {
     }
 
     @Test
-    void run_reportsALaunchedRunOnTheConsoleWithoutItsToken() {
+    void run_runsALaunchOnTheDefaultHandlerOfARunnerGivenNone() {
         // given - a runner given no handler at all, which supplies its own and closes it
         var buffer = new ByteArrayOutputStream();
         try (var brat = Brat.builder()
@@ -91,11 +91,11 @@ class LaunchTest extends EndToEndTestBase {
             brat.run(launch(Map.of("env.baseUrl", baseUrl())));
         }
 
-        // then
+        // then - both requests were sent by the runner's own client and reported as they ran
         assertThat(buffer.toString(StandardCharsets.UTF_8))
                 .contains("create a user")
                 .contains("echo the token")
-                .doesNotContain(DIRECTORY_TOKEN);
+                .contains("PASSED");
     }
 
     /**

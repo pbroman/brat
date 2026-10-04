@@ -417,9 +417,7 @@ public final class Brat implements AutoCloseable {
         nonNull(environment, "The environment to run against must not be null");
         nonNull(listeners, "The listeners must not be null");
         nonNull(runControl, "The run control must not be null");
-        if (closed.get()) {
-            throw new BratException("This runner has been closed, so it runs nothing more; build another");
-        }
+        requireOpen();
         // Before the first event: a body file that is not there is a launch failure, not a run that
         // started and then went wrong.
         BodyFileChecks.check(suite, environment.suiteLocation());
@@ -479,6 +477,7 @@ public final class Brat implements AutoCloseable {
      */
     private PreparedRun read(Launch launch) {
         nonNull(launch, "The launch to run must not be null");
+        requireOpen();
         return new LaunchReader(loader(), environmentReader()).read(launch);
     }
 
@@ -501,6 +500,17 @@ public final class Brat implements AutoCloseable {
     public void close() {
         if (!closed.getAndSet(true)) {
             closeAll(owned);
+        }
+    }
+
+    /**
+     * Refuses to go on once this runner has been closed.
+     *
+     * @throws BratException if {@link #close()} has been called
+     */
+    private void requireOpen() {
+        if (closed.get()) {
+            throw new BratException("This runner has been closed, so it runs nothing more; build another");
         }
     }
 
