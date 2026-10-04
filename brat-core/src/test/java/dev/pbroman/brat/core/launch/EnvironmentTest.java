@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.entry;
 
 class EnvironmentTest {
 
@@ -137,5 +138,26 @@ class EnvironmentTest {
         assertThat(Environment.of(Map.of("db", Map.of("host", "h1")), Map.of()).env())
                 .containsOnlyKeys("db.host");
         assertThatThrownBy(() -> Environment.of(Map.of("a", "${b}"), Map.of())).isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void constructor_rejectsAParamThatCannotBeRouted() {
+        // then - a launch that cannot run fails before it runs
+        assertThatThrownBy(() -> Environment.of(Map.of(), Map.of("responseVars.status", "200")))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("responseVars.status");
+    }
+
+    @Test
+    void overrides_routesThisEnvironmentsParams() {
+        // given
+        var environment = Environment.of(Map.of("baseUrl", "http://a"), Map.of("env.baseUrl", "http://b", "wait", "5"));
+
+        // when
+        var result = environment.overrides();
+
+        // then
+        assertThat(result.env()).containsOnly(entry("baseUrl", "http://b"));
+        assertThat(result.params()).containsOnly(entry("wait", "5"));
     }
 }

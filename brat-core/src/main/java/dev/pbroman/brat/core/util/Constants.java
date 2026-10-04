@@ -25,7 +25,6 @@ public final class Constants {
     public static final String VARS = "vars";
     public static final String PARAMS = "params";
     public static final String SECRETS = "secrets";
-    public static final String MISC = "misc";
     public static final String FALLBACK_DELIMITER = ":-";
     public static final String TOKEN_PREFIX = "${";
     public static final String CLASSPATH_PREFIX = "classpath:";

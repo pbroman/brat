@@ -59,6 +59,7 @@ class EnvInterpolationRuleTest extends AbstractInterpolationTest {
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("'missing'")
                 .hasMessageContaining("env.yaml")
+                .hasMessageContaining("env.missing=")
                 .hasMessageNotContaining("environment variable");
     }
 }

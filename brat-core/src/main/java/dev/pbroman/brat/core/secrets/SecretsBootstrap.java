@@ -140,17 +140,55 @@ public final class SecretsBootstrap {
      *         halfway leaks nothing
      */
     public CompositeSecretsProvider build(SecretsProviderConfig config, RuntimeData runtimeData) {
+        return build(config, runtimeData, List.of());
+    }
+
+    /**
+     * Builds the provider chain {@code config} describes, with {@code leading} ahead of every source.
+     * <p>
+     * Exactly {@link #build(SecretsProviderConfig, RuntimeData)}, except that {@code leading} is the
+     * chain's first provider <strong>throughout</strong>: while the chain is being built, a provider
+     * parameter referencing a secret resolves it from {@code leading} first, and in the returned
+     * chain {@code leading} wins every key it has. It is closed with the chain, and closed too if
+     * building fails.
+     *
+     * @param config the provider parameters and ordered sources to build from
+     * @param runtimeData the namespaces provider parameters are interpolated against
+     * @param leading the provider consulted before every source; must not be {@code null}
+     * @return the chain: {@code leading}, then the sources in order, then the environment-variable
+     *         provider
+     * @throws BratException under the same conditions as {@link #build(SecretsProviderConfig, RuntimeData)},
+     *         or if {@code leading} is {@code null}
+     */
+    public CompositeSecretsProvider build(
+            SecretsProviderConfig config, RuntimeData runtimeData, SecretsProvider leading) {
+        nonNull(leading, "The leading secrets provider may not be null");
+        return build(config, runtimeData, List.of(leading));
+    }
+
+    /**
+     * Builds the chain with {@code leading} ahead of every source, closing them if building fails.
+     *
+     * @param config the provider parameters and ordered sources to build from
+     * @param runtimeData the namespaces provider parameters are interpolated against
+     * @param leading the providers ahead of every source, possibly none
+     * @return the chain
+     */
+    private CompositeSecretsProvider build(
+            SecretsProviderConfig config, RuntimeData runtimeData, List<SecretsProvider> leading) {
         nonNull(config, "The config may not be null");
         nonNull(runtimeData, "The runtimeData may not be null");
         var sourceTypesNotAvailable = config.sources().stream()
                 .map(SecretsSource::type)
                 .filter(type -> !type2factoryMap.containsKey(type))
                 .toList();
+        var providers = new ArrayList<SecretsProvider>(leading);
         if (!sourceTypesNotAvailable.isEmpty()) {
-            throw new BratException("The following sources have no factory registered for their provider type: "
-                    + sourceTypesNotAvailable);
+            closeAndThrow(
+                    providers,
+                    "The following sources have no factory registered for their provider type: "
+                            + sourceTypesNotAvailable);
         }
-        var providers = new ArrayList<SecretsProvider>();
         var sysenvProvider = createSysenvSecretsProvider(config);
         Map<String, Map<String, String>> type2interpolatedParams = new HashMap<>();
         buildProviders(config, runtimeData, providers, sysenvProvider, type2interpolatedParams);

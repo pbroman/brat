@@ -1280,6 +1280,162 @@ class BratTest {
         assertThatThrownBy(() -> brat().run(launch, List.of(), null)).isInstanceOf(BratException.class);
     }
 
+    // ---------- overrides ----------
+
+    @Test
+    void run_letsAnEnvOverrideReplaceTheEnvValue() {
+        // given
+        var capturing = new CapturingHandler();
+        var brat = Brat.builder().requestHandler(capturing).build();
+        var suite = brat.loader().load(oneRequest("${env.baseUrl}/orders"));
+
+        // when
+        brat.run(suite, Environment.of(Map.of("baseUrl", "http://dev"), Map.of("env.baseUrl", "http://local")));
+
+        // then
+        assertThat(capturing.sent)
+                .singleElement()
+                .satisfies(sent -> assertThat(sent.getUrl()).isEqualTo("http://local/orders"));
+    }
+
+    @Test
+    void run_letsAConstantsOverrideReplaceTheSuitesConstant() {
+        // given
+        var capturing = new CapturingHandler();
+        var brat = Brat.builder().requestHandler(capturing).build();
+        var suite = brat.loader().load("""
+                name: s
+                constants:
+                  path: /orders
+                requests:
+                  - name: r
+                    requestDefinition:
+                      url: "http://h${constants.path}"
+                """);
+
+        // when
+        brat.run(suite, Environment.of(Map.of(), Map.of("constants.path", "/invoices")));
+
+        // then
+        assertThat(capturing.sent)
+                .singleElement()
+                .satisfies(sent -> assertThat(sent.getUrl()).isEqualTo("http://h/invoices"));
+    }
+
+    @Test
+    void run_seedsVarsFromAnOverrideAndLetsALaterCaptureReplaceIt() {
+        // given - a seed, not a pin: the capture after the first request wins
+        var capturing = new CapturingHandler();
+        var brat = Brat.builder().requestHandler(capturing).build();
+        var suite = brat.loader().load("""
+                name: s
+                requests:
+                  - name: first
+                    requestDefinition:
+                      url: "http://h/${vars.orderId}"
+                    responseActions:
+                      setVars:
+                        orderId: "${response.json.$.id}"
+                  - name: second
+                    requestDefinition:
+                      url: "http://h/${vars.orderId}"
+                """);
+
+        // when
+        brat.run(suite, Environment.of(Map.of(), Map.of("vars.orderId", "42")));
+
+        // then
+        assertThat(capturing.sent)
+                .extracting(HttpRequestDefinition::getUrl)
+                .containsExactly("http://h/42", "http://h/7");
+    }
+
+    @Test
+    void run_resolvesASecretsOverrideAndMasksItInWhatIsReported() {
+        // given
+        var capturing = new CapturingHandler();
+        var brat = Brat.builder().requestHandler(capturing).build();
+        var suite = brat.loader().load("""
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      url: http://h/x
+                      headers:
+                        X-Token: "${secrets.token}"
+                """);
+
+        // when
+        var result = brat.run(suite, Environment.of(Map.of(), Map.of("secrets.token", "launch-s3cret")));
+
+        // then - it reached the wire, and every reported trace of it is masked
+        assertThat(capturing.sent)
+                .singleElement()
+                .satisfies(sent -> assertThat(sent.getHeaders()).containsEntry("X-Token", "launch-s3cret"));
+        var sent = (HttpRequestDefinition) result.requestResults().getFirst().requestDefinition();
+        assertThat(sent.getOutcomes().values())
+                .extracting(InterpolationOutcome::reportingString)
+                .noneMatch(reported -> reported.contains("launch-s3cret"))
+                .anyMatch(reported -> reported.contains("***"));
+    }
+
+    @Test
+    void run_readsAParamsPrefixedKeyAsThatParam() {
+        // given
+        var capturing = new CapturingHandler();
+        var brat = Brat.builder().requestHandler(capturing).build();
+        var suite = brat.loader().load(oneRequest("http://h/${params.tenant}"));
+
+        // when
+        brat.run(suite, Environment.of(Map.of(), Map.of("params.tenant", "acme")));
+
+        // then
+        assertThat(capturing.sent)
+                .singleElement()
+                .satisfies(sent -> assertThat(sent.getUrl()).isEqualTo("http://h/acme"));
+    }
+
+    @Test
+    void run_noLongerOffersARoutedKeyAsAParam() {
+        // given - a namespace name is a reserved prefix, so this param is an override and nothing else
+        var brat = Brat.builder().requestHandler(new CapturingHandler()).build();
+        var suite = brat.loader().load(oneRequest("${params.env.baseUrl}/x"));
+
+        // when
+        var result = brat.run(suite, Environment.of(Map.of(), Map.of("env.baseUrl", "http://h")));
+
+        // then
+        assertThat(result.requestResults())
+                .singleElement()
+                .satisfies(request -> assertThat(request.status()).isInstanceOf(RequestStatus.Errored.class));
+    }
+
+    @Test
+    void run_keepsAMistypedNamespaceAsAnOrdinaryParam() {
+        // given - 'evn' is no namespace, so this overrides nothing (and the run warns about it)
+        var capturing = new CapturingHandler();
+        var brat = Brat.builder().requestHandler(capturing).build();
+        var suite = brat.loader().load(oneRequest("${params.evn.baseUrl}/x"));
+
+        // when
+        brat.run(suite, Environment.of(Map.of(), Map.of("evn.baseUrl", "http://typo")));
+
+        // then
+        assertThat(capturing.sent)
+                .singleElement()
+                .satisfies(sent -> assertThat(sent.getUrl()).isEqualTo("http://typo/x"));
+    }
+
+    /**
+     * A suite of one request to {@code url}.
+     *
+     * @param url the request's URL, tokens and all
+     * @return the suite document
+     */
+    private static String oneRequest(String url) {
+        return "name: s\nrequests:\n  - name: r\n    requestDefinition:\n      url: \"" + url + "\"\n";
+    }
+
     /** A handler recording every request definition it was asked to send. */
     private static final class CapturingHandler implements HttpRequestHandler {
 
@@ -1293,7 +1449,7 @@ class BratTest {
         @Override
         public HttpResponse performRequest(HttpRequestDefinition definition, RequestOptions options) {
             sent.add(definition);
-            return new HttpResponse(200, Map.of(), "{}");
+            return new HttpResponse(200, Map.of(), "{\"id\": \"7\"}");
         }
     }
 }
