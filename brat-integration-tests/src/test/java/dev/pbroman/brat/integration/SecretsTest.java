@@ -30,7 +30,7 @@ class SecretsTest extends EndToEndTestBase {
     @Test
     void run_resolvesASecretIntoAHeaderAndMasksItInTheOutcome() {
         // when
-        var suite = suite("suites/secret-header.yaml");
+        var suite = suite("suites/secret-header.brat.yaml");
         var result = BRAT.run(suite, withSecrets());
 
         // then — the server received the token, which the suite asserted without naming it
@@ -54,7 +54,7 @@ class SecretsTest extends EndToEndTestBase {
     @Test
     void run_failsTheRequestWhenNoProviderHoldsTheSecret() {
         // when — the same suite, run against an environment with no secrets configured
-        var result = BRAT.run(suite("suites/secret-header.yaml"), environment(Map.of()));
+        var result = BRAT.run(suite("suites/secret-header.brat.yaml"), environment(Map.of()));
 
         // then — a secret that cannot be resolved is this request's failure, not the run's
         assertThat(result.requestResults()).hasSize(1);

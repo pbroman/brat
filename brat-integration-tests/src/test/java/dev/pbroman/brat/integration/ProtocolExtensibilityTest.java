@@ -27,7 +27,7 @@ class ProtocolExtensibilityTest extends EndToEndTestBase {
     @Test
     void aRequestIsExecutedByTheHandlerItNames() {
         // given
-        var suite = suite("suites/handler-selection.yaml");
+        var suite = suite("suites/handler-selection.brat.yaml");
         var before = FIXED.calls();
 
         // when
@@ -42,7 +42,7 @@ class ProtocolExtensibilityTest extends EndToEndTestBase {
     void aPluginProtocolIsReachableFromASuiteFile() {
         // given - nothing wires the stub protocol: it is on the classpath, and that is the whole
         // registration
-        var suite = suite("suites/stub-protocol.yaml");
+        var suite = suite("suites/stub-protocol.brat.yaml");
 
         // when
         var result = run(suite, Map.of());
@@ -55,7 +55,7 @@ class ProtocolExtensibilityTest extends EndToEndTestBase {
     void aPluginProtocolBindsToItsOwnDefinitionType() {
         // when - the loader's protocol map comes from the registered handlers, so this is the seam
         // between "what may be authored" and "what may be executed"
-        var suite = suite("suites/stub-protocol.yaml");
+        var suite = suite("suites/stub-protocol.brat.yaml");
 
         // then
         assertThat(suite.requests().getFirst().requestDefinition()).isInstanceOf(StubRequestDefinition.class);
@@ -88,8 +88,8 @@ class ProtocolExtensibilityTest extends EndToEndTestBase {
     void aSuiteNamingAnUnknownProtocolFailsToLoad() {
         // given - the failure belongs to loading, not to running: nothing can execute it, so nothing
         // should be able to author it
-        var yaml =
-                ResourceReader.readFileToString("suites/stub-protocol.yaml").replace("protocol: stub", "protocol: ftp");
+        var yaml = ResourceReader.readFileToString("suites/stub-protocol.brat.yaml")
+                .replace("protocol: stub", "protocol: ftp");
 
         // then
         assertThatThrownBy(() -> suiteFrom(yaml))

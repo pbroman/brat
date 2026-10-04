@@ -1,0 +1,37 @@
+# A suite laid out the way an author lays one out: the suite file, its bodies next to it, and one
+# directory per environment. Launched from files, so the bare body path and dev/ are read from disk.
+name: users
+description: creates a user from a body file and checks the environment's token reached the server
+
+requests:
+  - name: create a user
+    requestDefinition:
+      url: "${env.baseUrl}/create"
+      method: POST
+      headers:
+        Content-Type: application/json
+      body:
+        file: bodies/new-user.json   # bare: resolved next to this suite file
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: "201"
+          message: the user must have been created
+        - a: "${response.json.$.username}"
+          func: isEqualTo
+          b: "${env.username}"
+          message: the body file must have been filled from env.yaml
+
+  - name: echo the token
+    requestDefinition:
+      url: "${env.baseUrl}/echo"
+      method: GET
+      headers:
+        X-Api-Token: "${secrets.apiToken}"
+    responseActions:
+      assertions:
+        - a: "${response.body}"
+          func: contains
+          b: "${secrets.apiToken}"
+          message: the token must have reached the wire

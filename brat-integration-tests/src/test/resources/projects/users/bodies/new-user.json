@@ -1,0 +1,6 @@
+{
+  "username": "${env.username}",
+  "age": 30,
+  "roles": ["reader"],
+  "address": {"street": "Launch Lane", "city": "Testville", "zip": "00000"}
+}

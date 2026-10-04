@@ -22,7 +22,7 @@ class CapturedVarsTest extends EndToEndTestBase {
     @Test
     void run_feedsACapturedVarIntoTheNextRequest() {
         // when
-        var suite = suite("suites/capture-and-reuse.yaml");
+        var suite = suite("suites/capture-and-reuse.brat.yaml");
         var result = run(suite, Map.of("username", "captured"));
 
         // then
@@ -38,7 +38,7 @@ class CapturedVarsTest extends EndToEndTestBase {
     @Test
     void run_recordsACaptureFailureWithoutEndingTheRun() {
         // when — 'nickname' names a path the body does not hold
-        var result = run("suites/capture-fails.yaml", Map.of("username", "tombstoned"));
+        var result = run("suites/capture-fails.brat.yaml", Map.of("username", "tombstoned"));
 
         // then — the request completed, and the failure is data on it
         var create = result.requestResults().getFirst();
@@ -57,7 +57,7 @@ class CapturedVarsTest extends EndToEndTestBase {
     @Test
     void run_evaluatesTheCapturesWrittenAfterAFailedOne() {
         // when — 'nickname' fails first, and 'userId' is authored after it
-        var result = run("suites/capture-fails.yaml", Map.of("username", "tombstoned"));
+        var result = run("suites/capture-fails.brat.yaml", Map.of("username", "tombstoned"));
 
         // then — the third request could only be built if userId was captured despite the failure
         var reader = result.requestResults().getLast();
@@ -70,7 +70,7 @@ class CapturedVarsTest extends EndToEndTestBase {
     @Test
     void run_failsALaterReadOfAFailedCaptureNamingTheCause() {
         // when
-        var result = run("suites/capture-fails.yaml", Map.of("username", "tombstoned"));
+        var result = run("suites/capture-fails.brat.yaml", Map.of("username", "tombstoned"));
 
         // then — the reader errors, and says which var and which request, rather than 404ing later
         assertThat(result.requestResults()).hasSize(3);
