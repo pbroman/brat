@@ -1,7 +1,10 @@
 package dev.pbroman.brat.core.runner;
 
+import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -24,7 +27,10 @@ import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.TestSuite;
 import dev.pbroman.brat.core.data.result.HttpResponse;
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.launch.Environment;
+import dev.pbroman.brat.core.launch.Launch;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -427,6 +433,22 @@ class BratReporterTest {
 
         // when
         var result = brat.run(suite, environment);
+
+        // then
+        assertThat(console.listeners.getLast().events).last().isEqualTo(new RunEvent.RunFinished(result));
+    }
+
+    @Test
+    void runLaunch_reportsToTheDefaultReporters(@TempDir Path dir) throws IOException {
+        // given
+        var console = new RecordingReporter("console");
+        var brat = builder().runReporter(console).build();
+        var file = Files.writeString(
+                dir.resolve("s.brat.yaml"),
+                "name: s\nrequests:\n  - name: r\n" + "    requestDefinition:\n      url: http://localhost/x\n");
+
+        // when
+        var result = brat.run(Launch.of(file.toString()));
 
         // then
         assertThat(console.listeners.getLast().events).last().isEqualTo(new RunEvent.RunFinished(result));

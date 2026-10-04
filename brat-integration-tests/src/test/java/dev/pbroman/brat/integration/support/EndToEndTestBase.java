@@ -9,9 +9,9 @@ import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.data.result.RunResult;
 import dev.pbroman.brat.core.handler.ApacheHttpRequestHandler;
+import dev.pbroman.brat.core.launch.Environment;
 import dev.pbroman.brat.core.loader.SuiteLoader;
 import dev.pbroman.brat.core.runner.Brat;
-import dev.pbroman.brat.core.runner.Environment;
 import dev.pbroman.brat.core.util.ResourceReader;
 import dev.pbroman.brat.integration.app.CrudApp;
 import org.junit.jupiter.api.BeforeEach;
@@ -154,7 +154,7 @@ public abstract class EndToEndTestBase {
     /**
      * Loads a suite from a classpath resource, the way a consumer loads one: content first.
      *
-     * @param resource the resource path, e.g. {@code suites/one-request.yaml}
+     * @param resource the resource path, e.g. {@code suites/one-request.brat.yaml}
      * @return the loaded suite, whose errors cite {@code resource} as their origin
      */
     protected static TestSuite suite(String resource) {
@@ -177,7 +177,7 @@ public abstract class EndToEndTestBase {
      * <p><strong>{@code baseUrl} is this module's to set.</strong> A caller passing one is rejected
      * rather than silently redirecting every request of the suite somewhere else — a mistake whose only
      * symptom would be an unexplained connection failure. A test needing a second host gives it its own
-     * key and a suite reads both, which is what {@code two-hosts.yaml} does with {@code deadUrl}.
+     * key and a suite reads both, which is what {@code two-hosts.brat.yaml} does with {@code deadUrl}.
      *
      * @param env further {@code env} entries, typically ids the fixture just created
      * @return an environment with no secrets configured
@@ -186,7 +186,8 @@ public abstract class EndToEndTestBase {
     protected static Environment environment(Map<String, Object> env) {
         if (env.containsKey("baseUrl")) {
             throw new IllegalArgumentException(
-                    "baseUrl is set from the running server; give a second host its own key, as two-hosts.yaml does");
+                    "baseUrl is set from the running server; give a second host its own key, "
+                            + "as two-hosts.brat.yaml does");
         }
         var all = new LinkedHashMap<String, Object>();
         all.put("baseUrl", baseUrl());

@@ -1,12 +1,16 @@
 package dev.pbroman.brat.core.runner;
 
+import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
@@ -36,10 +40,14 @@ import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.handler.ApacheHttpRequestHandler;
+import dev.pbroman.brat.core.launch.Environment;
+import dev.pbroman.brat.core.launch.Launch;
 import dev.pbroman.brat.core.secrets.SecretsProviderConfig;
 import dev.pbroman.brat.core.secrets.SecretsSource;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -90,6 +98,32 @@ class BratTest {
 
     private Brat brat() {
         return Brat.builder().requestHandler(handler).build();
+    }
+
+    /**
+     * A secrets provider factory that answers {@code recognises} with a fixed verdict.
+     *
+     * @param type its type
+     * @param claims what it answers for every file
+     * @return the factory
+     */
+    private static SecretsProviderFactory recognisingFactory(String type, boolean claims) {
+        return new SecretsProviderFactory() {
+            @Override
+            public String type() {
+                return type;
+            }
+
+            @Override
+            public SecretsProvider create(Map<String, String> params) {
+                throw new UnsupportedOperationException("never created here");
+            }
+
+            @Override
+            public boolean recognises(String content) {
+                return claims;
+            }
+        };
     }
 
     /** A request naming which handler should execute it. */
@@ -183,9 +217,49 @@ class BratTest {
     // --- wiring ---
 
     @Test
-    void build_throwsWithoutARequestHandler() {
-        // when / then — a runner that cannot perform a request is not a runner
-        assertThatThrownBy(() -> Brat.builder().build()).isInstanceOf(BratException.class);
+    void build_suppliesAWorkingHttpHandlerWhenNoneIsAddedOrDiscovered() {
+        // given - nothing listens on port 1, so only a real HTTP client gets as far as being refused
+        try (var brat = Brat.builder().build()) {
+
+            // when
+            var result = brat.run(suite(request("r", "http://127.0.0.1:1/x")), environment);
+
+            // then - the request was attempted and failed on the wire, not for want of a handler
+            assertThat(result.requestResults())
+                    .singleElement()
+                    .satisfies(request -> assertThat(request.status()).isInstanceOf(RequestStatus.Errored.class));
+        }
+    }
+
+    @Test
+    void build_suppliesNoHttpHandlerWhenOneIsAdded() {
+        // given - were one supplied beside it, the built-in default would take the request
+        var brat = Brat.builder().requestHandler(handler).build();
+
+        // when
+        var result = brat.run(suite(request("r", "http://127.0.0.1:1/x")), environment);
+
+        // then
+        assertThat(result.requestResults())
+                .singleElement()
+                .satisfies(request -> assertThat(request.status()).isInstanceOf(RequestStatus.Completed.class));
+    }
+
+    @Test
+    void build_buildsWithOnlyDiscoveredHandlersAndSuppliesNoOther() {
+        // given - no handler added: the command-line case, where every handler comes from a jar
+        var brat = Brat.builder()
+                .classLoader(closeableHandlerLoader())
+                .defaultRequestHandler("http", ClosingHandler.NAME)
+                .build();
+
+        // when
+        var result = brat.run(suite(request("r", "http://127.0.0.1:1/x")), environment);
+
+        // then
+        assertThat(result.requestResults())
+                .singleElement()
+                .satisfies(request -> assertThat(request.status()).isInstanceOf(RequestStatus.Completed.class));
     }
 
     @Test
@@ -235,6 +309,43 @@ class BratTest {
                 .singleElement()
                 .satisfies(
                         request -> assertThat(request.requestDefinition()).isInstanceOf(HttpRequestDefinition.class));
+    }
+
+    @Test
+    void environmentReader_letsAFactoryAddedOnTheBuilderRecogniseASecretsFile(@TempDir Path dir) throws IOException {
+        // given
+        var brat = Brat.builder()
+                .requestHandler(handler)
+                .secretsProviderFactory(recognisingFactory("enc", true))
+                .build();
+        Files.writeString(dir.resolve("secrets.yaml"), "enc: ciphertext\n");
+
+        // when
+        var environment = brat.environmentReader().read(dir.toString(), Map.of());
+
+        // then
+        assertThat(environment.secretsConfig().sources())
+                .extracting(SecretsSource::type)
+                .containsExactly("enc");
+    }
+
+    @Test
+    void environmentReader_doesNotAskAFactoryReplacedByOneOfTheSameType(@TempDir Path dir) throws IOException {
+        // given - the later 'enc' factory replaces the earlier one, which would have claimed the file
+        var brat = Brat.builder()
+                .requestHandler(handler)
+                .secretsProviderFactory(recognisingFactory("enc", true))
+                .secretsProviderFactory(recognisingFactory("enc", false))
+                .build();
+        Files.writeString(dir.resolve("secrets.yaml"), "enc: ciphertext\n");
+
+        // when
+        var environment = brat.environmentReader().read(dir.toString(), Map.of());
+
+        // then - nobody claims it, so it falls back to a plaintext file
+        assertThat(environment.secretsConfig().sources())
+                .extracting(SecretsSource::type)
+                .containsExactly("file");
     }
 
     @Test
@@ -1085,5 +1196,494 @@ class BratTest {
         assertThatThrownBy(() -> brat().run(suite(request), environment))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("body.json");
+    }
+
+    // ---------- run(Launch) ----------
+
+    @Test
+    void runLaunch_runsASuiteFileAgainstAnEnvironmentDirectory(@TempDir Path dir) throws IOException {
+        // given
+        var suite = Files.writeString(dir.resolve("orders.brat.yaml"), """
+                name: orders
+                requests:
+                  - name: list orders
+                    requestDefinition:
+                      url: "${env.baseUrl}/orders"
+                """);
+        var dev = Files.createDirectory(dir.resolve("dev"));
+        Files.writeString(dev.resolve("env.yaml"), "baseUrl: http://dev.example.com\n");
+        var capturing = new CapturingHandler();
+
+        // when
+        var result = Brat.builder()
+                .requestHandler(capturing)
+                .build()
+                .run(Launch.of(suite.toString()).withEnvironmentDirectory(dev.toString()));
+
+        // then
+        assertThat(result.requestResults()).hasSize(1);
+        assertThat(capturing.sent)
+                .singleElement()
+                .satisfies(sent -> assertThat(sent.getUrl()).isEqualTo("http://dev.example.com/orders"));
+    }
+
+    @Test
+    void runLaunch_resolvesABareBodyPathNextToTheSuiteFile(@TempDir Path dir) throws IOException {
+        // given - a bare path, which only resolves because the launch told the run where the suite is
+        var suite = Files.writeString(dir.resolve("orders.brat.yaml"), """
+                name: orders
+                requests:
+                  - name: create an order
+                    requestDefinition:
+                      url: http://localhost/orders
+                      method: POST
+                      body:
+                        file: bodies/create-order.json
+                """);
+        Files.createDirectory(dir.resolve("bodies"));
+        Files.writeString(dir.resolve("bodies/create-order.json"), "{\"item\": \"widget\"}");
+        var capturing = new CapturingHandler();
+
+        // when
+        Brat.builder().requestHandler(capturing).build().run(Launch.of(suite.toString()));
+
+        // then
+        assertThat(capturing.sent)
+                .singleElement()
+                .satisfies(sent -> assertThat(sent.getBody()).containsEntry(BODY_STRING, "{\"item\": \"widget\"}"));
+    }
+
+    @Test
+    void runLaunch_failsBeforeAnyEventWhenTheLaunchCannotBeRead(@TempDir Path dir) {
+        // given
+        var events = new ArrayList<RunEvent>();
+        var launch = Launch.of(dir.resolve("missing.brat.yaml").toString());
+
+        // then
+        assertThatThrownBy(() -> brat().run(launch, List.of(events::add), new StubRunControl()))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("missing.brat.yaml");
+        assertThat(events).isEmpty();
+    }
+
+    @Test
+    void runLaunch_failsBeforeAnyEventWhenABareBodyFileIsNotNextToTheSuite(@TempDir Path dir) throws IOException {
+        // given
+        var suite = Files.writeString(dir.resolve("orders.brat.yaml"), """
+                name: orders
+                requests:
+                  - name: create an order
+                    requestDefinition:
+                      url: http://localhost/orders
+                      method: POST
+                      body:
+                        file: bodies/absent.json
+                """);
+        var events = new ArrayList<RunEvent>();
+
+        // then
+        assertThatThrownBy(() -> brat().run(Launch.of(suite.toString()), List.of(events::add), new StubRunControl()))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("absent.json");
+        assertThat(events).isEmpty();
+    }
+
+    @Test
+    void runLaunch_deliversTheRunToExactlyTheGivenListeners(@TempDir Path dir) throws IOException {
+        // given
+        var suite = Files.writeString(dir.resolve("orders.brat.yaml"), """
+                name: orders
+                requests:
+                  - name: list orders
+                    requestDefinition:
+                      url: http://localhost/orders
+                """);
+        var events = new ArrayList<RunEvent>();
+
+        // when
+        var result = brat().run(Launch.of(suite.toString()), List.of(events::add), new StubRunControl());
+
+        // then
+        assertThat(events).first().isInstanceOf(RunEvent.RunStarted.class);
+        assertThat(events).last().isEqualTo(new RunEvent.RunFinished(result));
+    }
+
+    @Test
+    void runLaunch_throwsForANullArgument() {
+        // given
+        var launch = Launch.of("orders.brat.yaml");
+        var control = new StubRunControl();
+
+        // then
+        assertThatThrownBy(() -> brat().run((Launch) null)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> brat().run(null, List.of(), control)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> brat().run(launch, null, control)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> brat().run(launch, List.of(), null)).isInstanceOf(BratException.class);
+    }
+
+    // ---------- overrides ----------
+
+    @Test
+    void run_letsAnEnvOverrideReplaceTheEnvValue() {
+        // given
+        var capturing = new CapturingHandler();
+        var brat = Brat.builder().requestHandler(capturing).build();
+        var suite = brat.loader().load(oneRequest("${env.baseUrl}/orders"));
+
+        // when
+        brat.run(suite, Environment.of(Map.of("baseUrl", "http://dev"), Map.of("env.baseUrl", "http://local")));
+
+        // then
+        assertThat(capturing.sent)
+                .singleElement()
+                .satisfies(sent -> assertThat(sent.getUrl()).isEqualTo("http://local/orders"));
+    }
+
+    @Test
+    void run_letsAConstantsOverrideReplaceTheSuitesConstant() {
+        // given
+        var capturing = new CapturingHandler();
+        var brat = Brat.builder().requestHandler(capturing).build();
+        var suite = brat.loader().load("""
+                name: s
+                constants:
+                  path: /orders
+                requests:
+                  - name: r
+                    requestDefinition:
+                      url: "http://h${constants.path}"
+                """);
+
+        // when
+        brat.run(suite, Environment.of(Map.of(), Map.of("constants.path", "/invoices")));
+
+        // then
+        assertThat(capturing.sent)
+                .singleElement()
+                .satisfies(sent -> assertThat(sent.getUrl()).isEqualTo("http://h/invoices"));
+    }
+
+    @Test
+    void run_seedsVarsFromAnOverrideAndLetsALaterCaptureReplaceIt() {
+        // given - a seed, not a pin: the capture after the first request wins
+        var capturing = new CapturingHandler();
+        var brat = Brat.builder().requestHandler(capturing).build();
+        var suite = brat.loader().load("""
+                name: s
+                requests:
+                  - name: first
+                    requestDefinition:
+                      url: "http://h/${vars.orderId}"
+                    responseActions:
+                      setVars:
+                        orderId: "${response.json.$.id}"
+                  - name: second
+                    requestDefinition:
+                      url: "http://h/${vars.orderId}"
+                """);
+
+        // when
+        brat.run(suite, Environment.of(Map.of(), Map.of("vars.orderId", "42")));
+
+        // then
+        assertThat(capturing.sent)
+                .extracting(HttpRequestDefinition::getUrl)
+                .containsExactly("http://h/42", "http://h/7");
+    }
+
+    @Test
+    void run_resolvesASecretsOverrideAndMasksItInWhatIsReported() {
+        // given
+        var capturing = new CapturingHandler();
+        var brat = Brat.builder().requestHandler(capturing).build();
+        var suite = brat.loader().load("""
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      url: http://h/x
+                      headers:
+                        X-Token: "${secrets.token}"
+                """);
+
+        // when
+        var result = brat.run(suite, Environment.of(Map.of(), Map.of("secrets.token", "launch-s3cret")));
+
+        // then - it reached the wire, and every reported trace of it is masked
+        assertThat(capturing.sent)
+                .singleElement()
+                .satisfies(sent -> assertThat(sent.getHeaders()).containsEntry("X-Token", "launch-s3cret"));
+        var sent = (HttpRequestDefinition) result.requestResults().getFirst().requestDefinition();
+        assertThat(sent.getOutcomes().values())
+                .extracting(InterpolationOutcome::reportingString)
+                .noneMatch(reported -> reported.contains("launch-s3cret"))
+                .anyMatch(reported -> reported.contains("***"));
+    }
+
+    @Test
+    void run_readsAParamsPrefixedKeyAsThatParam() {
+        // given
+        var capturing = new CapturingHandler();
+        var brat = Brat.builder().requestHandler(capturing).build();
+        var suite = brat.loader().load(oneRequest("http://h/${params.tenant}"));
+
+        // when
+        brat.run(suite, Environment.of(Map.of(), Map.of("params.tenant", "acme")));
+
+        // then
+        assertThat(capturing.sent)
+                .singleElement()
+                .satisfies(sent -> assertThat(sent.getUrl()).isEqualTo("http://h/acme"));
+    }
+
+    @Test
+    void run_noLongerOffersARoutedKeyAsAParam() {
+        // given - a namespace name is a reserved prefix, so this param is an override and nothing else
+        var brat = Brat.builder().requestHandler(new CapturingHandler()).build();
+        var suite = brat.loader().load(oneRequest("${params.env.baseUrl}/x"));
+
+        // when
+        var result = brat.run(suite, Environment.of(Map.of(), Map.of("env.baseUrl", "http://h")));
+
+        // then
+        assertThat(result.requestResults())
+                .singleElement()
+                .satisfies(request -> assertThat(request.status()).isInstanceOf(RequestStatus.Errored.class));
+    }
+
+    @Test
+    void run_keepsAMistypedNamespaceAsAnOrdinaryParam() {
+        // given - 'evn' is no namespace, so this overrides nothing (and the run warns about it)
+        var capturing = new CapturingHandler();
+        var brat = Brat.builder().requestHandler(capturing).build();
+        var suite = brat.loader().load(oneRequest("${params.evn.baseUrl}/x"));
+
+        // when
+        brat.run(suite, Environment.of(Map.of(), Map.of("evn.baseUrl", "http://typo")));
+
+        // then
+        assertThat(capturing.sent)
+                .singleElement()
+                .satisfies(sent -> assertThat(sent.getUrl()).isEqualTo("http://typo/x"));
+    }
+
+    /**
+     * A suite of one request to {@code url}.
+     *
+     * @param url the request's URL, tokens and all
+     * @return the suite document
+     */
+    private static String oneRequest(String url) {
+        return "name: s\nrequests:\n  - name: r\n    requestDefinition:\n      url: \"" + url + "\"\n";
+    }
+
+    /** A handler recording every request definition it was asked to send. */
+    private static final class CapturingHandler implements HttpRequestHandler {
+
+        private final List<HttpRequestDefinition> sent = new ArrayList<>();
+
+        @Override
+        public String name() {
+            return "capturing";
+        }
+
+        @Override
+        public HttpResponse performRequest(HttpRequestDefinition definition, RequestOptions options) {
+            sent.add(definition);
+            return new HttpResponse(200, Map.of(), "{\"id\": \"7\"}");
+        }
+    }
+
+    // ---------- close ----------
+
+    @Test
+    void close_closesTheHandlersItDiscoveredEvenWhenOneOfThemThrows() {
+        // given
+        ClosingHandler.CLOSES.set(0);
+        ThrowingCloseHandler.ATTEMPTS.set(0);
+        var brat = Brat.builder()
+                .classLoader(closeableHandlerLoader())
+                .defaultRequestHandler("http", ClosingHandler.NAME)
+                .build();
+
+        // when - and it does not throw, though one handler does
+        brat.close();
+
+        // then
+        assertThat(ClosingHandler.CLOSES).hasValue(1);
+        assertThat(ThrowingCloseHandler.ATTEMPTS).hasValue(1);
+    }
+
+    @Test
+    void build_closesTheHandlersItCreatedWhenItFails() {
+        // given - discovery creates the handler, then a default reporter nobody registered fails the build
+        ClosingHandler.CLOSES.set(0);
+        var builder = Brat.builder()
+                .classLoader(closeableHandlerLoader())
+                .defaultRequestHandler("http", ClosingHandler.NAME)
+                .defaultReporters(List.of("nobody"));
+
+        // when
+        assertThatThrownBy(builder::build).isInstanceOf(BratException.class);
+
+        // then - no runner was returned, so nothing else could ever close it
+        assertThat(ClosingHandler.CLOSES).hasValue(1);
+    }
+
+    @Test
+    void close_leavesAHandlerAddedOnTheBuilderOpen() {
+        // given
+        var closed = new AtomicBoolean();
+        var wired = new CloseableHandler(closed);
+        var brat = Brat.builder().requestHandler(wired).build();
+
+        // when
+        brat.close();
+
+        // then - whoever created it closes it
+        assertThat(closed).isFalse();
+    }
+
+    @Test
+    void close_passesOverADiscoveredHandlerWithNothingToClose() {
+        // given - this fixture's handler is not AutoCloseable
+        var root = BratTest.class.getClassLoader().getResource("handler-plugin-fixture/");
+        var brat = Brat.builder()
+                .classLoader(new URLClassLoader(new URL[] {root}, BratTest.class.getClassLoader()))
+                .defaultRequestHandler("http", "discovered-handler")
+                .build();
+
+        // when
+        brat.close();
+
+        // then - closed all the same: it runs nothing more
+        assertThatThrownBy(() -> brat.run(suite(request("r", "http://h/x")), environment))
+                .isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void close_doesNothingTheSecondTime() {
+        // given
+        ClosingHandler.CLOSES.set(0);
+        var brat = Brat.builder()
+                .classLoader(closeableHandlerLoader())
+                .defaultRequestHandler("http", ClosingHandler.NAME)
+                .build();
+        brat.close();
+
+        // when
+        brat.close();
+
+        // then
+        assertThat(ClosingHandler.CLOSES).hasValue(1);
+    }
+
+    @Test
+    void run_throwsOnceTheRunnerIsClosed(@TempDir Path dir) throws IOException {
+        // given
+        var brat = brat();
+        var file = Files.writeString(dir.resolve("s.brat.yaml"), oneRequest("http://h/x"));
+        brat.close();
+
+        // then
+        assertThatThrownBy(() -> brat.run(suite(request("r", "http://h/x")), environment))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> brat.run(Launch.of(file.toString()))).isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void runLaunch_saysTheRunnerIsClosedBeforeReadingAnything() {
+        // given - the suite does not exist, so reading it first would report that instead
+        var brat = brat();
+        brat.close();
+
+        // then
+        assertThatThrownBy(() -> brat.run(Launch.of("missing.brat.yaml")))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("closed")
+                .hasMessageNotContaining("missing.brat.yaml");
+    }
+
+    /**
+     * A classloader declaring {@link ClosingHandler} and {@link ThrowingCloseHandler} as plugins.
+     *
+     * @return the loader
+     */
+    private static ClassLoader closeableHandlerLoader() {
+        var root = BratTest.class.getClassLoader().getResource("closeable-handler-plugin-fixture/");
+        return new URLClassLoader(new URL[] {root}, BratTest.class.getClassLoader());
+    }
+
+    /** A discoverable HTTP handler counting how often it is closed. */
+    public static final class ClosingHandler implements HttpRequestHandler, AutoCloseable {
+
+        /** Its name. */
+        static final String NAME = "closing";
+
+        /** How often any instance was closed. */
+        static final AtomicInteger CLOSES = new AtomicInteger();
+
+        @Override
+        public String name() {
+            return NAME;
+        }
+
+        @Override
+        public HttpResponse performRequest(HttpRequestDefinition definition, RequestOptions options) {
+            return new HttpResponse(200, Map.of(), "{}");
+        }
+
+        @Override
+        public void close() {
+            CLOSES.incrementAndGet();
+        }
+    }
+
+    /** A discoverable HTTP handler whose close always fails. */
+    public static final class ThrowingCloseHandler implements HttpRequestHandler, AutoCloseable {
+
+        /** How often any instance was asked to close. */
+        static final AtomicInteger ATTEMPTS = new AtomicInteger();
+
+        @Override
+        public String name() {
+            return "throwing-close";
+        }
+
+        @Override
+        public HttpResponse performRequest(HttpRequestDefinition definition, RequestOptions options) {
+            return new HttpResponse(200, Map.of(), "{}");
+        }
+
+        @Override
+        public void close() {
+            ATTEMPTS.incrementAndGet();
+            throw new IllegalStateException("cannot close");
+        }
+    }
+
+    /** A handler that records being closed, for adding on the builder. */
+    private static final class CloseableHandler implements HttpRequestHandler, AutoCloseable {
+
+        private final AtomicBoolean closed;
+
+        private CloseableHandler(AtomicBoolean closed) {
+            this.closed = closed;
+        }
+
+        @Override
+        public String name() {
+            return "wired";
+        }
+
+        @Override
+        public HttpResponse performRequest(HttpRequestDefinition definition, RequestOptions options) {
+            return new HttpResponse(200, Map.of(), "{}");
+        }
+
+        @Override
+        public void close() {
+            closed.set(true);
+        }
     }
 }

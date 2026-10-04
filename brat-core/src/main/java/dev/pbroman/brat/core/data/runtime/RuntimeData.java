@@ -10,14 +10,13 @@ import lombok.Setter;
 
 import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
 import static dev.pbroman.brat.core.util.Constants.ENV;
-import static dev.pbroman.brat.core.util.Constants.MISC;
 import static dev.pbroman.brat.core.util.Constants.PARAMS;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_VARS;
 import static dev.pbroman.brat.core.util.Constants.VARS;
 
 /**
  * Holds every namespace of values ({@code constants}/{@code env}/{@code vars}/
- * {@code responseVars}/{@code params}/{@code misc}) that interpolation resolves
+ * {@code responseVars}/{@code params}) that interpolation resolves
  * {@code ${namespace.key}} tokens against during a single test suite run.
  */
 @Getter
@@ -108,7 +107,6 @@ public class RuntimeData {
         data = new HashMap<>();
         data.put(CONSTANTS, constants);
         data.put(ENV, env);
-        data.put(MISC, new HashMap<>());
         data.put(VARS, vars);
         data.put(RESPONSE_VARS, new HashMap<>());
         data.put(PARAMS, params);

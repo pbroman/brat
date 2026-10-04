@@ -54,6 +54,20 @@ class SecretsBootstrapTest {
     }
 
     @Test
+    void factories_holdsOnePerTypeTheLaterWinning() {
+        // given
+        var builtIn = new StubFactory("file");
+        var override = new StubFactory("file");
+        var vault = new StubFactory("vault");
+
+        // when
+        var result = bootstrap(builtIn, override, vault).factories();
+
+        // then
+        assertThat(result).containsExactlyInAnyOrder(override, vault);
+    }
+
+    @Test
     void constructor_bindsTheSysenvProviderToTheProcessEnvironment() {
         // given a real variable of this JVM, restricted to a name upper-snake-casing leaves alone
         var variable = System.getenv().entrySet().stream()
@@ -390,6 +404,88 @@ class SecretsBootstrapTest {
         assertThat(vault.receivedParams)
                 .singleElement()
                 .satisfies(params -> assertThat(params).contains(entry("url", "https://vault/t0ken/v1")));
+    }
+
+    // --- build with a leading provider ---
+
+    @Test
+    void buildWithLeading_letsTheLeadingProviderWinEveryKeyItHas() {
+        // given
+        var file = new StubFactory("file").serving("one.yaml", Map.of("apiKey", "from-file", "other", "kept"));
+        var config = config(Map.of(), source("file", "one.yaml"));
+        var leading = new MapSecretsProvider(Map.of("apiKey", "from-launch"));
+
+        // when
+        var result = bootstrap(file).build(config, runtimeData, leading);
+
+        // then
+        assertThat(result.getSecret("apiKey")).contains("from-launch");
+        assertThat(result.getSecret("other")).contains("kept");
+    }
+
+    @Test
+    void buildWithLeading_resolvesAProviderParameterFromTheLeadingProvider() {
+        // given - a vault token passed at launch, needed to configure the vault itself
+        var vault = new StubFactory("vault");
+        var config = config(Map.of("vault", Map.of("token", "${secrets.vaultToken}")), source("vault", "prod"));
+        var leading = new MapSecretsProvider(Map.of("vaultToken", "t0ken"));
+
+        // when
+        bootstrap(vault).build(config, runtimeData, leading);
+
+        // then
+        assertThat(vault.receivedParams)
+                .singleElement()
+                .satisfies(params -> assertThat(params).contains(entry("token", "t0ken")));
+    }
+
+    @Test
+    void buildWithLeading_closesTheLeadingProviderWithTheChain() {
+        // given
+        var closed = new AtomicBoolean();
+        var chain = bootstrap().build(config(Map.of()), runtimeData, closeTracking(closed));
+
+        // when
+        chain.close();
+
+        // then
+        assertThat(closed).isTrue();
+    }
+
+    @Test
+    void buildWithLeading_closesTheLeadingProviderWhenBuildingFails() {
+        // given
+        var closed = new AtomicBoolean();
+        var failing = new StubFactory("file").failing();
+        var config = config(Map.of(), source("file", "one.yaml"));
+
+        // when
+        assertThatThrownBy(() -> bootstrap(failing).build(config, runtimeData, closeTracking(closed)))
+                .isInstanceOf(BratException.class);
+
+        // then
+        assertThat(closed).isTrue();
+    }
+
+    @Test
+    void buildWithLeading_closesTheLeadingProviderWhenASourceHasNoFactory() {
+        // given
+        var closed = new AtomicBoolean();
+        var config = config(Map.of(), source("unknown", "x.yaml"));
+
+        // when
+        assertThatThrownBy(() -> bootstrap().build(config, runtimeData, closeTracking(closed)))
+                .isInstanceOf(BratException.class);
+
+        // then
+        assertThat(closed).isTrue();
+    }
+
+    @Test
+    void buildWithLeading_throwsForANullLeadingProvider() {
+        // then
+        assertThatThrownBy(() -> bootstrap().build(config(Map.of()), runtimeData, null))
+                .isInstanceOf(BratException.class);
     }
 
     @Test

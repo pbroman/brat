@@ -52,7 +52,7 @@ class SuiteTreeTest extends EndToEndTestBase {
     @Test
     void run_walksATreeInTheDecidedOrderAndPasses() {
         // given
-        var suite = suite("suites/tree/order.yaml");
+        var suite = suite("suites/tree/order.brat.yaml");
 
         // when
         var result = run(suite, Map.of("tag", "t1"));
@@ -80,7 +80,7 @@ class SuiteTreeTest extends EndToEndTestBase {
     @Test
     void run_bracketsEverySuiteWithItsEvents() {
         // when
-        runWithEvents("suites/tree/order.yaml", Map.of("tag", "t2"));
+        runWithEvents("suites/tree/order.brat.yaml", Map.of("tag", "t2"));
 
         // then - three suites entered and exited, each completed
         assertThat(events).filteredOn(RunEvent.SuiteEntered.class::isInstance).hasSize(3);
@@ -94,7 +94,7 @@ class SuiteTreeTest extends EndToEndTestBase {
     @Test
     void run_abortsOnlyTheScenarioWhoseSetupFailed() {
         // when
-        var result = runWithEvents("suites/tree/setup-abort.yaml", Map.of());
+        var result = runWithEvents("suites/tree/setup-abort.brat.yaml", Map.of());
 
         // then - the broken scenario's setup ran, its main request and subSuite did not, its teardown did
         assertThat(pathsOf(result))
@@ -130,7 +130,7 @@ class SuiteTreeTest extends EndToEndTestBase {
     @Test
     void run_abortsASuiteWhoseSetVarsFailsWithoutRunningItsTeardown() {
         // when - no adminToken is supplied
-        var result = runWithEvents("suites/tree/entry.yaml", Map.of("tenant", "none"));
+        var result = runWithEvents("suites/tree/entry.brat.yaml", Map.of("tenant", "none"));
 
         // then - nothing under admin ran, its teardown included, and the run says why
         assertThat(pathsOf(result)).noneMatch(path -> path.startsWith("entry/admin/"));
@@ -144,7 +144,7 @@ class SuiteTreeTest extends EndToEndTestBase {
     @Test
     void run_failsASiblingsReadOfTheVarNamingWhereItFailed() {
         // when
-        var result = run("suites/tree/entry.yaml", Map.of("tenant", "none"));
+        var result = run("suites/tree/entry.brat.yaml", Map.of("tenant", "none"));
 
         // then - the sibling's request errors instead of sending an empty token
         assertThat(result.requestResults())
@@ -160,7 +160,7 @@ class SuiteTreeTest extends EndToEndTestBase {
     @Test
     void run_skipsASuiteWhoseSkipConditionHolds() {
         // when
-        var result = runWithEvents("suites/tree/entry.yaml", Map.of("tenant", "none"));
+        var result = runWithEvents("suites/tree/entry.brat.yaml", Map.of("tenant", "none"));
 
         // then - reported as skipped, nothing beneath it ran, and skipping is not an error
         assertThat(statusOf("entry/tenant only")).singleElement().isInstanceOf(SuiteStatus.Skipped.class);
@@ -173,7 +173,7 @@ class SuiteTreeTest extends EndToEndTestBase {
     @Test
     void run_inheritsASuitesTimeoutTwoLevelsDownAndLetsASubtreeOptOut() {
         // when - the root allows 200 ms; the server answers after 800
-        var result = run("suites/tree/timeout.yaml", Map.of("timeout", "200", "delayMs", "800"));
+        var result = run("suites/tree/timeout.brat.yaml", Map.of("timeout", "200", "delayMs", "800"));
 
         // then
         assertThat(result.requestResults())

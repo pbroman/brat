@@ -34,7 +34,7 @@ class OneRequestTest extends EndToEndTestBase {
         var seeded = crud.create(SEEDED);
 
         // when
-        var suite = suite("suites/read-one-user.yaml");
+        var suite = suite("suites/read-one-user.brat.yaml");
         var result = run(suite, Map.of("userId", seeded.get("id").asString()));
 
         // then
@@ -50,7 +50,8 @@ class OneRequestTest extends EndToEndTestBase {
 
         // when
         var result = run(
-                "suites/read-one-user.yaml", Map.of("userId", seeded.get("id").asString()));
+                "suites/read-one-user.brat.yaml",
+                Map.of("userId", seeded.get("id").asString()));
 
         // then — a failed assertion is data on the result, and the request still completed
         assertThat(result.failed()).isTrue();

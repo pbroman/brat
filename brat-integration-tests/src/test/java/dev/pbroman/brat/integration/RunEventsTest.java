@@ -25,7 +25,11 @@ class RunEventsTest extends EndToEndTestBase {
         var events = new ArrayList<RunEvent>();
 
         // when
-        BRAT.run(suite("suites/two-creates.yaml"), environment(Map.of()), List.of(events::add), new TestRunControl());
+        BRAT.run(
+                suite("suites/two-creates.brat.yaml"),
+                environment(Map.of()),
+                List.of(events::add),
+                new TestRunControl());
 
         // then
         assertThat(events)
@@ -48,7 +52,10 @@ class RunEventsTest extends EndToEndTestBase {
 
         // when
         var returned = BRAT.run(
-                suite("suites/two-creates.yaml"), environment(Map.of()), List.of(events::add), new TestRunControl());
+                suite("suites/two-creates.brat.yaml"),
+                environment(Map.of()),
+                List.of(events::add),
+                new TestRunControl());
 
         // then — two ways to observe one run, never two answers about it
         var finished = (RunEvent.RunFinished) events.getLast();
@@ -63,7 +70,7 @@ class RunEventsTest extends EndToEndTestBase {
 
         // when
         var result = BRAT.run(
-                suite("suites/two-creates.yaml"),
+                suite("suites/two-creates.brat.yaml"),
                 environment(Map.of()),
                 List.of(events::add, event -> {
                     if (event instanceof RunEvent.RequestFinished) {

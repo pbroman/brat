@@ -1,0 +1,10 @@
+# A suite packaged on the classpath, for reading a launch from there.
+name: hello
+
+requests:
+  - name: say hello
+    requestDefinition:
+      url: "${env.baseUrl:-http://localhost}/hello"
+      method: POST
+      body:
+        file: bodies/hello.json   # bare: next to this suite, on the classpath too

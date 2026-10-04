@@ -28,11 +28,16 @@ public final class EnvInterpolationRule extends AbstractInterpolationRule {
 
     /**
      * {@inheritDoc}
+     * <p>
+     * The message names the key and says where an {@code env} value comes from — {@code env.yaml}, or
+     * an {@code env.<key>} launch parameter — because {@code env} is easily mistaken for the operating
+     * system's environment variables, which it does not read.
      *
-     * @throws BratException on missing replacement for an environment value.
+     * @throws BratException always: a missing {@code env} value fails the token
      */
     @Override
     protected String onMissingReplacement(String placeholder, String input, RuntimeData runtimeData) {
-        throw new BratException("The environment variable '" + placeholder + "' is not set.");
+        throw new BratException(String.format(
+                "No '%s' in env: set it in env.yaml, or pass env.%s=… at launch", placeholder, placeholder));
     }
 }

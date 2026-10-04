@@ -1,12 +1,14 @@
-package dev.pbroman.brat.core.runner;
+package dev.pbroman.brat.core.launch;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.secrets.SecretsProviderConfig;
+import dev.pbroman.brat.core.util.NamespaceUtils;
 import dev.pbroman.brat.core.util.Require;
+
+import static dev.pbroman.brat.core.util.Constants.ENV;
+import static dev.pbroman.brat.core.util.Constants.PARAMS;
 
 /**
  * Everything the launch supplies for one environment: the {@code env} and {@code params} namespaces,
@@ -22,9 +24,13 @@ import dev.pbroman.brat.core.util.Require;
  * secrets come from.
  *
  * @param env the {@code env} namespace; never {@code null}, possibly empty. Copied and
- *        unmodifiable, so a caller cannot change an environment a run is using
- * @param params the {@code params} namespace, typically launch flags; never {@code null}, possibly
- *        empty
+ *        unmodifiable, so a caller cannot change an environment a run is using. Flat: a value given
+ *        nested is held under its dotted key, so {@code db: {host: x}} is read as
+ *        {@code ${env.db.host}}. Literal: no value holds a {@code ${...}} token
+ * @param params the launch parameters, typically launch flags; never {@code null}, possibly empty.
+ *        Copied, unmodifiable, flat and literal exactly as {@code env} is. A key starting with a
+ *        namespace and a dot overrides that namespace for the run rather than being a parameter —
+ *        see {@link #overrides()}
  * @param secretsConfig the provider parameters and ordered sources the secrets chain is built from;
  *        never {@code null} — an environment with no secrets passes an empty configuration, which
  *        still yields the environment-variable provider
@@ -48,16 +54,23 @@ public record Environment(
      * @param params the {@code params} namespace
      * @param secretsConfig the secrets provider configuration
      * @param suiteLocation where the suite was loaded from, or {@code null}
-     * @throws BratException if {@code env}, {@code params} or {@code secretsConfig} is {@code null}.
-     *         A {@code null} {@code suiteLocation} is legal — it means the suite came from nowhere a
-     *         relative path could be resolved against, which only fails if one is then written
+     * @throws BratException if {@code env}, {@code params} or {@code secretsConfig} is {@code null};
+     *         if {@code env} or {@code params}, once flattened, would hold one key twice, or holds a
+     *         value with a {@code ${...}} token — each naming the key as {@code env.<key>} or
+     *         {@code params.<key>} and never the value; or if {@code params} cannot be routed, as
+     *         {@link #overrides()} defines — so a launch overriding {@code responseVars}, say, fails
+     *         before it runs. A {@code null} {@code suiteLocation} is legal —
+     *         it means the suite came from nowhere a relative path could be resolved against, which
+     *         only fails if one is then written
      */
     public Environment {
         Require.nonNull(env, "The env must not be null");
         Require.nonNull(params, "The params must not be null");
         Require.nonNull(secretsConfig, "The secretsConfig must not be null");
-        env = Collections.unmodifiableMap(new LinkedHashMap<>(env));
-        params = Collections.unmodifiableMap(new LinkedHashMap<>(params));
+        env = NamespaceUtils.flattenLiteral(env, ENV);
+        params = NamespaceUtils.flattenLiteral(params, PARAMS);
+        // Routed once here only to reject what cannot be routed, so that fails the launch, not the run.
+        Overrides.of(params);
     }
 
     /**
@@ -66,7 +79,7 @@ public record Environment(
      * @param env the {@code env} namespace
      * @param params the {@code params} namespace
      * @param secretsConfig the secrets provider configuration
-     * @throws BratException if any argument is {@code null}
+     * @throws BratException under the same conditions as the canonical constructor
      */
     public Environment(Map<String, Object> env, Map<String, Object> params, SecretsProviderConfig secretsConfig) {
         this(env, params, secretsConfig, null);
@@ -81,7 +94,7 @@ public record Environment(
      * @param env the {@code env} namespace; must not be {@code null}
      * @param params the {@code params} namespace; must not be {@code null}
      * @return an environment carrying an empty secrets configuration
-     * @throws BratException if either argument is {@code null}
+     * @throws BratException under the same conditions as the canonical constructor
      */
     public static Environment of(Map<String, Object> env, Map<String, Object> params) {
         Require.nonNull(env, "The env must not be null");
@@ -101,5 +114,19 @@ public record Environment(
      */
     public Environment withSuiteLocation(String suiteLocation) {
         return new Environment(env, params, secretsConfig, suiteLocation);
+    }
+
+    /**
+     * This environment's {@link #params()}, routed: the ordinary parameters, and the values that
+     * override {@code constants}, {@code env}, {@code vars} and {@code secrets} for the run.
+     * <p>
+     * A run reads its namespaces from this rather than from {@link #env()} and {@link #params()}
+     * directly — an override replaces the value it names, a {@code secrets} override is resolved
+     * ahead of every secrets source, and a routed key is no longer an ordinary parameter.
+     *
+     * @return the routed parameters; never {@code null}
+     */
+    public Overrides overrides() {
+        return Overrides.of(params);
     }
 }

@@ -20,7 +20,7 @@ class ResponseBodyTest extends EndToEndTestBase {
     @Test
     void run_readsATextBodyAndItsContentType() {
         // when
-        var suite = suite("suites/text-body.yaml");
+        var suite = suite("suites/text-body.brat.yaml");
         var result = run(suite, Map.of());
 
         // then
@@ -31,7 +31,7 @@ class ResponseBodyTest extends EndToEndTestBase {
     @Test
     void run_failsTheAssertionThatReadsATextBodyAsJson() {
         // when
-        var result = run("suites/text-body-as-json.yaml", Map.of());
+        var result = run("suites/text-body-as-json.brat.yaml", Map.of());
 
         // then — the request completed; the assertion that cannot be interpolated is what failed
         var request = result.requestResults().getFirst();

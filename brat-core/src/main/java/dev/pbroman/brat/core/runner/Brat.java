@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import dev.pbroman.brat.core.api.handler.RequestHandler;
 import dev.pbroman.brat.core.api.interpolation.BratFunction;
@@ -40,6 +41,11 @@ import dev.pbroman.brat.core.interpolation.rules.ResponseHeaderInterpolationRule
 import dev.pbroman.brat.core.interpolation.rules.ResponseJsonInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.ResponseStatusCodeInterpolationRule;
 import dev.pbroman.brat.core.interpolation.rules.VarsInterpolationRule;
+import dev.pbroman.brat.core.launch.Environment;
+import dev.pbroman.brat.core.launch.EnvironmentReader;
+import dev.pbroman.brat.core.launch.Launch;
+import dev.pbroman.brat.core.launch.LaunchReader;
+import dev.pbroman.brat.core.launch.PreparedRun;
 import dev.pbroman.brat.core.loader.SuiteLoader;
 import dev.pbroman.brat.core.rendering.OutcomeRendererRuleDispatcher;
 import dev.pbroman.brat.core.rendering.rules.ConsoleOutcomeRendererRule;
@@ -59,6 +65,7 @@ import dev.pbroman.brat.core.resolver.condition.rules.StringConditionResolverRul
 import dev.pbroman.brat.core.secrets.FileSecretsProviderFactory;
 import dev.pbroman.brat.core.secrets.SecretsBootstrap;
 import dev.pbroman.brat.core.util.Require;
+import lombok.extern.slf4j.Slf4j;
 
 import static dev.pbroman.brat.core.util.Constants.HTTP;
 import static dev.pbroman.brat.core.util.Require.nonNull;
@@ -72,13 +79,17 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  * and {@link #run(TestSuite, Environment)} as often as wanted.
  *
  * <pre>{@code
- * var brat = Brat.builder()
- *         .requestHandler(new ApacheHttpRequestHandler())
- *         .build();
- *
- * RunResult result = brat.run(suite, Environment.of(Map.of("baseUrl", "http://localhost:8080"), Map.of()));
+ * try (var brat = Brat.builder().build()) {
+ *     RunResult result = brat.run(Launch.of("orders.brat.yaml").withEnvironmentDirectory("dev"));
+ * }
  * }</pre>
  *
+ * <strong>A runner closes what it created, and nothing else.</strong> Request handlers live as long
+ * as the runner, not the run: one runner serves any number of runs, and a handler's connection pool is
+ * what they share. So {@link #close()} closes the handlers this runner created itself — those
+ * discovered through {@code META-INF/services}, and the HTTP handler it supplies when nothing else
+ * serves {@code http} — and never one added on the builder, which belongs to whoever created it.
+ * <p>
  * <strong>Secrets are per run, not per runner.</strong> A secrets provider's own parameters are
  * interpolated against the run's namespaces, so the provider chain — and the interpolation the rest
  * of the run resolves through — is built inside {@link #run(TestSuite, Environment)}. A runner is
@@ -89,77 +100,90 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  * collaborators it assembles. A consumer wanting a different {@code Interpolation},
  * {@code ConditionResolver} or {@code ResponseHandler} constructs a {@code RequestProcessor} itself.
  */
-public final class Brat {
+@Slf4j
+public final class Brat implements AutoCloseable {
 
     private final RunCollaborators collaborators;
     private final OutcomeRenderer renderer;
     private final RunReporterRegistry reporters;
     private final List<String> defaultReporters;
+    private final List<RequestHandler<?, ?>> owned;
+    private final AtomicBoolean closed = new AtomicBoolean();
 
     private Brat(Builder builder) {
-        var loader = builder.classLoader;
-        var functions = PluginDiscovery.collect(StandardFunctions.all(), builder.functions, BratFunction.class, loader);
-        var conditionRules = PluginDiscovery.collect(
-                List.of(
-                        new StringConditionResolverRule(),
-                        new NumberConditionResolverRule(),
-                        new BooleanConditionResolverRule(),
-                        new DateConditionResolverRule(),
-                        new FormatConditionResolverRule(),
-                        new JsonConditionResolverRule(),
-                        new NullConditionResolverRule()),
-                builder.conditionResolverRules,
-                ConditionResolverRule.class,
-                loader);
-        var factories = PluginDiscovery.collect(
-                List.of(new FileSecretsProviderFactory()),
-                builder.secretsProviderFactories,
-                SecretsProviderFactory.class,
-                loader);
-        // Core's interpolation rules are not collected with the rest: the run's secrets rule goes
-        // between core's and everyone else's, so the two halves are kept apart.
-        var extraInterpolationRules =
-                PluginDiscovery.collect(List.of(), builder.interpolationRules, InterpolationRule.class, loader);
+        // Handlers this runner creates are its to close, so a build that fails part-way closes them
+        // rather than leaking a connection pool nobody can reach.
+        var created = new ArrayList<RequestHandler<?, ?>>();
+        try {
+            var loader = builder.classLoader;
+            var functions =
+                    PluginDiscovery.collect(StandardFunctions.all(), builder.functions, BratFunction.class, loader);
+            var conditionRules = PluginDiscovery.collect(
+                    List.of(
+                            new StringConditionResolverRule(),
+                            new NumberConditionResolverRule(),
+                            new BooleanConditionResolverRule(),
+                            new DateConditionResolverRule(),
+                            new FormatConditionResolverRule(),
+                            new JsonConditionResolverRule(),
+                            new NullConditionResolverRule()),
+                    builder.conditionResolverRules,
+                    ConditionResolverRule.class,
+                    loader);
+            var factories = PluginDiscovery.collect(
+                    List.of(new FileSecretsProviderFactory()),
+                    builder.secretsProviderFactories,
+                    SecretsProviderFactory.class,
+                    loader);
+            // Core's interpolation rules are not collected with the rest: the run's secrets rule goes
+            // between core's and everyone else's, so the two halves are kept apart.
+            var extraInterpolationRules =
+                    PluginDiscovery.collect(List.of(), builder.interpolationRules, InterpolationRule.class, loader);
 
-        // Only the three launch namespaces resolve a secrets provider's own parameters. Everything
-        // here runs before any secret exists, so a rule needing one could never work.
-        var constants = new ConstantsInterpolationRule();
-        var env = new EnvInterpolationRule();
-        var params = new ParamsInterpolationRule();
-        var launchRules = List.<InterpolationRule>of(constants, env, params);
-        var coreInterpolationRules = List.of(
-                constants,
-                env,
-                params,
-                new VarsInterpolationRule(),
-                new ResponseBodyInterpolationRule(),
-                new ResponseStatusCodeInterpolationRule(),
-                new ResponseHeaderInterpolationRule(),
-                new ResponseJsonInterpolationRule());
-        this.collaborators = new RunCollaborators(
-                coreInterpolationRules,
-                extraInterpolationRules,
-                new FunctionEvaluator(new FunctionRegistry(functions)),
-                new ConditionResolverRuleDispatcher(conditionRules),
-                new SecretsBootstrap(factories, launchRules),
-                protocolRegistryOf(builder),
-                new ConditionInterpolator(),
-                new AssertionInterpolator(new ChainedConditionInterpolator()),
-                new FlowControlInterpolator(new RepeatUntilInterpolator()));
+            // Only the three launch namespaces resolve a secrets provider's own parameters. Everything
+            // here runs before any secret exists, so a rule needing one could never work.
+            var constants = new ConstantsInterpolationRule();
+            var env = new EnvInterpolationRule();
+            var params = new ParamsInterpolationRule();
+            var launchRules = List.<InterpolationRule>of(constants, env, params);
+            var coreInterpolationRules = List.of(
+                    constants,
+                    env,
+                    params,
+                    new VarsInterpolationRule(),
+                    new ResponseBodyInterpolationRule(),
+                    new ResponseStatusCodeInterpolationRule(),
+                    new ResponseHeaderInterpolationRule(),
+                    new ResponseJsonInterpolationRule());
+            this.collaborators = new RunCollaborators(
+                    coreInterpolationRules,
+                    extraInterpolationRules,
+                    new FunctionEvaluator(new FunctionRegistry(functions)),
+                    new ConditionResolverRuleDispatcher(conditionRules),
+                    new SecretsBootstrap(factories, launchRules),
+                    protocolRegistryOf(builder, created),
+                    new ConditionInterpolator(),
+                    new AssertionInterpolator(new ChainedConditionInterpolator()),
+                    new FlowControlInterpolator(new RepeatUntilInterpolator()));
 
-        this.renderer = new OutcomeRendererRuleDispatcher(PluginDiscovery.collect(
-                List.of(
-                        new ConsoleOutcomeRendererRule(),
-                        new VerboseCliOutcomeRendererRule(),
-                        new LogOutcomeRendererRule(),
-                        new UnittestOutcomeRendererRule()),
-                builder.outcomeRendererRules,
-                OutcomeRendererRule.class,
-                loader));
-        this.reporters = new RunReporterRegistry(PluginDiscovery.collect(
-                List.of(new ConsoleRunReporter(System.out)), builder.runReporters, RunReporter.class, loader));
-        this.defaultReporters = List.copyOf(builder.defaultReporters);
-        checkDefaultReporters();
+            this.renderer = new OutcomeRendererRuleDispatcher(PluginDiscovery.collect(
+                    List.of(
+                            new ConsoleOutcomeRendererRule(),
+                            new VerboseCliOutcomeRendererRule(),
+                            new LogOutcomeRendererRule(),
+                            new UnittestOutcomeRendererRule()),
+                    builder.outcomeRendererRules,
+                    OutcomeRendererRule.class,
+                    loader));
+            this.reporters = new RunReporterRegistry(PluginDiscovery.collect(
+                    List.of(new ConsoleRunReporter(System.out)), builder.runReporters, RunReporter.class, loader));
+            this.defaultReporters = List.copyOf(builder.defaultReporters);
+            checkDefaultReporters();
+        } catch (RuntimeException | Error e) {
+            closeAll(created);
+            throw e;
+        }
+        this.owned = List.copyOf(created);
     }
 
     /**
@@ -191,8 +215,10 @@ public final class Brat {
      * then what the classloader declares. Later wins where two carry the same key, because that is
      * the order of increasing specificity: core ships defaults, an application wires its baseline,
      * and an end user who can do neither drops in a jar. Core contributes an interpolator (for
-     * {@code HttpRequestDefinition}) and <strong>no handler</strong>: a handler owns a connection
-     * pool, so the caller creates it and the caller closes it.
+     * {@code HttpRequestDefinition}) and, <strong>only when neither the builder nor the classloader
+     * supplies a handler for {@code http}</strong>, an {@code ApacheHttpRequestHandler} this runner
+     * creates and therefore closes. Supplying one only as a fallback is what keeps a wired HTTP client
+     * from sitting beside an idle second pool, and from being shadowed by it.
      * <p>
      * <strong>The built-in default is seeded here, and only when it can be honoured.</strong> If
      * nothing was configured as the default for {@code http} and a handler named
@@ -202,12 +228,15 @@ public final class Brat {
      * that handler is not registered, nothing is seeded and the registry's own ladder decides.
      *
      * @param builder the builder holding what was registered
+     * @param created receives every handler this creates — each one discovered, and the default HTTP
+     *        handler if one is supplied; <strong>modified</strong>, and filled before anything can
+     *        throw, so a caller can close them whatever happens
      * @return the registry, with every inconsistency it can see already rejected
      * @throws BratException for anything {@link ProtocolRegistry} rejects at construction — a
      *         protocol whose definition type has no interpolator, two handlers for one protocol
      *         disagreeing about that type, a configured default naming a handler nobody registered
      */
-    private static ProtocolRegistry protocolRegistryOf(Builder builder) {
+    private static ProtocolRegistry protocolRegistryOf(Builder builder, List<RequestHandler<?, ?>> created) {
         var interpolators = new ArrayList<RequestDefinitionInterpolator<?>>();
         interpolators.add(new HttpRequestDefinitionInterpolator());
         interpolators.addAll(builder.requestDefinitionInterpolators);
@@ -218,7 +247,13 @@ public final class Brat {
 
         var handlers = new ArrayList<>(builder.requestHandlers);
         for (RequestHandler<?, ?> discovered : PluginDiscovery.discover(RequestHandler.class, builder.classLoader)) {
+            created.add(discovered);
             handlers.add(discovered);
+        }
+        if (handlers.stream().noneMatch(handler -> HTTP.equals(handler.protocol()))) {
+            var fallback = new ApacheHttpRequestHandler();
+            created.add(fallback);
+            handlers.add(fallback);
         }
 
         var defaults = new LinkedHashMap<>(builder.defaultRequestHandlers);
@@ -266,6 +301,21 @@ public final class Brat {
     }
 
     /**
+     * A reader for environment directories this runner can run against.
+     * <p>
+     * The reader asks this runner's secrets provider factories whether they recognise a secrets
+     * file's content — core's, the builder's and the discovered ones, one per type: a factory
+     * replaced by a later one of the same {@code type()} is not asked, exactly as it is not used.
+     * That is what lets a format brought by a plugin be recognised without its files declaring a
+     * {@code type}.
+     *
+     * @return a reader over this runner's secrets provider factories; never {@code null}
+     */
+    public EnvironmentReader environmentReader() {
+        return new EnvironmentReader(collaborators.secretsBootstrap().factories());
+    }
+
+    /**
      * Runs {@code suite} and every subSuite beneath it, and returns what happened.
      * <p>
      * <strong>What happens, in order:</strong> the run's {@code RuntimeData} is assembled from the
@@ -289,9 +339,10 @@ public final class Brat {
      * @return the run's record, holding one {@link dev.pbroman.brat.core.data.result.RequestResult}
      *         per request that ran, in execution order, and one {@link SuiteError} per suite that was
      *         aborted
-     * @throws BratException if either argument is {@code null}, if a body file the suite names with a
-     *         token-free path does not exist, or if the run cannot be assembled — a secrets source
-     *         naming an unregistered provider type, say
+     * @throws BratException if either argument is {@code null}, if this runner has been
+     *         {@linkplain #close() closed}, if a body file the suite names with a token-free path does
+     *         not exist, or if the run cannot be assembled — a secrets source naming an unregistered
+     *         provider type, say
      */
     public RunResult run(TestSuite suite, Environment environment) {
         nonNull(suite, "The suite to run must not be null");
@@ -366,11 +417,123 @@ public final class Brat {
         nonNull(environment, "The environment to run against must not be null");
         nonNull(listeners, "The listeners must not be null");
         nonNull(runControl, "The run control must not be null");
+        requireOpen();
         // Before the first event: a body file that is not there is a launch failure, not a run that
         // started and then went wrong.
         BodyFileChecks.check(suite, environment.suiteLocation());
 
         return new Run(collaborators, listeners, runControl).execute(suite, environment);
+    }
+
+    /**
+     * Reads {@code launch} and runs it, reported by this runner's default reporters.
+     * <p>
+     * The launch is read with this runner's own {@link #loader()} and {@link #environmentReader()} —
+     * the suite file, then the environment directory if it names one — and the suite's location is
+     * handed to the environment, so a bare path in the suite resolves next to the suite file. Then it
+     * runs exactly as {@link #run(TestSuite, Environment)} runs.
+     * <p>
+     * <strong>Reading happens before the run starts.</strong> A launch that cannot be read throws
+     * before any event is delivered, as a body file that is not there does.
+     *
+     * @param launch the launch to read and run; must not be {@code null}
+     * @return the run's record
+     * @throws BratException if {@code launch} is {@code null}, for anything reading it rejects — see
+     *         {@link LaunchReader#read(Launch)} — or under the same conditions as
+     *         {@link #run(TestSuite, Environment)}
+     */
+    public RunResult run(Launch launch) {
+        var prepared = read(launch);
+        return run(prepared.suite(), prepared.environment());
+    }
+
+    /**
+     * Reads {@code launch} and runs it, reporting to {@code listeners} and stopping when asked.
+     * <p>
+     * Reads the launch as {@link #run(Launch)} does, before any event, then runs exactly as
+     * {@link #run(TestSuite, Environment, List, RunControl)} runs — exactly {@code listeners} are
+     * called.
+     *
+     * @param launch the launch to read and run; must not be {@code null}
+     * @param listeners the listeners to deliver events to, in order; must not be {@code null}
+     * @param runControl the channel the run is stopped through; must not be {@code null}
+     * @return the run's record
+     * @throws BratException if any argument is {@code null}, for anything reading the launch rejects,
+     *         or under the same conditions as {@link #run(TestSuite, Environment, List, RunControl)}
+     */
+    public RunResult run(Launch launch, List<RunListener> listeners, RunControl runControl) {
+        nonNull(listeners, "The listeners must not be null");
+        nonNull(runControl, "The run control must not be null");
+        var prepared = read(launch);
+        return run(prepared.suite(), prepared.environment(), listeners, runControl);
+    }
+
+    /**
+     * Reads {@code launch} with this runner's own loader and environment reader.
+     *
+     * @param launch the launch to read
+     * @return the suite and its environment, joined
+     * @throws BratException if {@code launch} is {@code null}, or for anything reading it rejects
+     */
+    private PreparedRun read(Launch launch) {
+        nonNull(launch, "The launch to run must not be null");
+        requireOpen();
+        return new LaunchReader(loader(), environmentReader()).read(launch);
+    }
+
+    /**
+     * Closes the request handlers this runner created, after which it runs nothing.
+     * <p>
+     * <strong>Which handlers.</strong> Those this runner created itself and that implement
+     * {@link AutoCloseable}: every handler discovered through {@code META-INF/services}, and the HTTP
+     * handler it supplied because nothing else served {@code http}. A handler added on the builder is
+     * <strong>never</strong> closed here — whoever created it closes it, which is what lets one handler
+     * serve two runners, or a dependency-injection container close the handler it manages.
+     * <p>
+     * <strong>Failures.</strong> A handler that throws while closing is logged at WARN, and the rest
+     * are still closed; nothing is thrown. Closing a closed runner does nothing.
+     * <p>
+     * <strong>Afterwards</strong> every {@code run} throws. A run still in progress when this is
+     * called is undefined: close a runner only once its runs have returned.
+     */
+    @Override
+    public void close() {
+        if (!closed.getAndSet(true)) {
+            closeAll(owned);
+        }
+    }
+
+    /**
+     * Refuses to go on once this runner has been closed.
+     *
+     * @throws BratException if {@link #close()} has been called
+     */
+    private void requireOpen() {
+        if (closed.get()) {
+            throw new BratException("This runner has been closed, so it runs nothing more; build another");
+        }
+    }
+
+    /**
+     * Closes every handler in {@code handlers} that can be closed, logging a failure rather than
+     * letting it stop the rest.
+     *
+     * @param handlers the handlers to close
+     */
+    private static void closeAll(List<RequestHandler<?, ?>> handlers) {
+        for (var handler : handlers) {
+            if (handler instanceof AutoCloseable closeable) {
+                try {
+                    closeable.close();
+                } catch (Exception e) {
+                    log.warn(
+                            "The request handler '{}' ({}) failed to close",
+                            handler.name(),
+                            handler.getClass().getName(),
+                            e);
+                }
+            }
+        }
     }
 
     /** The control a run with no caller-supplied one uses: nothing ever cancels it. */
@@ -472,6 +635,9 @@ public final class Brat {
          * ordinary case — a proxied, an mTLS and a plain client differ in configuration, not in
          * implementation — and a suite says which it wants. One whose {@code (protocol, name)} pair
          * another registration already used replaces that one, logged at WARN naming both.
+         * <p>
+         * <strong>It stays yours.</strong> The runner never closes a handler added here, so one that
+         * holds a connection pool is closed by whoever created it.
          *
          * @param handler the handler to add; must not be {@code null}
          * @return this builder
@@ -607,23 +773,24 @@ public final class Brat {
          * <p>
          * The builder may be reused afterwards; the returned runner is unaffected by later calls.
          *
+         * <strong>A runner can always perform HTTP.</strong> Where no handler for {@code http} was
+         * added or discovered, the runner creates an {@code ApacheHttpRequestHandler} and owns it — see
+         * {@link Brat#close()}. So a builder given nothing at all still builds a working runner, and a
+         * runner whose only handlers arrive by discovery builds too. If building then fails, the
+         * handlers it created are closed before the failure propagates.
+         * <p>
          * <strong>What it refuses to build</strong>, so that a wiring mistake is never discovered by a
-         * request: a runner with no handler at all; a protocol whose definition type has no
-         * interpolator; two handlers for one protocol disagreeing about which class an authored
-         * {@code requestDefinition:} binds to; a default naming a handler nobody registered; and a
-         * default reporter nobody registered, or one that rejects the empty arguments it will get.
+         * request: a protocol whose definition type has no interpolator; two handlers for one
+         * protocol disagreeing about which class an authored {@code requestDefinition:} binds to; a
+         * default naming a handler nobody registered; and a default reporter nobody registered, or one
+         * that rejects the empty arguments it will get.
          *
          * @return a runner ready to run suites
-         * @throws BratException if no request handler was registered, if a declared plugin cannot be
-         *         loaded or instantiated, or if the registered protocols or default reporters are
-         *         inconsistent in any of the ways above — each naming what is wrong and what was
-         *         registered
+         * @throws BratException if a declared plugin cannot be loaded or instantiated, or if the
+         *         registered protocols or default reporters are inconsistent in any of the ways above —
+         *         each naming what is wrong and what was registered
          */
         public Brat build() {
-            if (requestHandlers.isEmpty()) {
-                throw new BratException("A request handler is required; a runner that cannot perform a request "
-                        + "has nothing to run");
-            }
             return new Brat(this);
         }
     }

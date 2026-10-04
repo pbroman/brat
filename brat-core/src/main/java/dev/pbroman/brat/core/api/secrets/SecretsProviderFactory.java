@@ -42,4 +42,27 @@ public interface SecretsProviderFactory {
      *         missing or unusable, or if creating the provider fails
      */
     SecretsProvider create(Map<String, String> params);
+
+    /**
+     * Whether a secrets file with this content is one of this factory's, whatever type the file itself
+     * declares.
+     * <p>
+     * Consulted for every secrets file read from an environment directory, <strong>before</strong>
+     * the file's own {@code type} entry: a format that encrypts its values cannot keep that entry
+     * readable, but it can be recognised by a signature it always leaves in the clear — a top-level
+     * metadata block, say. Claiming a file is how such a format needs no {@code type} at all.
+     * <p>
+     * Answer from the content alone, cheaply and without side effects: it is asked of every factory,
+     * for every secrets file. Claim only what is unmistakably yours — a file claimed by factories of
+     * two different types fails the launch. <strong>Must not throw</strong>: content you cannot make
+     * sense of is not yours, so answer {@code false}. An exception fails the launch, naming this
+     * factory's type and the file — even when the file belongs to another type.
+     *
+     * @param content the file's whole content as text; never {@code null}
+     * @return {@code true} to claim the file for {@link #type()}; the default, {@code false}, leaves it
+     *         to the file's {@code type} entry
+     */
+    default boolean recognises(String content) {
+        return false;
+    }
 }

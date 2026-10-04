@@ -24,11 +24,11 @@ class LoadingTest extends EndToEndTestBase {
     @Test
     void load_namesTheResourceAndThePositionAndNeverTheValue() {
         // when
-        var thrown = assertThatThrownBy(() -> suite("suites/broken/unknown-key.yaml"));
+        var thrown = assertThatThrownBy(() -> suite("suites/broken/unknown-key.brat.yaml"));
 
         // then — the resource, the key and where it sat
         thrown.isInstanceOf(BratException.class)
-                .hasMessageContaining("suites/broken/unknown-key.yaml")
+                .hasMessageContaining("suites/broken/unknown-key.brat.yaml")
                 .hasMessageContaining("responsActions")
                 .hasMessageMatching("(?s).*line \\d+, column \\d+.*");
 
@@ -39,7 +39,7 @@ class LoadingTest extends EndToEndTestBase {
     @Test
     void run_resolvesAnchorsAndMergeKeysInAFileThatThenRuns() {
         // when — the second request inherits the first's definition and overrides its url
-        var suite = suite("suites/anchored-requests.yaml");
+        var suite = suite("suites/anchored-requests.brat.yaml");
         var result = run(suite, Map.of());
 
         // then — every assertion of both requests ran, which is what says the merge key resolved

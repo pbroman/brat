@@ -48,4 +48,18 @@ class EnvInterpolationRuleTest extends AbstractInterpolationTest {
         // then
         assertThatThrownBy(() -> interpolate(input, runtimeData)).isInstanceOf(BratException.class);
     }
+
+    @Test
+    void onMissingReplacement_saysWhereAnEnvValueComesFrom() {
+        // given - env is not the OS environment, and the message is where a reader learns that
+        var input = "${env.missing}";
+
+        // then
+        assertThatThrownBy(() -> interpolate(input, runtimeData))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("'missing'")
+                .hasMessageContaining("env.yaml")
+                .hasMessageContaining("env.missing=")
+                .hasMessageNotContaining("environment variable");
+    }
 }

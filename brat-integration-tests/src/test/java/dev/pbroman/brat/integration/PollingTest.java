@@ -30,7 +30,7 @@ class PollingTest extends EndToEndTestBase {
         var events = new ArrayList<RunEvent>();
 
         // when
-        var suite = suite("suites/poll-job.yaml");
+        var suite = suite("suites/poll-job.brat.yaml");
         var result = BRAT.run(
                 suite,
                 environment(Map.of("jobId", job.get("id").asString(), "maxAttempts", "5")),
@@ -59,7 +59,8 @@ class PollingTest extends EndToEndTestBase {
         var job = crud.startJob(5);
 
         // when
-        var result = run("suites/poll-job.yaml", Map.of("jobId", job.get("id").asString(), "maxAttempts", "2"));
+        var result =
+                run("suites/poll-job.brat.yaml", Map.of("jobId", job.get("id").asString(), "maxAttempts", "2"));
 
         // then — a give-up carries the last completed attempt and the author's message
         var request = result.requestResults().getFirst();
@@ -81,7 +82,7 @@ class PollingTest extends EndToEndTestBase {
 
         // when
         BRAT.run(
-                suite("suites/status-code.yaml"),
+                suite("suites/status-code.brat.yaml"),
                 environment(Map.of("code", "200")),
                 List.of(events::add),
                 new TestRunControl());

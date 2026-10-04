@@ -6,7 +6,9 @@ import java.util.Map;
 import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.api.secrets.SecretsProviderFactory;
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.util.NamespaceUtils;
 
+import static dev.pbroman.brat.core.util.Constants.SECRETS;
 import static dev.pbroman.brat.core.util.Require.nonBlank;
 import static dev.pbroman.brat.core.util.Require.nonNull;
 import static dev.pbroman.brat.core.util.ResourceReader.readFileToString;
@@ -47,12 +49,19 @@ public final class FileSecretsProviderFactory implements SecretsProviderFactory 
      * resolves it. A {@code type} entry in the file is removed rather than served, so a file
      * declaring {@code type: file} does not expose a secret named {@code type}. Any other parameter
      * is ignored.
+     * <p>
+     * <strong>The file is literal.</strong> A secrets file supplies values, and nothing in it is
+     * resolved — so a value holding a {@code ${...}} token, which could only ever be served as that
+     * text, is refused rather than served. The {@code type} entry is neither served nor checked: it
+     * is read by whatever routed the file here, and that is where it is checked.
      *
      * @param params the resolved parameters; must hold {@code location}
      * @return a provider over the file's entries, resolving nothing if the file holds no entries
      * @throws BratException if {@code params} is {@code null}, if it has no {@code location} entry
-     *         or a blank one, if the file cannot be read, or if its content is not a document
-     *         {@link FlatYamlLoader} accepts
+     *         or a blank one, if the file cannot be read, if its content is not a document
+     *         {@link FlatYamlLoader} accepts, or if any value it would serve holds a {@code ${...}} token —
+     *         the message then names the location and the key, as {@code secrets.<key>}, and
+     *         <strong>never the value</strong>
      */
     @Override
     public SecretsProvider create(Map<String, String> params) {
@@ -61,6 +70,13 @@ public final class FileSecretsProviderFactory implements SecretsProviderFactory 
         nonBlank(location, "The params must contain a valid " + LOCATION_PARAM);
         var map = new HashMap<>(FlatYamlLoader.load(readFileToString(location)));
         map.remove(TYPE_KEY);
+        try {
+            // Already flat; called for its literal check, so the rule and the message stay those of
+            // every other namespace.
+            NamespaceUtils.flattenLiteral(map, SECRETS);
+        } catch (BratException e) {
+            throw new BratException("The secrets file '" + location + "' is not usable: " + e.getMessage(), e);
+        }
         return new MapSecretsProvider(map);
     }
 }

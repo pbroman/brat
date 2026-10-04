@@ -20,7 +20,7 @@ class FileBodyTest extends EndToEndTestBase {
     @Test
     void run_sendsABodyReadFromAFileNamedByAToken() {
         // when — the path is built from ${env.bodyFile}, so the read must happen after interpolation
-        var suite = suite("suites/file-body.yaml");
+        var suite = suite("suites/file-body.brat.yaml");
         var result = run(suite, Map.of("bodyFile", "create-user.json", "street", "Sesame Street"));
 
         // then
@@ -39,7 +39,7 @@ class FileBodyTest extends EndToEndTestBase {
     @Test
     void run_errorsWhenTheBodyFileIsNotThere() {
         // when
-        var result = run("suites/file-body.yaml", Map.of("bodyFile", "no-such-file.json", "street", "unused"));
+        var result = run("suites/file-body.brat.yaml", Map.of("bodyFile", "no-such-file.json", "street", "unused"));
 
         // then — a missing file fails at request time, naming the path
         var request = result.requestResults().getFirst();

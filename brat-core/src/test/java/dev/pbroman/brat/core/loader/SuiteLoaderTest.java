@@ -1,7 +1,5 @@
 package dev.pbroman.brat.core.loader;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -11,7 +9,6 @@ import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.Phase;
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import static dev.pbroman.brat.core.util.Constants.HTTP;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -292,6 +289,24 @@ class SuiteLoaderTest {
     }
 
     // ---------- structural rejections ----------
+
+    @Test
+    void load_rejectsATokenInConstantsNamingTheOriginAndTheKey() {
+        // given - a ${...} in a constant would never be resolved, so it is refused rather than kept as text
+        var yaml = """
+                name: s
+                constants:
+                  db:
+                    url: "${env.host}/db"
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml, "orders.brat.yaml"))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("orders.brat.yaml")
+                .hasMessageContaining("constants.db.url")
+                .hasMessageNotContaining("env.host");
+    }
 
     @Test
     void load_rejectsADuplicateKeyNamingItAndItsPosition() {
@@ -672,25 +687,5 @@ class SuiteLoaderTest {
         assertThatThrownBy(() -> underTest.load(yaml, "order-api.yaml"))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("order-api.yaml");
-    }
-
-    // ---------- the file convenience, which is temporary ----------
-
-    @Test
-    void load_readsAFileAndUsesItsPathAsTheOrigin(@TempDir Path dir) throws Exception {
-        // given
-        var file = dir.resolve("suite.yaml");
-        Files.writeString(file, "name: from a file\n");
-
-        // when
-        var suite = underTest.load(file);
-
-        // then
-        assertThat(suite.name()).isEqualTo("from a file");
-    }
-
-    @Test
-    void load_reportsAMissingFileAsABratException(@TempDir Path dir) {
-        assertThatThrownBy(() -> underTest.load(dir.resolve("absent.yaml"))).isInstanceOf(BratException.class);
     }
 }

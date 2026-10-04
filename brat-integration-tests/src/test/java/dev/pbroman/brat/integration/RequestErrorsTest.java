@@ -25,7 +25,7 @@ class RequestErrorsTest extends EndToEndTestBase {
     @ValueSource(ints = {200, 404, 500, 503})
     void run_treatsEveryStatusCodeAsAResponse(int code) {
         // when
-        var suite = suite("suites/status-code.yaml");
+        var suite = suite("suites/status-code.brat.yaml");
         var result = run(suite, Map.of("code", String.valueOf(code)));
 
         // then — their 504 is a response; assertions run and the body survives
@@ -36,7 +36,7 @@ class RequestErrorsTest extends EndToEndTestBase {
     @Test
     void run_errorsAndCarriesOnWhenAHostIsUnreachable() {
         // when — the first request goes to a port nothing listens on, the second to the real server
-        var result = run("suites/two-hosts.yaml", Map.of("deadUrl", unusedUrl()));
+        var result = run("suites/two-hosts.brat.yaml", Map.of("deadUrl", unusedUrl()));
 
         // then — a transport failure is this request's data, not the run's end
         assertThat(result.requestResults()).hasSize(2);
@@ -54,7 +54,7 @@ class RequestErrorsTest extends EndToEndTestBase {
     @Test
     void run_errorsWhenTheRequestOutlivesItsOwnTimeout() {
         // when — the server answers after 800ms, the request allows 200
-        var result = run("suites/slow.yaml", Map.of("delayMs", "800", "timeout", "200"));
+        var result = run("suites/slow.brat.yaml", Map.of("delayMs", "800", "timeout", "200"));
 
         // then — our timeout is not a response
         var request = result.requestResults().getFirst();
@@ -68,7 +68,7 @@ class RequestErrorsTest extends EndToEndTestBase {
     @Test
     void run_completesWhenTheAnswerArrivesInsideTheTimeout() {
         // when — the same suite, given the time
-        var suite = suite("suites/slow.yaml");
+        var suite = suite("suites/slow.brat.yaml");
         var result = run(suite, Map.of("delayMs", "50", "timeout", "5000"));
 
         // then — so the test above measures the timeout and not merely "slow errors"

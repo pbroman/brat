@@ -6,8 +6,8 @@ import java.util.List;
 import dev.pbroman.brat.core.exception.BratException;
 import org.apache.commons.lang3.StringUtils;
 
-import static dev.pbroman.brat.core.interpolation.InterpolationPatterns.TOKEN_PREFIX;
-import static dev.pbroman.brat.core.interpolation.InterpolationPatterns.TOKEN_SUFFIX;
+import static dev.pbroman.brat.core.util.Constants.TOKEN_PREFIX;
+import static dev.pbroman.brat.core.util.Constants.TOKEN_SUFFIX;
 import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**

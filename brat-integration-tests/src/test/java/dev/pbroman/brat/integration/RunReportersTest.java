@@ -9,9 +9,9 @@ import java.util.Map;
 import dev.pbroman.brat.core.api.listener.RunEvent;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.handler.ApacheHttpRequestHandler;
+import dev.pbroman.brat.core.launch.Environment;
 import dev.pbroman.brat.core.reporting.ConsoleRunReporter;
 import dev.pbroman.brat.core.runner.Brat;
-import dev.pbroman.brat.core.runner.Environment;
 import dev.pbroman.brat.core.secrets.SecretsProviderConfig;
 import dev.pbroman.brat.core.secrets.SecretsSource;
 import dev.pbroman.brat.integration.stub.StubRunReporter;
@@ -35,7 +35,7 @@ class RunReportersTest extends EndToEndTestBase {
 
         // when
         var result = BRAT.run(
-                suite("suites/two-creates.yaml"), environment(Map.of()), List.of(listener), new TestRunControl());
+                suite("suites/two-creates.brat.yaml"), environment(Map.of()), List.of(listener), new TestRunControl());
 
         // then - its arguments arrived, and so did the whole run
         assertThat(listener.label()).isEqualTo("it");
@@ -65,7 +65,7 @@ class RunReportersTest extends EndToEndTestBase {
                     .build();
 
             // when
-            brat.run(suite("suites/failing-secret-header.yaml"), withSecrets());
+            brat.run(suite("suites/failing-secret-header.brat.yaml"), withSecrets());
         }
 
         // then - the request as sent is printed, because it failed, and the token is not

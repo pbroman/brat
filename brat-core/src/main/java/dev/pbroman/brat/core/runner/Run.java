@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import dev.pbroman.brat.core.api.listener.AttemptFinished;
@@ -22,7 +23,9 @@ import dev.pbroman.brat.core.interpolation.InterpolationRuleDispatcher;
 import dev.pbroman.brat.core.interpolation.InterpolationScanner;
 import dev.pbroman.brat.core.interpolation.configdata.RequestOptionsInterpolator;
 import dev.pbroman.brat.core.interpolation.rules.SecretsInterpolationRule;
+import dev.pbroman.brat.core.launch.Environment;
 import dev.pbroman.brat.core.resolver.assertion.AssertionChainResolver;
+import dev.pbroman.brat.core.secrets.MapSecretsProvider;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -129,18 +132,42 @@ final class Run {
      * @param environment the launch namespaces and secrets configuration
      */
     private void open(TestSuite suite, Environment environment) {
+        var overrides = environment.overrides();
+        for (var key : overrides.unrecognised()) {
+            log.warn(
+                    "The launch param '{}' overrides nothing: '{}' is not a namespace, so it is an ordinary param",
+                    key,
+                    key.substring(0, key.indexOf('.')));
+        }
         var runtimeData = new RuntimeData(
-                suite.constants(),
-                environment.env(),
-                new HashMap<>(),
-                environment.params(),
+                overlaid(suite.constants(), overrides.constants()),
+                overlaid(environment.env(), overrides.env()),
+                new HashMap<>(overrides.vars()),
+                overrides.params(),
                 environment.suiteLocation());
+        // A secret overridden at launch leads the chain, so it wins every source and can configure
+        // one; held by a provider rather than a namespace, it is masked like any other secret.
+        var launchSecrets = new MapSecretsProvider(overrides.secrets());
         // try-with-resources rather than a finally: a chain holding a lease or a file handle is built
         // per run and must not outlive it, and this is the form that suppresses a close failure when
         // the run itself threw, instead of replacing the failure the caller needs to see.
-        try (var secretsProvider = collaborators.secretsBootstrap().build(environment.secretsConfig(), runtimeData)) {
+        try (var secretsProvider =
+                collaborators.secretsBootstrap().build(environment.secretsConfig(), runtimeData, launchSecrets)) {
             walk(suite, runtimeData, secretsProvider);
         }
+    }
+
+    /**
+     * Returns {@code base} with {@code overrides} written over it.
+     *
+     * @param base the namespace's values
+     * @param overrides the values replacing or adding to them
+     * @return a new map
+     */
+    private static Map<String, Object> overlaid(Map<String, Object> base, Map<String, Object> overrides) {
+        var result = new HashMap<>(base);
+        result.putAll(overrides);
+        return result;
     }
 
     /**

@@ -11,6 +11,8 @@ import java.nio.file.Path;
 
 import dev.pbroman.brat.core.exception.BratException;
 
+import static dev.pbroman.brat.core.util.Constants.CLASSPATH_PREFIX;
+import static dev.pbroman.brat.core.util.Constants.FILE_PREFIX;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
@@ -26,9 +28,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
  * it; {@link #readFileToString(String)} reads it.
  */
 public final class ResourceReader {
-
-    private static final String CLASSPATH_PREFIX = "classpath:";
-    private static final String FILE_PREFIX = "file:";
 
     private ResourceReader() {}
 

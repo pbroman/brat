@@ -6,6 +6,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import dev.pbroman.brat.core.util.NamespaceUtils;
+
+import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
+
 /**
  * A suite of requests, and the subSuites beneath it — the whole authored document, and every node of
  * the tree inside it.
@@ -22,7 +26,9 @@ import java.util.Map;
  *        requires it, requires it to be unique among its siblings, and rejects a {@code /} in it —
  *        this type enforces none of that, so a directly-constructed instance may hold anything
  * @param description optional prose, shown in reports and read by nothing
- * @param constants fixed values read as {@code ${constants.x}}; never {@code null}
+ * @param constants fixed values read as {@code ${constants.x}}; never {@code null}. Flat: a value
+ *        written nested is held under its dotted key, so {@code db: {host: x}} is read as
+ *        {@code ${constants.db.host}}. Literal: no value holds a {@code ${...}} token
  * @param setVars values computed when this suite starts, read as {@code ${vars.x}}; never
  *        {@code null}
  * @param auth credentials for requests beneath this suite, or {@code null}. Replaced wholesale by a
@@ -51,16 +57,20 @@ public record TestSuite(
         List<TestSuite> subSuites) {
 
     /**
-     * Defaults every collection to empty, and copies the
-     * mutable arguments.
+     * Defaults every collection to empty, copies the mutable arguments, and flattens {@code constants}
+     * to dotted keys.
      * <p>
      * No collection is ever {@code null} on a constructed instance, so the walk iterates without
      * guarding. Copies tolerate {@code null} entries rather than rejecting them — authored YAML is
      * where nulls come from, and rejecting one here would throw the wrong exception type from the
      * wrong place.
+     *
+     * @throws dev.pbroman.brat.core.exception.BratException if {@code constants}, once flattened, would
+     *         hold one key twice, or if any of its values holds a {@code ${...}} token — each naming the
+     *         key as {@code constants.<key>} and never the value
      */
     public TestSuite {
-        constants = constants == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(constants));
+        constants = constants == null ? Map.of() : NamespaceUtils.flattenLiteral(constants, CONSTANTS);
         setVars = setVars == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(setVars));
         requestHandlers =
                 requestHandlers == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(requestHandlers));
