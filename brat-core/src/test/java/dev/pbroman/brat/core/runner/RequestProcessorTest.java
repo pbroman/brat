@@ -101,6 +101,7 @@ class RequestProcessorTest {
                 null,
                 "create-order",
                 null,
+                null,
                 skipCondition,
                 null,
                 null,
@@ -596,7 +597,7 @@ class RequestProcessorTest {
         // given - this class no longer knows what HTTP is: the caller selected a handler, and a
         // definition of any protocol with an interpolator for it runs like any other
         RequestDefinition ftp = () -> "ftp";
-        var request = new Request("fetch the order", null, null, null, null, null, null, ftp, null, null);
+        var request = new Request("fetch the order", null, null, null, null, null, null, null, ftp, null, null);
         when(requestDefinitionInterpolator.interpolated(any(), any(), any())).thenReturn(ftp);
 
         // when
@@ -613,6 +614,7 @@ class RequestProcessorTest {
                 "create an order",
                 null,
                 "create-order",
+                null,
                 null,
                 skipCondition,
                 null,
@@ -792,6 +794,7 @@ class RequestProcessorTest {
                 null,
                 null,
                 null,
+                null,
                 authored,
                 null,
                 new FlowControl("${vars.wait}", null));
@@ -852,7 +855,7 @@ class RequestProcessorTest {
     @Test
     void process_throwsWhenTheRequestDeclaresNoDefinition() {
         // given
-        var request = new Request("create an order", null, null, null, null, null, null, null, null, null);
+        var request = new Request("create an order", null, null, null, null, null, null, null, null, null, null);
 
         // when / then
         assertThatThrownBy(() -> underTest.process(request, OPTIONS, coordinates, runtimeData, requestHandler))

@@ -79,6 +79,7 @@ class BratTest {
                 null,
                 null,
                 null,
+                null,
                 new HttpRequestDefinition(url, "GET", null, null),
                 null,
                 null);
@@ -130,6 +131,7 @@ class BratTest {
     private static Request requestWithHandlers(Map<String, String> requestHandlers) {
         return new Request(
                 "r",
+                null,
                 null,
                 null,
                 null,
@@ -375,6 +377,7 @@ class BratTest {
         var brat = Brat.builder().requestHandler(recording).build();
         var request = new Request(
                 "r",
+                null,
                 null,
                 null,
                 "${env.timeout}",
@@ -688,6 +691,7 @@ class BratTest {
                 null,
                 null,
                 null,
+                null,
                 new Condition("isAlwaysTrue", "a", null),
                 null,
                 null,
@@ -828,6 +832,7 @@ class BratTest {
                 null,
                 null,
                 null,
+                null,
                 new HttpRequestDefinition("${env.baseUrl}/x", "GET", null, null),
                 null,
                 new FlowControl("${env.pause}", null));
@@ -936,6 +941,7 @@ class BratTest {
         var events = new ArrayList<RunEvent>();
         var polling = new Request(
                 "poll",
+                null,
                 null,
                 null,
                 null,
@@ -1190,7 +1196,7 @@ class BratTest {
         // given - a token-free path is knowable before anything runs
         var definition =
                 new HttpRequestDefinition("http://url", "POST", Map.of("file", "file:/no/such/body.json"), null);
-        var request = new Request("create", null, null, null, null, null, null, definition, null, null);
+        var request = new Request("create", null, null, null, null, null, null, null, definition, null, null);
 
         // then - and it throws rather than reporting, because no run ever started
         assertThatThrownBy(() -> brat().run(suite(request), environment))

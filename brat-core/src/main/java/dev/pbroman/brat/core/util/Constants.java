@@ -89,11 +89,6 @@ public final class Constants {
      */
     public static final String PATH_DELIMITER = "/";
 
-    public static final String AUTH_TYPE_BASIC = "basic";
-    public static final String AUTH_TYPE_BEARER = "bearer";
-    public static final String AUTH_TYPE_APIKEY = "apikey";
-    public static final String AUTH_TYPE_NONE = "none";
-
     // Condition constants
     public static final String NULL = "null";
     public static final String EMPTY = "empty";

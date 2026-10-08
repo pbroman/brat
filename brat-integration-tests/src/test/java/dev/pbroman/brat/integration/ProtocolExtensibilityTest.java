@@ -107,6 +107,7 @@ class ProtocolExtensibilityTest extends EndToEndTestBase {
                 null,
                 null,
                 null,
+                null,
                 new dev.pbroman.brat.core.data.HttpRequestDefinition(baseUrl() + "/all", "GET", null, null, null, null),
                 null,
                 null);

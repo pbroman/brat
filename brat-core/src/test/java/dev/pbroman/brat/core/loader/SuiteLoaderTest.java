@@ -377,22 +377,27 @@ class SuiteLoaderTest {
     }
 
     @Test
-    void load_rejectsAuthOnARequest() {
-        // given - nothing reads a request's auth yet, so rejecting it beats binding it inert
+    void load_bindsAuthOnARequest() {
+        // given
         var yaml = """
                 name: s
                 requests:
                   - name: r
                     auth:
-                      type: none
+                      type: bearer
+                      args:
+                        token: "${vars.token}"
                     requestDefinition:
                       url: http://x
                 """;
 
+        // when
+        var suite = underTest.load(yaml);
+
         // then
-        assertThatThrownBy(() -> underTest.load(yaml))
-                .isInstanceOf(BratException.class)
-                .hasMessageContaining("auth");
+        var auth = suite.requests().getFirst().auth();
+        assertThat(auth.getType()).isEqualTo("bearer");
+        assertThat(auth.getArgs()).containsEntry("token", "${vars.token}");
     }
 
     @Test

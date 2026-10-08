@@ -17,10 +17,6 @@ import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
  * A structural container, deliberately <em>not</em> a {@link ConfigData}, for the same reason as
  * {@link Request}: what it holds that interpolates is other types, interpolated per request rather
  * than per suite.
- * <p>
- * {@code auth} binds here and is read by nothing yet. It is defined because the loader rejects unknown
- * keys, so an author writing a legal key must find a field waiting for it; what is still missing is a
- * <em>reader</em>, not a field.
  *
  * @param name names the node in reports and forms a segment of every path beneath it. The loader
  *        requires it, requires it to be unique among its siblings, and rejects a {@code /} in it —

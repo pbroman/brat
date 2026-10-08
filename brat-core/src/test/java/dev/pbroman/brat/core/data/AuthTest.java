@@ -1,69 +1,72 @@
 package dev.pbroman.brat.core.data;
 
-import java.util.stream.Stream;
+import java.util.HashMap;
+import java.util.Map;
 
-import dev.pbroman.brat.core.interpolation.configdata.AuthInterpolator;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
-import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_APIKEY;
-import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_BASIC;
-import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_BEARER;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class AuthTest extends AbstractConfigDataTest {
-
-    static Auth authNone = new Auth();
-    static Auth authBasic = new Auth(AUTH_TYPE_BASIC, "username", "password");
-    static Auth authBearer = new Auth(AUTH_TYPE_BEARER, "token");
-    static Auth authApiKey = new Auth(AUTH_TYPE_APIKEY, "apiKey");
-
-    AuthInterpolator authInterpolation = new AuthInterpolator();
+class AuthTest {
 
     @Test
-    void interpolatedBasic_isCorrect() {
+    void constructor_defaultsNullArgsToEmpty() {
         // when
-        var interpolated = authInterpolation.interpolated(authBasic, interpolation, runtimeData);
+        var auth = new Auth("none", null);
 
         // then
-        assertThat(interpolated.getType()).isEqualTo("interpolated");
-        assertThat(interpolated.getUsername()).isEqualTo("interpolated");
-        assertThat(interpolated.getPassword()).isEqualTo("interpolated");
-        assertThat(interpolated.getOutcomes().keySet()).containsExactly("type", "username", "password");
+        assertThat(auth.getArgs()).isNotNull().isEmpty();
     }
 
     @Test
-    void interpolatedBearer_isCorrect() {
+    void constructor_copiesTheArgsAndHandsOutAnUnmodifiableMap() {
+        // given
+        var args = new HashMap<String, String>();
+        args.put("token", "t");
+
         // when
-        var interpolated = authInterpolation.interpolated(authBearer, interpolation, runtimeData);
+        var auth = new Auth("bearer", args);
+        args.put("other", "x");
 
         // then
-        assertThat(interpolated.getType()).isEqualTo("interpolated");
-        assertThat(interpolated.getToken()).isEqualTo("interpolated");
-        assertThat(interpolated.getOutcomes()).isNotNull();
+        assertThat(auth.getArgs()).containsOnlyKeys("token");
+        assertThatThrownBy(() -> auth.getArgs().put("x", "y")).isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
-    void interpolatedApiKey_isCorrect() {
+    void constructor_keepsTheArgsInDeclarationOrder() {
+        // given
+        var args = new java.util.LinkedHashMap<String, String>();
+        args.put("username", "u");
+        args.put("password", "p");
+
         // when
-        var interpolated = authInterpolation.interpolated(authApiKey, interpolation, runtimeData);
+        var auth = new Auth("basic", args);
 
         // then
-        assertThat(interpolated.getType()).isEqualTo("interpolated");
-        assertThat(interpolated.getToken()).isEqualTo("interpolated");
-        assertThat(interpolated.getOutcomes()).isNotNull();
+        assertThat(auth.getArgs().keySet()).containsExactly("username", "password");
     }
 
-    @ParameterizedTest
-    @MethodSource("provideAllAuthTypes")
-    void interpolated_throwsExceptionIfCopy(Auth auth) {
-        assertInterpolatedThrowsExceptionIfCopy(auth, authInterpolation);
+    @Test
+    void constructor_keepsANullArgValueForInterpolationToReject() {
+        // given - authored YAML 'token:' with nothing after it
+        var args = new HashMap<String, String>();
+        args.put("token", null);
+
+        // when
+        var auth = new Auth("bearer", args);
+
+        // then
+        assertThat(auth.getArgs()).containsEntry("token", null);
     }
 
-    private static Stream<Arguments> provideAllAuthTypes() {
-        return Stream.of(
-                Arguments.of(authNone), Arguments.of(authBasic), Arguments.of(authBearer), Arguments.of(authApiKey));
+    @Test
+    void constructor_isNotAnInterpolatedCopyWithoutOutcomes() {
+        // when
+        var auth = new Auth("bearer", Map.of("token", "t"));
+
+        // then
+        assertThat(auth.isInterpolated()).isFalse();
     }
 }

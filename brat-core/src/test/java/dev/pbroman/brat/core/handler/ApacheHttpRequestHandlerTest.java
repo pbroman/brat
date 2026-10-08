@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ApacheHttpRequestHandlerTest {
 
-    private static final RequestOptions OPTIONS = new RequestOptions(null, Map.of());
+    private static final RequestOptions OPTIONS = new RequestOptions(null, null, Map.of());
 
     private StubHttpServer stub;
     private ApacheHttpRequestHandler underTest;
@@ -319,7 +319,7 @@ class ApacheHttpRequestHandlerTest {
         stub.respond(200, "too late");
         stub.respondSlowly(2000);
         var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "GET", null, null);
-        var options = new RequestOptions("200", Map.of());
+        var options = new RequestOptions("200", null, Map.of());
 
         // then
         assertThatThrownBy(() -> underTest.performRequest(definition, options)).isInstanceOf(BratException.class);

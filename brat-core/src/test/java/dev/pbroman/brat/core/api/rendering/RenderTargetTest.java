@@ -86,7 +86,7 @@ class RenderTargetTest {
     @Test
     void of_labelsWithTheRuntimeTypeNotTheDeclaredOne() {
         // given - held as ConfigData, as a reporter holding a request's sent definition would
-        ConfigData interpolated = new Auth("basic", "user", "pw", null, Map.of());
+        ConfigData interpolated = new Auth("basic", Map.of("username", "user"), Map.of());
 
         // when
         var underTest = RenderTarget.of(interpolated);

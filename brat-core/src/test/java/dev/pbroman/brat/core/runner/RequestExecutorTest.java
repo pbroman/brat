@@ -35,7 +35,7 @@ import static org.mockito.Mockito.when;
 
 class RequestExecutorTest {
 
-    private static final RequestOptions OPTIONS = new RequestOptions(null, Map.of());
+    private static final RequestOptions OPTIONS = new RequestOptions(null, null, Map.of());
 
     private HttpRequestHandler requestHandler;
     private ConditionEvaluator conditionEvaluator;
