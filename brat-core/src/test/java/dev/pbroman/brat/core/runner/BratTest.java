@@ -12,6 +12,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import dev.pbroman.brat.core.api.auth.AuthHandler;
 import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
 import dev.pbroman.brat.core.api.handler.RequestHandler;
@@ -27,6 +28,7 @@ import dev.pbroman.brat.core.api.listener.RunListener;
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.api.secrets.SecretsProviderFactory;
+import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
@@ -1608,6 +1610,137 @@ class BratTest {
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("closed")
                 .hasMessageNotContaining("missing.brat.yaml");
+    }
+
+    // ---------- auth handlers ----------
+
+    @Test
+    void authHandler_rejectsNull() {
+        // when / then
+        assertThatThrownBy(() -> Brat.builder().authHandler(null)).isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void close_closesTheAuthHandlersItDiscoveredEvenWhenOneOfThemThrows() {
+        // given
+        ClosingAuthHandler.CLOSES.set(0);
+        ThrowingCloseAuthHandler.ATTEMPTS.set(0);
+        var brat = Brat.builder().classLoader(closeableAuthLoader()).build();
+
+        // when - and it does not throw, though one handler does
+        brat.close();
+
+        // then
+        assertThat(ClosingAuthHandler.CLOSES).hasValue(1);
+        assertThat(ThrowingCloseAuthHandler.ATTEMPTS).hasValue(1);
+    }
+
+    @Test
+    void build_closesTheAuthHandlersItDiscoveredWhenItFails() {
+        // given - discovery creates the handler, then a default reporter nobody registered fails the build
+        ClosingAuthHandler.CLOSES.set(0);
+        var builder = Brat.builder().classLoader(closeableAuthLoader()).defaultReporters(List.of("nobody"));
+
+        // when
+        assertThatThrownBy(builder::build).isInstanceOf(BratException.class);
+
+        // then - no runner was returned, so nothing else could ever close it
+        assertThat(ClosingAuthHandler.CLOSES).hasValue(1);
+    }
+
+    @Test
+    void close_leavesAnAuthHandlerAddedOnTheBuilderOpen() {
+        // given
+        var wired = new ClosingAuthHandler();
+        ClosingAuthHandler.CLOSES.set(0);
+        var brat = Brat.builder().authHandler(wired).build();
+
+        // when
+        brat.close();
+
+        // then - whoever created it closes it
+        assertThat(ClosingAuthHandler.CLOSES).hasValue(0);
+    }
+
+    @Test
+    void build_failsOnADiscoveredAuthHandlerWithABlankTypeNamingIt() {
+        // given
+        var root = BratTest.class.getClassLoader().getResource("blank-auth-type-plugin-fixture/");
+        var builder = Brat.builder().classLoader(new URLClassLoader(new URL[] {root}, BratTest.class.getClassLoader()));
+
+        // when / then
+        assertThatThrownBy(builder::build)
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining(BlankTypeAuthHandler.class.getName());
+    }
+
+    /**
+     * A classloader declaring {@link ClosingAuthHandler} and {@link ThrowingCloseAuthHandler} as plugins.
+     *
+     * @return the loader
+     */
+    private static ClassLoader closeableAuthLoader() {
+        var root = BratTest.class.getClassLoader().getResource("closeable-auth-plugin-fixture/");
+        return new URLClassLoader(new URL[] {root}, BratTest.class.getClassLoader());
+    }
+
+    /** A discoverable auth handler counting how often it is closed. */
+    public static final class ClosingAuthHandler implements AuthHandler, AutoCloseable {
+
+        /** How often any instance was closed. */
+        static final AtomicInteger CLOSES = new AtomicInteger();
+
+        @Override
+        public String type() {
+            return "closing";
+        }
+
+        @Override
+        public Map<String, String> apply(Auth auth, HttpRequestDefinition request) {
+            return Map.of();
+        }
+
+        @Override
+        public void close() {
+            CLOSES.incrementAndGet();
+        }
+    }
+
+    /** A discoverable auth handler whose close always fails. */
+    public static final class ThrowingCloseAuthHandler implements AuthHandler, AutoCloseable {
+
+        /** How often any instance was asked to close. */
+        static final AtomicInteger ATTEMPTS = new AtomicInteger();
+
+        @Override
+        public String type() {
+            return "throwing-close";
+        }
+
+        @Override
+        public Map<String, String> apply(Auth auth, HttpRequestDefinition request) {
+            return Map.of();
+        }
+
+        @Override
+        public void close() {
+            ATTEMPTS.incrementAndGet();
+            throw new IllegalStateException("cannot close");
+        }
+    }
+
+    /** A discoverable auth handler with no usable type. */
+    public static final class BlankTypeAuthHandler implements AuthHandler {
+
+        @Override
+        public String type() {
+            return " ";
+        }
+
+        @Override
+        public Map<String, String> apply(Auth auth, HttpRequestDefinition request) {
+            return Map.of();
+        }
     }
 
     /**

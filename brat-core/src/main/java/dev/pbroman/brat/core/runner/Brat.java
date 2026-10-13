@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import dev.pbroman.brat.core.api.auth.AuthHandler;
 import dev.pbroman.brat.core.api.handler.RequestHandler;
 import dev.pbroman.brat.core.api.interpolation.BratFunction;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
@@ -18,6 +19,11 @@ import dev.pbroman.brat.core.api.reporting.ReporterContext;
 import dev.pbroman.brat.core.api.reporting.RunReporter;
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.api.secrets.SecretsProviderFactory;
+import dev.pbroman.brat.core.auth.ApiKeyAuthHandler;
+import dev.pbroman.brat.core.auth.AuthHandlerRegistry;
+import dev.pbroman.brat.core.auth.BasicAuthHandler;
+import dev.pbroman.brat.core.auth.BearerAuthHandler;
+import dev.pbroman.brat.core.auth.NoneAuthHandler;
 import dev.pbroman.brat.core.data.TestSuite;
 import dev.pbroman.brat.core.data.result.RunResult;
 import dev.pbroman.brat.core.data.result.SuiteError;
@@ -107,13 +113,13 @@ public final class Brat implements AutoCloseable {
     private final OutcomeRenderer renderer;
     private final RunReporterRegistry reporters;
     private final List<String> defaultReporters;
-    private final List<RequestHandler<?, ?>> owned;
+    private final List<AutoCloseable> owned;
     private final AtomicBoolean closed = new AtomicBoolean();
 
     private Brat(Builder builder) {
         // Handlers this runner creates are its to close, so a build that fails part-way closes them
         // rather than leaking a connection pool nobody can reach.
-        var created = new ArrayList<RequestHandler<?, ?>>();
+        var created = new ArrayList<AutoCloseable>();
         try {
             var loader = builder.classLoader;
             var functions =
@@ -162,6 +168,7 @@ public final class Brat implements AutoCloseable {
                     new ConditionResolverRuleDispatcher(conditionRules),
                     new SecretsBootstrap(factories, launchRules),
                     protocolRegistryOf(builder, created),
+                    authRegistryOf(builder, created),
                     new ConditionInterpolator(),
                     new AssertionInterpolator(new ChainedConditionInterpolator()),
                     new FlowControlInterpolator(new RepeatUntilInterpolator()));
@@ -236,7 +243,7 @@ public final class Brat implements AutoCloseable {
      *         protocol whose definition type has no interpolator, two handlers for one protocol
      *         disagreeing about that type, a configured default naming a handler nobody registered
      */
-    private static ProtocolRegistry protocolRegistryOf(Builder builder, List<RequestHandler<?, ?>> created) {
+    private static ProtocolRegistry protocolRegistryOf(Builder builder, List<AutoCloseable> created) {
         var interpolators = new ArrayList<RequestDefinitionInterpolator<?>>();
         interpolators.add(new HttpRequestDefinitionInterpolator());
         interpolators.addAll(builder.requestDefinitionInterpolators);
@@ -247,7 +254,9 @@ public final class Brat implements AutoCloseable {
 
         var handlers = new ArrayList<>(builder.requestHandlers);
         for (RequestHandler<?, ?> discovered : PluginDiscovery.discover(RequestHandler.class, builder.classLoader)) {
-            created.add(discovered);
+            if (discovered instanceof AutoCloseable closeable) {
+                created.add(closeable);
+            }
             handlers.add(discovered);
         }
         if (handlers.stream().noneMatch(handler -> HTTP.equals(handler.protocol()))) {
@@ -261,6 +270,34 @@ public final class Brat implements AutoCloseable {
             defaults.put(HTTP, ApacheHttpRequestHandler.NAME);
         }
         return new ProtocolRegistry(handlers, defaults, new RequestDefinitionInterpolators(interpolators));
+    }
+
+    /**
+     * Assembles the auth handlers a runner can select, by type.
+     * <p>
+     * <strong>Three sources, in one order</strong> — core's built-ins, then what the builder was
+     * given, then what the classloader declares — and a later handler replaces an earlier one of the
+     * same type, so a builder registration overrides a built-in and a plugin jar overrides both.
+     *
+     * @param builder the builder holding what was registered
+     * @param created receives every discovered handler that implements {@link AutoCloseable};
+     *        <strong>modified</strong>, and filled before anything can throw, so a caller can close
+     *        them whatever happens. Core's built-ins hold nothing to close, and a handler from the
+     *        builder belongs to whoever created it, so neither is added
+     * @return the registry
+     * @throws BratException if a handler's {@code type()} is {@code null} or blank
+     */
+    private static AuthHandlerRegistry authRegistryOf(Builder builder, List<AutoCloseable> created) {
+        var authHandlers = new ArrayList<>(List.of(
+                new NoneAuthHandler(), new BasicAuthHandler(), new BearerAuthHandler(), new ApiKeyAuthHandler()));
+        authHandlers.addAll(builder.authHandlers);
+        for (AuthHandler discovered : PluginDiscovery.discover(AuthHandler.class, builder.classLoader)) {
+            if (discovered instanceof AutoCloseable c) {
+                created.add(c);
+            }
+            authHandlers.add(discovered);
+        }
+        return new AuthHandlerRegistry(authHandlers);
     }
 
     /**
@@ -482,11 +519,12 @@ public final class Brat implements AutoCloseable {
     }
 
     /**
-     * Closes the request handlers this runner created, after which it runs nothing.
+     * Closes the request handlers and auth handlers this runner created, after which it runs nothing.
      * <p>
      * <strong>Which handlers.</strong> Those this runner created itself and that implement
-     * {@link AutoCloseable}: every handler discovered through {@code META-INF/services}, and the HTTP
-     * handler it supplied because nothing else served {@code http}. A handler added on the builder is
+     * {@link AutoCloseable}: every request handler and auth handler discovered through
+     * {@code META-INF/services}, and the HTTP handler it supplied because
+     * nothing else served {@code http}. A handler of either kind added on the builder is
      * <strong>never</strong> closed here — whoever created it closes it, which is what lets one handler
      * serve two runners, or a dependency-injection container close the handler it manages.
      * <p>
@@ -515,23 +553,17 @@ public final class Brat implements AutoCloseable {
     }
 
     /**
-     * Closes every handler in {@code handlers} that can be closed, logging a failure rather than
-     * letting it stop the rest.
+     * Closes every handler in {@code handlers}, logging a failure rather than letting it stop the
+     * rest.
      *
      * @param handlers the handlers to close
      */
-    private static void closeAll(List<RequestHandler<?, ?>> handlers) {
+    private static void closeAll(List<AutoCloseable> handlers) {
         for (var handler : handlers) {
-            if (handler instanceof AutoCloseable closeable) {
-                try {
-                    closeable.close();
-                } catch (Exception e) {
-                    log.warn(
-                            "The request handler '{}' ({}) failed to close",
-                            handler.name(),
-                            handler.getClass().getName(),
-                            e);
-                }
+            try {
+                handler.close();
+            } catch (Exception e) {
+                log.warn("The handler '{}' failed to close", handler.getClass().getName(), e);
             }
         }
     }
@@ -558,7 +590,8 @@ public final class Brat implements AutoCloseable {
      * is consulted after the core one and must declare a higher {@code priority()} to override it. A
      * <em>function</em> or a <em>provider factory</em> is collapsed into a registry keyed by
      * {@code name()} or {@code type()}, so an added one with a key core already uses replaces it,
-     * logged at WARN; so is a <em>run reporter</em>. Priorities 0-100 are reserved for core.
+     * logged at WARN; so is a <em>run reporter</em>, and so is an <em>auth handler</em>, by
+     * {@code type()}. Priorities 0-100 are reserved for core.
      */
     public static final class Builder {
 
@@ -571,6 +604,7 @@ public final class Brat implements AutoCloseable {
         private final Map<String, String> defaultRequestHandlers = new LinkedHashMap<>();
         private final List<OutcomeRendererRule> outcomeRendererRules = new ArrayList<>();
         private final List<RunReporter> runReporters = new ArrayList<>();
+        private final List<AuthHandler> authHandlers = new ArrayList<>();
         private List<String> defaultReporters = List.of(ConsoleRunReporter.NAME);
         private ClassLoader classLoader = Brat.class.getClassLoader();
 
@@ -723,6 +757,24 @@ public final class Brat implements AutoCloseable {
         }
 
         /**
+         * Adds an auth handler, selected by its {@code type()} when a suite declares
+         * {@code auth: {type: …}}.
+         * <p>
+         * One whose type core or an earlier registration already uses replaces it, logged at WARN
+         * naming both — the way to override a built-in type. A handler added here is never closed by
+         * the runner: whoever created it closes it.
+         *
+         * @param handler the handler to add; must not be {@code null}
+         * @return this builder
+         * @throws BratException if {@code handler} is {@code null}
+         */
+        public Builder authHandler(AuthHandler handler) {
+            nonNull(handler, "The auth handler to add must not be null");
+            authHandlers.add(handler);
+            return this;
+        }
+
+        /**
          * Sets which reporters report a run started with {@link Brat#run(TestSuite, Environment)},
          * replacing the previous setting. Unless this is called, the default is the console reporter
          * alone, {@code ["console"]}. An empty list makes such a run silent.
@@ -767,7 +819,8 @@ public final class Brat implements AutoCloseable {
          * <p>
          * Discovery happens here and once: every {@link InterpolationRule},
          * {@link ConditionResolverRule}, {@link BratFunction}, {@link SecretsProviderFactory},
-         * {@link OutcomeRendererRule} and {@link RunReporter} the classloader declares is appended after
+         * {@link OutcomeRendererRule}, {@link RunReporter} and {@link AuthHandler} the classloader
+         * declares is appended after
          * the core defaults and after anything added on this builder. A plugin that cannot be loaded
          * fails here, while nothing is running.
          * <p>
@@ -782,8 +835,9 @@ public final class Brat implements AutoCloseable {
          * <strong>What it refuses to build</strong>, so that a wiring mistake is never discovered by a
          * request: a protocol whose definition type has no interpolator; two handlers for one
          * protocol disagreeing about which class an authored {@code requestDefinition:} binds to; a
-         * default naming a handler nobody registered; and a default reporter nobody registered, or one
-         * that rejects the empty arguments it will get.
+         * default naming a handler nobody registered; a default reporter nobody registered, or one
+         * that rejects the empty arguments it will get; and an auth handler whose {@code type()} is
+         * {@code null} or blank.
          *
          * @return a runner ready to run suites
          * @throws BratException if a declared plugin cannot be loaded or instantiated, or if the

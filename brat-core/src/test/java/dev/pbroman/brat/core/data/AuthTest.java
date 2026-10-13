@@ -1,6 +1,7 @@
 package dev.pbroman.brat.core.data;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -37,7 +38,7 @@ class AuthTest {
     @Test
     void constructor_keepsTheArgsInDeclarationOrder() {
         // given
-        var args = new java.util.LinkedHashMap<String, String>();
+        var args = new LinkedHashMap<String, String>();
         args.put("username", "u");
         args.put("password", "p");
 

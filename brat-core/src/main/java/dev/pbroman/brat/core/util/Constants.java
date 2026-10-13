@@ -31,6 +31,9 @@ public final class Constants {
     public static final String FILE_PREFIX = "file:";
     public static final String TOKEN_SUFFIX = "}";
 
+    /** The HTTP header that carries a request's credentials. */
+    public static final String AUTHORIZATION = "Authorization";
+
     /** The protocol of a request core can execute without a plugin, and the default when none is declared. */
     public static final String HTTP = "http";
 

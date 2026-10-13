@@ -113,4 +113,53 @@ class ArgsUtilsTest {
         // then
         assertThatThrownBy(() -> ArgsUtils.requiredArg(args, SUBJECT, "offset")).isInstanceOf(BratException.class);
     }
+
+    @Test
+    void requiredNonBlankArg_returnsTheValue() {
+        // given
+        var args = Map.of("token", "abc");
+
+        // then
+        assertThat(ArgsUtils.requiredNonBlankArg(args, SUBJECT, "token")).isEqualTo("abc");
+    }
+
+    @Test
+    void requiredNonBlankArg_throwsWhenItIsAbsentNamingKeyAndSubject() {
+        // when / then
+        assertThatThrownBy(() -> ArgsUtils.requiredNonBlankArg(Map.of(), SUBJECT, "token"))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("token")
+                .hasMessageContaining(SUBJECT);
+    }
+
+    @Test
+    void requiredNonBlankArg_throwsWhenItIsPresentButNull() {
+        // given
+        var args = new HashMap<String, String>();
+        args.put("token", null);
+
+        // when / then
+        assertThatThrownBy(() -> ArgsUtils.requiredNonBlankArg(args, SUBJECT, "token"))
+                .isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void requiredNonBlankArg_throwsWhenItIsEmpty() {
+        // when / then
+        assertThatThrownBy(() -> ArgsUtils.requiredNonBlankArg(Map.of("token", ""), SUBJECT, "token"))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("token")
+                .hasMessageContaining(SUBJECT);
+    }
+
+    @Test
+    void requiredNonBlankArg_throwsWhenItIsWhitespaceOnly() {
+        // given - blank, not just empty
+        var args = Map.of("token", " \t ");
+
+        // when / then
+        assertThatThrownBy(() -> ArgsUtils.requiredNonBlankArg(args, SUBJECT, "token"))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("token");
+    }
 }

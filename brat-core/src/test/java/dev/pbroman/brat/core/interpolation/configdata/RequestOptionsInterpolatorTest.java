@@ -1,5 +1,6 @@
 package dev.pbroman.brat.core.interpolation.configdata;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
@@ -113,7 +114,7 @@ class RequestOptionsInterpolatorTest {
     @Test
     void interpolated_throwsIfTheAuthCannotBeInterpolated() {
         // given
-        var args = new java.util.HashMap<String, String>();
+        var args = new HashMap<String, String>();
         args.put("token", null);
         var options = new RequestOptions(null, new Auth("bearer", args));
 

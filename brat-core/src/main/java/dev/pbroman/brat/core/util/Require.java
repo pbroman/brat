@@ -1,6 +1,6 @@
 package dev.pbroman.brat.core.util;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.Objects;
 
 import dev.pbroman.brat.core.exception.BratException;
@@ -49,15 +49,15 @@ public final class Require {
     }
 
     /**
-     * Requires that {@code list} is neither {@code null} nor holds a {@code null} element.
+     * Requires that {@code collection} is neither {@code null} nor holds a {@code null} element.
      *
-     * @param list the list to check
-     * @param message the message of the exception thrown if the list or an element is {@code null}
-     * @throws BratException if {@code list} is {@code null} or holds a {@code null} element
+     * @param collection the collection to check
+     * @param message the message of the exception thrown if the collection or an element is {@code null}
+     * @throws BratException if {@code collection} is {@code null} or holds a {@code null} element
      */
-    public static void noNullElements(List<?> list, String message) {
-        nonNull(list, message);
-        if (list.stream().anyMatch(Objects::isNull)) {
+    public static void noNullElements(Collection<?> collection, String message) {
+        nonNull(collection, message);
+        if (collection.stream().anyMatch(Objects::isNull)) {
             throw new BratException(message);
         }
     }
