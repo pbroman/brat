@@ -11,6 +11,10 @@ import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.resolver.ConditionResolver;
+import dev.pbroman.brat.core.auth.AuthHandlerRegistry;
+import dev.pbroman.brat.core.auth.BearerAuthHandler;
+import dev.pbroman.brat.core.auth.NoneAuthHandler;
+import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
@@ -36,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -45,6 +50,8 @@ import static org.mockito.Mockito.when;
 class RequestProcessorTest {
 
     private static final RequestOptions OPTIONS = new RequestOptions(null);
+    private static final AuthHandlerRegistry AUTH_HANDLERS =
+            new AuthHandlerRegistry(List.of(new NoneAuthHandler(), new BearerAuthHandler()));
 
     private Interpolation interpolation;
     private RequestDefinitionInterpolators requestDefinitionInterpolator;
@@ -59,7 +66,7 @@ class RequestProcessorTest {
     private final HttpRequestDefinition authored =
             new HttpRequestDefinition("${vars.baseUrl}/orders", "GET", null, null);
     private final HttpRequestDefinition interpolated =
-            new HttpRequestDefinition("http://localhost/orders", "GET", null, null, Map.of());
+            new HttpRequestDefinition("http://localhost/orders", "GET", null, null, null, Map.of());
     private final HttpResponse response = new HttpResponse(200, Map.of(), "{\"id\":\"42\"}");
 
     @SuppressWarnings("unchecked")
@@ -83,7 +90,8 @@ class RequestProcessorTest {
                 responseHandler,
                 flowControlInterpolator,
                 new RequestOptionsInterpolator(),
-                new RequestExecutor(conditionEvaluator, attempt -> {}));
+                new RequestExecutor(conditionEvaluator, attempt -> {}),
+                AUTH_HANDLERS);
 
         runtimeData = new RuntimeData(Map.of(), Map.of());
 
@@ -503,7 +511,8 @@ class RequestProcessorTest {
                 responseHandler,
                 flowControlInterpolator,
                 new RequestOptionsInterpolator(),
-                new RequestExecutor(realEvaluator, attempt -> {}));
+                new RequestExecutor(realEvaluator, attempt -> {}),
+                AUTH_HANDLERS);
 
         // when
         var result = underTestWithRealInterpolator.process(
@@ -860,5 +869,147 @@ class RequestProcessorTest {
         // when / then
         assertThatThrownBy(() -> underTest.process(request, OPTIONS, coordinates, runtimeData, requestHandler))
                 .isInstanceOf(BratException.class);
+    }
+
+    // ---------- auth ----------
+
+    /** Options carrying {@code auth}, interpolated by an interpolation that returns every value as written. */
+    private RequestOptions optionsWith(Auth auth) {
+        when(interpolation.outcome(anyString(), any()))
+                .thenAnswer(call -> new InterpolationOutcome(call.getArgument(0), call.getArgument(0)));
+        return new RequestOptions(null, auth);
+    }
+
+    private static Auth bearer(String token) {
+        return new Auth(BearerAuthHandler.TYPE, Map.of("token", token));
+    }
+
+    private static String erroredMessage(dev.pbroman.brat.core.data.result.RequestResult result) {
+        assertThat(result.status()).isInstanceOf(RequestStatus.Errored.class);
+        return ((RequestStatus.Errored) result.status()).message();
+    }
+
+    @Test
+    void process_sendsTheRequestWithItsCredentials() {
+        // given
+        var sent = ArgumentCaptor.forClass(RequestDefinition.class);
+
+        // when
+        underTest.process(
+                requestWith(null, null), optionsWith(bearer("abc")), coordinates, runtimeData, requestHandler);
+
+        // then
+        verify(requestHandler).performRequest(sent.capture(), any());
+        assertThat(((HttpRequestDefinition) sent.getValue()).getHeaders()).containsEntry("Authorization", "Bearer abc");
+    }
+
+    @Test
+    void process_carriesTheRequestAsSentWithItsCredentialsMasked() {
+        // when
+        var result = underTest.process(
+                requestWith(null, null), optionsWith(bearer("abc")), coordinates, runtimeData, requestHandler);
+
+        // then
+        var definition = (HttpRequestDefinition) result.requestDefinition();
+        assertThat(definition.getHeaders()).containsEntry("Authorization", "Bearer abc");
+        assertThat(definition.getOutcomes().get("header.Authorization").reportingString())
+                .isEqualTo("auth bearer → Bearer ***");
+    }
+
+    @Test
+    void process_erroresOnAnAuthTypeNothingIsRegisteredFor() {
+        // when
+        var result = underTest.process(
+                requestWith(null, null),
+                optionsWith(new Auth("aws-sigv4", null)),
+                coordinates,
+                runtimeData,
+                requestHandler);
+
+        // then - the type, and what could have been written instead
+        assertThat(erroredMessage(result))
+                .contains("aws-sigv4")
+                .contains("bearer")
+                .contains("none");
+        verify(requestHandler, never()).performRequest(any(), any());
+        assertThat(result.requestDefinition()).isSameAs(interpolated);
+        assertThat(result.requestOptions().isInterpolated()).isTrue();
+    }
+
+    @Test
+    void process_erroresOnAuthOnANonHttpRequest() {
+        // given
+        RequestDefinition ftp = () -> "ftp";
+        var request = new Request("fetch the order", null, null, null, null, null, null, null, ftp, null, null);
+        when(requestDefinitionInterpolator.interpolated(any(), any(), any())).thenReturn(ftp);
+
+        // when
+        var result = underTest.process(request, optionsWith(bearer("abc")), coordinates, runtimeData, requestHandler);
+
+        // then
+        assertThat(erroredMessage(result)).contains("bearer").contains("ftp").contains("HTTP");
+        verify(requestHandler, never()).performRequest(any(), any());
+    }
+
+    @Test
+    void process_erroresOnAuthOnANonHttpDefinitionClaimingHttp() {
+        // given - a plugin's own definition naming the http protocol is still not an HTTP definition
+        RequestDefinition impostor = () -> "http";
+        var request = new Request("fetch the order", null, null, null, null, null, null, null, impostor, null, null);
+        when(requestDefinitionInterpolator.interpolated(any(), any(), any())).thenReturn(impostor);
+
+        // when
+        var result = underTest.process(request, optionsWith(bearer("abc")), coordinates, runtimeData, requestHandler);
+
+        // then
+        assertThat(erroredMessage(result)).contains("bearer").contains("HTTP-only");
+        verify(requestHandler, never()).performRequest(any(), any());
+    }
+
+    @Test
+    void process_runsANonHttpRequestWhoseAuthIsNone() {
+        // given - a suite-level login over a tree that also holds a non-HTTP request cancels it there
+        RequestDefinition ftp = () -> "ftp";
+        var request = new Request("fetch the order", null, null, null, null, null, null, null, ftp, null, null);
+        when(requestDefinitionInterpolator.interpolated(any(), any(), any())).thenReturn(ftp);
+
+        // when
+        var result = underTest.process(
+                request, optionsWith(new Auth(NoneAuthHandler.TYPE, null)), coordinates, runtimeData, requestHandler);
+
+        // then
+        assertThat(result.status()).isInstanceOf(RequestStatus.Completed.class);
+        verify(requestHandler).performRequest(eq(ftp), any());
+    }
+
+    @Test
+    void process_erroresWhenTheAuthHandlerRejectsTheCredentials() {
+        // when - a blank token is the shape of a login whose capture never ran
+        var result = underTest.process(
+                requestWith(null, null), optionsWith(bearer(" ")), coordinates, runtimeData, requestHandler);
+
+        // then - nothing was sent, so the result carries the interpolated, unauthenticated request
+        assertThat(erroredMessage(result)).contains("token");
+        verify(requestHandler, never()).performRequest(any(), any());
+        assertThat(result.requestDefinition()).isSameAs(interpolated);
+    }
+
+    @Test
+    void process_erroresOnAHeaderTheAuthorAlreadyWrote() {
+        // given
+        var withHeader = new HttpRequestDefinition(
+                "http://localhost/orders", "GET", null, Map.of("authorization", "Bearer hand-written"), null, Map.of());
+        when(requestDefinitionInterpolator.interpolated(any(), any(), any())).thenReturn(withHeader);
+
+        // when
+        var result = underTest.process(
+                requestWith(null, null), optionsWith(bearer("s3cr3t")), coordinates, runtimeData, requestHandler);
+
+        // then - pointing at the way to send the hand-written one, and quoting neither credential
+        assertThat(erroredMessage(result))
+                .contains("type: none")
+                .doesNotContain("s3cr3t")
+                .doesNotContain("hand-written");
+        verify(requestHandler, never()).performRequest(any(), any());
     }
 }

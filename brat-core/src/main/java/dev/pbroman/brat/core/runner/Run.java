@@ -198,7 +198,8 @@ final class Run {
                 responseHandler,
                 collaborators.flowControlInterpolator(),
                 new RequestOptionsInterpolator(),
-                new RequestExecutor(conditionEvaluator, attemptListener));
+                new RequestExecutor(conditionEvaluator, attemptListener),
+                collaborators.authHandlerRegistry());
 
         new TestSuiteRunner(
                         processor,

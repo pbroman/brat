@@ -82,6 +82,10 @@ public interface RequestHandler<T extends RequestDefinition, R> {
      * <strong>Both arrive interpolated</strong>, so every value on them is final text, and
      * {@link RequestOptions#timeoutMs()} is already defaulted and validated — a handler applies it and
      * never re-derives it.
+     * <p>
+     * <strong>Credentials are already applied.</strong> For an HTTP request, the headers that
+     * {@link RequestOptions#getAuth()} stands for are already on {@code requestDefinition}: a handler
+     * sends what it is given and never applies that auth again.
      *
      * @param requestDefinition the request to perform; never {@code null}
      * @param options what the run resolved for this request, such as its timeout; never {@code null}

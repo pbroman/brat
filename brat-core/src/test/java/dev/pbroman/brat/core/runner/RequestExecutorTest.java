@@ -22,6 +22,7 @@ import dev.pbroman.brat.core.handler.HttpResponseVars;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import static java.util.function.UnaryOperator.identity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
@@ -87,7 +88,9 @@ class RequestExecutorTest {
         when(requestHandler.performRequest(any(), any())).thenReturn(response(200));
 
         // when
-        var status = underTest.execute(definition, OPTIONS, requestHandler, Optional.empty(), coordinates, runtimeData);
+        var status = underTest
+                .execute(definition, identity(), OPTIONS, requestHandler, Optional.empty(), coordinates, runtimeData)
+                .status();
 
         // then - no loop, so no condition is consulted and no progress is reported within one
         assertThat(status).isInstanceOf(RequestStatus.Completed.class);
@@ -102,7 +105,9 @@ class RequestExecutorTest {
         when(requestHandler.performRequest(any(), any())).thenThrow(new BratException("Connection refused"));
 
         // when
-        var status = underTest.execute(definition, OPTIONS, requestHandler, Optional.empty(), coordinates, runtimeData);
+        var status = underTest
+                .execute(definition, identity(), OPTIONS, requestHandler, Optional.empty(), coordinates, runtimeData)
+                .status();
 
         // then
         assertThat(status)
@@ -118,7 +123,7 @@ class RequestExecutorTest {
         when(requestHandler.performRequest(any(), any())).thenReturn(response(201));
 
         // when
-        underTest.execute(definition, OPTIONS, requestHandler, Optional.empty(), coordinates, runtimeData);
+        underTest.execute(definition, identity(), OPTIONS, requestHandler, Optional.empty(), coordinates, runtimeData);
 
         // then - the assertions and captures read the response through the namespace
         assertThat(runtimeData.getResponseVars()).containsEntry("statusCode", 201);
@@ -133,8 +138,16 @@ class RequestExecutorTest {
         conditionHolds(false, false, true);
 
         // when
-        var status = underTest.execute(
-                definition, OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
+        var status = underTest
+                .execute(
+                        definition,
+                        identity(),
+                        OPTIONS,
+                        requestHandler,
+                        bounds("5", "0", null),
+                        coordinates,
+                        runtimeData)
+                .status();
 
         // then
         assertThat(status)
@@ -153,8 +166,16 @@ class RequestExecutorTest {
         conditionHolds(true);
 
         // when
-        var status = underTest.execute(
-                definition, OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
+        var status = underTest
+                .execute(
+                        definition,
+                        identity(),
+                        OPTIONS,
+                        requestHandler,
+                        bounds("5", "0", null),
+                        coordinates,
+                        runtimeData)
+                .status();
 
         // then - an errored attempt is a retry, so earlier failures do not decide the outcome
         assertThat(status).isInstanceOf(RequestStatus.Completed.class);
@@ -167,8 +188,16 @@ class RequestExecutorTest {
         conditionHolds(false);
 
         // when
-        var status = underTest.execute(
-                definition, OPTIONS, requestHandler, bounds("3", "0", "still processing"), coordinates, runtimeData);
+        var status = underTest
+                .execute(
+                        definition,
+                        identity(),
+                        OPTIONS,
+                        requestHandler,
+                        bounds("3", "0", "still processing"),
+                        coordinates,
+                        runtimeData)
+                .status();
 
         // then - never reaching the condition is a failure, not a pass
         assertThat(status).asInstanceOf(type(RequestStatus.GaveUp.class)).satisfies(gaveUp -> {
@@ -187,8 +216,16 @@ class RequestExecutorTest {
         conditionHolds(false);
 
         // when
-        var status = underTest.execute(
-                definition, OPTIONS, requestHandler, bounds("2", "0", "still processing"), coordinates, runtimeData);
+        var status = underTest
+                .execute(
+                        definition,
+                        identity(),
+                        OPTIONS,
+                        requestHandler,
+                        bounds("2", "0", "still processing"),
+                        coordinates,
+                        runtimeData)
+                .status();
 
         // then - messageOnFail describes a condition that never came true, not a connection failure
         assertThat(status)
@@ -206,7 +243,8 @@ class RequestExecutorTest {
         conditionHolds(false, false, true);
 
         // when
-        underTest.execute(definition, OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
+        underTest.execute(
+                definition, identity(), OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
 
         // then
         verify(requestHandler, times(3)).performRequest(same(definition), same(OPTIONS));
@@ -218,7 +256,8 @@ class RequestExecutorTest {
         when(requestHandler.performRequest(any(), any())).thenThrow(new BratException("Connection refused"));
 
         // when
-        underTest.execute(definition, OPTIONS, requestHandler, bounds("3", "0", null), coordinates, runtimeData);
+        underTest.execute(
+                definition, identity(), OPTIONS, requestHandler, bounds("3", "0", null), coordinates, runtimeData);
 
         // then - the budget bounds errored attempts too, or a dead host loops forever
         verify(requestHandler, times(3)).performRequest(any(), any());
@@ -230,7 +269,8 @@ class RequestExecutorTest {
         when(requestHandler.performRequest(any(), any())).thenThrow(new BratException("Connection refused"));
 
         // when
-        underTest.execute(definition, OPTIONS, requestHandler, bounds("2", "0", null), coordinates, runtimeData);
+        underTest.execute(
+                definition, identity(), OPTIONS, requestHandler, bounds("2", "0", null), coordinates, runtimeData);
 
         // then - there is no response, so ${response.*} has nothing to resolve against
         verify(conditionEvaluator, never()).evaluate(any(), any());
@@ -243,8 +283,16 @@ class RequestExecutorTest {
         when(conditionEvaluator.evaluate(any(), any())).thenThrow(new BratException("No rule recognizes 'isEqaulTo'"));
 
         // when
-        var status = underTest.execute(
-                definition, OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
+        var status = underTest
+                .execute(
+                        definition,
+                        identity(),
+                        OPTIONS,
+                        requestHandler,
+                        bounds("5", "0", null),
+                        coordinates,
+                        runtimeData)
+                .status();
 
         // then - retrying it five times with waits cannot make it start working
         assertThat(status).isInstanceOf(RequestStatus.Errored.class);
@@ -261,7 +309,8 @@ class RequestExecutorTest {
 
         // when - three attempts means two waits
         long start = System.currentTimeMillis();
-        underTest.execute(definition, OPTIONS, requestHandler, bounds("3", "20", null), coordinates, runtimeData);
+        underTest.execute(
+                definition, identity(), OPTIONS, requestHandler, bounds("3", "20", null), coordinates, runtimeData);
 
         // then - a lower bound only. An upper bound cannot distinguish two waits from three here:
         // measured, a cold JVM adds ~330ms to this test, far more than any wait worth using.
@@ -280,8 +329,16 @@ class RequestExecutorTest {
             Thread.currentThread().interrupt();
 
             // when
-            var status = underTest.execute(
-                    definition, OPTIONS, requestHandler, bounds("1", "100", null), coordinates, runtimeData);
+            var status = underTest
+                    .execute(
+                            definition,
+                            identity(),
+                            OPTIONS,
+                            requestHandler,
+                            bounds("1", "100", null),
+                            coordinates,
+                            runtimeData)
+                    .status();
 
             // then - it reached the give-up without ever waiting; pausing after the final attempt
             // would only delay a give-up that has already been decided
@@ -303,7 +360,7 @@ class RequestExecutorTest {
 
             // when / then
             assertThatThrownBy(() -> underTest.execute(
-                            definition, OPTIONS, requestHandler, pollBounds, coordinates, runtimeData))
+                            definition, identity(), OPTIONS, requestHandler, pollBounds, coordinates, runtimeData))
                     .isInstanceOf(BratException.class)
                     .hasMessageContaining("Interrupted");
 
@@ -323,7 +380,8 @@ class RequestExecutorTest {
         conditionHolds(false, false, true);
 
         // when
-        underTest.execute(definition, OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
+        underTest.execute(
+                definition, identity(), OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
 
         // then - a poll must be visible while it runs, not only when it ends
         assertThat(attempts).hasSize(3);
@@ -341,7 +399,8 @@ class RequestExecutorTest {
         conditionHolds(false, true);
 
         // when
-        underTest.execute(definition, OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
+        underTest.execute(
+                definition, identity(), OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
 
         // then
         assertThat(attempts).extracting(AttemptFinished::conditionMet).containsExactly(false, true);
@@ -356,7 +415,8 @@ class RequestExecutorTest {
         conditionHolds(true);
 
         // when
-        underTest.execute(definition, OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
+        underTest.execute(
+                definition, identity(), OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
 
         // then - thirty identical failures must look different from silence
         assertThat(attempts.getFirst().error()).contains("Connection refused");
@@ -372,11 +432,140 @@ class RequestExecutorTest {
 
         // when
         long start = System.currentTimeMillis();
-        var status = underTest.execute(
-                definition, OPTIONS, requestHandler, bounds("5", "50", null), coordinates, runtimeData);
+        var status = underTest
+                .execute(
+                        definition,
+                        identity(),
+                        OPTIONS,
+                        requestHandler,
+                        bounds("5", "50", null),
+                        coordinates,
+                        runtimeData)
+                .status();
 
         // then - an aggregate over response times must not pick up the waits between attempts
         var completed = (RequestStatus.Completed) status;
         assertThat(completed.roundTripTimeMs()).isLessThan(System.currentTimeMillis() - start);
+    }
+
+    // ---------- what each attempt sends ----------
+
+    private HttpRequestDefinition signed(int n) {
+        return new HttpRequestDefinition("http://x/jobs/1", "GET", null, Map.of("X-Sig", "sig-" + n), Map.of());
+    }
+
+    @Test
+    void execute_sendsWhatPrepareMakesOfTheDefinition() {
+        // given
+        var signed = signed(1);
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(200));
+
+        // when
+        var executed = underTest.execute(
+                definition, unused -> signed, OPTIONS, requestHandler, Optional.empty(), coordinates, runtimeData);
+
+        // then
+        verify(requestHandler).performRequest(same(signed), any());
+        assertThat(executed.sent()).isSameAs(signed);
+    }
+
+    @Test
+    void execute_preparesEveryAttemptAfreshFromTheDefinitionItself() {
+        // given
+        var prepared = new ArrayList<HttpRequestDefinition>();
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202));
+        conditionHolds(false, false, true);
+
+        // when
+        underTest.execute(
+                definition,
+                given -> {
+                    prepared.add(given);
+                    return signed(prepared.size());
+                },
+                OPTIONS,
+                requestHandler,
+                bounds("5", "0", null),
+                coordinates,
+                runtimeData);
+
+        // then - never what an earlier attempt sent, so a signature is computed over the request as written
+        assertThat(prepared).hasSize(3).allSatisfy(given -> assertThat(given).isSameAs(definition));
+    }
+
+    @Test
+    void execute_returnsWhatTheLastAttemptSent() {
+        // given
+        var count = new int[1];
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202));
+        conditionHolds(false, false, true);
+
+        // when
+        var executed = underTest.execute(
+                definition,
+                given -> signed(++count[0]),
+                OPTIONS,
+                requestHandler,
+                bounds("5", "0", null),
+                coordinates,
+                runtimeData);
+
+        // then
+        assertThat(executed.sent().getHeaders()).containsEntry("X-Sig", "sig-3");
+    }
+
+    @Test
+    void execute_erroresWithoutSendingWhenPreparingFails() {
+        // when
+        var executed = underTest.execute(
+                definition,
+                given -> {
+                    throw new BratException("The 'sig' auth handler failed");
+                },
+                OPTIONS,
+                requestHandler,
+                Optional.empty(),
+                coordinates,
+                runtimeData);
+
+        // then - the definition as given, since nothing else was made
+        assertThat(executed.status())
+                .asInstanceOf(type(RequestStatus.Errored.class))
+                .extracting(RequestStatus.Errored::message)
+                .asString()
+                .contains("The 'sig' auth handler failed");
+        assertThat(executed.sent()).isSameAs(definition);
+        verify(requestHandler, never()).performRequest(any(), any());
+    }
+
+    @Test
+    void execute_endsAPollAtOnceWhenPreparingFails() {
+        // given - a refusal while preparing fails the same way on every attempt
+        var prepared = new int[1];
+
+        // when
+        var executed = underTest.execute(
+                definition,
+                given -> {
+                    prepared[0]++;
+                    throw new BratException("The request already carries the header 'Authorization'");
+                },
+                OPTIONS,
+                requestHandler,
+                bounds("5", "0", null),
+                coordinates,
+                runtimeData);
+
+        // then - one attempt, reported as errored, and nothing sent
+        assertThat(executed.status())
+                .asInstanceOf(type(RequestStatus.Errored.class))
+                .extracting(RequestStatus.Errored::message)
+                .asString()
+                .contains("already carries the header 'Authorization'");
+        assertThat(executed.sent()).isSameAs(definition);
+        assertThat(prepared[0]).isEqualTo(1);
+        assertThat(attempts).hasSize(1);
+        assertThat(attempts.get(0).error()).contains("already carries the header 'Authorization'");
+        verify(requestHandler, never()).performRequest(any(), any());
     }
 }

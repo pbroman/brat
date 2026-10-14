@@ -2,6 +2,7 @@ package dev.pbroman.brat.core.runner;
 
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 
 import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.handler.RequestHandler;
@@ -16,9 +17,9 @@ import dev.pbroman.brat.core.util.FailureMessages;
 /**
  * Performs a request's attempts and says how they ended.
  * <p>
- * <strong>Its whole output is a {@link RequestStatus}</strong>, which is what makes it separable: it
- * knows nothing of coordinates beyond reporting them on an event, nothing of elapsed time, and
- * nothing of response actions. Every way a request can end at this level already has a status —
+ * <strong>Its whole output is a {@link RequestStatus} and the definition last sent</strong>, which is
+ * what makes it separable: it knows nothing of coordinates beyond reporting them on an event, nothing
+ * of elapsed time, and nothing of response actions. Every way a request can end at this level already has a status —
  * {@link RequestStatus.Completed} when it worked, {@link RequestStatus.GaveUp} when a poll ran out of
  * attempts, {@link RequestStatus.Errored} when it could not be performed or its loop condition could
  * not be evaluated — so nothing has to be invented to carry the answer back.
@@ -65,8 +66,18 @@ class RequestExecutor {
      * <strong>A condition that cannot be evaluated ends the loop at once</strong> as
      * {@link RequestStatus.Errored}. It is an authoring error rather than a transient one, and
      * spending the whole budget with waits in between cannot make it start working.
+     * <p>
+     * <strong>Each attempt sends what {@code prepare} makes of {@code definition}</strong>, called
+     * afresh per attempt and always on {@code definition} itself, never on what an earlier attempt
+     * sent. <strong>{@code prepare} throwing ends the request at once</strong> as
+     * {@link RequestStatus.Errored}, before anything is sent, with or without bounds: like a condition
+     * that cannot be evaluated, what it refuses fails the same way on every attempt, so a retry would
+     * only spend the budget. Within bounds that attempt is still reported, as errored.
      *
      * @param definition the interpolated request to perform; must not be {@code null}
+     * @param prepare turns {@code definition} into what one attempt sends, such as adding its
+     *        credentials; {@link UnaryOperator#identity()} when there is nothing to add. Must not be
+     *        {@code null}
      * @param options the interpolated options it is performed with, handed to the handler on every
      *        attempt; never {@code null}
      * @param handler the handler that performs it, already selected for this request; never
@@ -77,33 +88,51 @@ class RequestExecutor {
      * @param coordinates which request this is, for the attempt events
      * @param runtimeData the namespaces to resolve a loop condition against, and whose
      *        {@code responseVars} each completed attempt replaces
-     * @return how the attempts ended; never {@code null}
+     * @return how the attempts ended, and what the last attempt sent — {@code definition} itself where
+     *         {@code prepare} failed on that attempt; never {@code null}
      * @throws BratException if the thread is interrupted while waiting between attempts, which is
      *         cancellation of the run rather than a failure of this request
      */
-    <T extends RequestDefinition, R> RequestStatus execute(
+    <T extends RequestDefinition, R> Executed<T> execute(
             T definition,
+            UnaryOperator<T> prepare,
             RequestOptions options,
             RequestHandler<T, R> handler,
             Optional<PollBounds> bounds,
             RequestCoordinates coordinates,
             RuntimeData runtimeData) {
         if (bounds.isEmpty()) {
-            return attempt(definition, options, handler, runtimeData, 1);
+            T sent;
+            try {
+                sent = prepare.apply(definition);
+            } catch (Exception e) {
+                return unprepared(definition, e);
+            }
+            return attempt(sent, options, handler, runtimeData, 1);
         }
-        return poll(definition, options, handler, bounds.get(), coordinates, runtimeData);
+        return poll(definition, prepare, options, handler, bounds.get(), coordinates, runtimeData);
     }
 
-    private <T extends RequestDefinition, R> RequestStatus poll(
+    private <T extends RequestDefinition, R> Executed<T> poll(
             T definition,
+            UnaryOperator<T> prepare,
             RequestOptions options,
             RequestHandler<T, R> handler,
             PollBounds bounds,
             RequestCoordinates coordinates,
             RuntimeData runtimeData) {
-        RequestStatus lastStatus = null;
+        Executed<T> last = null;
         for (int attemptNo = 1; attemptNo <= bounds.maxAttempts(); attemptNo++) {
-            lastStatus = attempt(definition, options, handler, runtimeData, attemptNo);
+            T sent;
+            try {
+                sent = prepare.apply(definition);
+            } catch (Exception e) {
+                var unprepared = unprepared(definition, e);
+                attemptFinished(coordinates, attemptNo, bounds.maxAttempts(), unprepared.status(), false);
+                return unprepared;
+            }
+            last = attempt(sent, options, handler, runtimeData, attemptNo);
+            var lastStatus = last.status();
             if (lastStatus instanceof RequestStatus.Completed) {
                 boolean conditionMet;
                 try {
@@ -113,11 +142,11 @@ class RequestExecutor {
                 } catch (Exception e) {
                     var errored = new RequestStatus.Errored(FailureMessages.causeOf(e, "A condition"));
                     attemptFinished(coordinates, attemptNo, bounds.maxAttempts(), errored, false);
-                    return errored;
+                    return new Executed<>(errored, last.sent());
                 }
                 attemptFinished(coordinates, attemptNo, bounds.maxAttempts(), lastStatus, conditionMet);
                 if (conditionMet) {
-                    return lastStatus;
+                    return last;
                 }
             } else {
                 attemptFinished(coordinates, attemptNo, bounds.maxAttempts(), lastStatus, false);
@@ -126,29 +155,34 @@ class RequestExecutor {
                 sleep(bounds.waitBetweenAttempts());
             }
         }
-        return exhausted(lastStatus, bounds.messageOnFail());
+        return new Executed<>(exhausted(last.status(), bounds.messageOnFail()), last.sent());
     }
 
     /**
-     * One attempt: perform it, and publish its response so the loop condition and the response actions
-     * can read it.
+     * One attempt: perform {@code sent}, and publish its response so the loop condition and the
+     * response actions can read it.
      */
-    private <T extends RequestDefinition, R> RequestStatus attempt(
-            T definition,
-            RequestOptions options,
-            RequestHandler<T, R> handler,
-            RuntimeData runtimeData,
-            int attemptNo) {
+    private <T extends RequestDefinition, R> Executed<T> attempt(
+            T sent, RequestOptions options, RequestHandler<T, R> handler, RuntimeData runtimeData, int attemptNo) {
         try {
             long start = System.currentTimeMillis();
-            var response = handler.performRequest(definition, options);
+            var response = handler.performRequest(sent, options);
             long roundTripTimeMs = System.currentTimeMillis() - start;
             var responseVars = handler.responseVars(response);
             runtimeData.setResponseVars(responseVars);
-            return new RequestStatus.Completed(responseVars, attemptNo, roundTripTimeMs);
+            return new Executed<>(new RequestStatus.Completed(responseVars, attemptNo, roundTripTimeMs), sent);
         } catch (Exception e) {
-            return new RequestStatus.Errored(FailureMessages.causeOf(e, "A request"));
+            return new Executed<>(new RequestStatus.Errored(FailureMessages.causeOf(e, "A request")), sent);
         }
+    }
+
+    /**
+     * What a request reports when preparing it failed: errored, carrying {@code definition} as given,
+     * since nothing else was made.
+     */
+    private static <T extends RequestDefinition> Executed<T> unprepared(T definition, Exception e) {
+        return new Executed<>(
+                new RequestStatus.Errored(FailureMessages.causeOf(e, "Preparing the request")), definition);
     }
 
     /**
@@ -211,4 +245,14 @@ class RequestExecutor {
             throw new BratException("Interrupted while waiting between attempts", e);
         }
     }
+
+    /**
+     * How a request's attempts ended, and what the last of them sent.
+     *
+     * @param status how the attempts ended; never {@code null}
+     * @param sent the definition the last attempt sent, or the definition as given where preparing it
+     *        is what failed; never {@code null}
+     * @param <T> the definition's type
+     */
+    record Executed<T extends RequestDefinition>(RequestStatus status, T sent) {}
 }
