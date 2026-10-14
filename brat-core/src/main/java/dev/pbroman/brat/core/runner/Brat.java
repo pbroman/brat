@@ -328,13 +328,16 @@ public final class Brat implements AutoCloseable {
      * <strong>The blessed path.</strong> The loader binds each {@code requestDefinition:} block to the
      * class the protocol's handler declares, so the two cannot drift: a document naming a protocol
      * this runner has no handler for fails at load, with a message, rather than at execution with a
-     * cast. Building a {@code SuiteLoader} by hand stays possible for a consumer with its own protocol
-     * set, and that consumer owns the agreement.
+     * cast. Auth types agree the same way: a document naming, without a token, an auth type this
+     * runner has no handler for fails at load. Building a {@code SuiteLoader} by hand stays possible
+     * for a consumer with its own protocol set, and that consumer owns the agreement.
      *
-     * @return a loader over this runner's registered protocols; never {@code null}
+     * @return a loader over this runner's registered protocols and auth types; never {@code null}
      */
     public SuiteLoader loader() {
-        return new SuiteLoader(collaborators.protocolRegistry().protocolBindings());
+        return new SuiteLoader(
+                collaborators.protocolRegistry().protocolBindings(),
+                collaborators.authHandlerRegistry().types());
     }
 
     /**

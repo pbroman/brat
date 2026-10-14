@@ -2,8 +2,13 @@ package dev.pbroman.brat.core.loader;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Set;
 
 import dev.pbroman.brat.core.api.data.RequestDefinition;
+import dev.pbroman.brat.core.auth.ApiKeyAuthHandler;
+import dev.pbroman.brat.core.auth.BasicAuthHandler;
+import dev.pbroman.brat.core.auth.BearerAuthHandler;
+import dev.pbroman.brat.core.auth.NoneAuthHandler;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.TestSuite;
 import dev.pbroman.brat.core.exception.BratException;
@@ -40,7 +45,8 @@ import static dev.pbroman.brat.core.util.Constants.HTTP;
  *       sat and rejecting a key written twice — both of which are only possible here;</li>
  *   <li><strong>bind</strong> the tree to {@link TestSuite} with Jackson, rejecting a key it does not
  *       know and a value of the wrong shape;</li>
- *   <li><strong>check addressability</strong> — names, uniqueness, and the rules a path depends on.</li>
+ *   <li><strong>check addressability</strong> — names, uniqueness, and the rules a path depends on —
+ *       and that every {@code auth} names a type this loader knows.</li>
  * </ol>
  * An error from any step names its key and its position, the position coming from the index built in
  * step 2.
@@ -48,21 +54,27 @@ import static dev.pbroman.brat.core.util.Constants.HTTP;
 public final class SuiteLoader {
 
     private final ObjectMapper mapper;
+    private final Set<String> authTypes;
 
     /**
-     * Constructs a loader for documents that may declare any of the given protocols.
+     * Constructs a loader for documents that may declare any of the given protocols and auth types.
      * <p>
      * <strong>The map is the wiring's, not the loader's.</strong> It comes from the registered
      * request handlers — each declaring the class its protocol's blocks bind to — which is what makes
      * "you can author exactly what you can execute" true by construction. {@code Brat.loader()} is the
      * path that guarantees it; building one by hand is for a consumer with its own protocol set, and
-     * that consumer owns keeping the two in step.
+     * that consumer owns keeping the two in step. The auth types are the same agreement, with the
+     * registered auth handlers.
      *
      * @param protocols the definition class per protocol name; must not be {@code null}, and a copy is kept
-     * @throws BratException if {@code protocols} is {@code null}
+     * @param authTypes the auth types a document may name, matched exactly; must not be {@code null},
+     *        and a copy is kept
+     * @throws BratException if {@code protocols} or {@code authTypes} is {@code null}
      */
-    public SuiteLoader(Map<String, Class<? extends RequestDefinition>> protocols) {
+    public SuiteLoader(Map<String, Class<? extends RequestDefinition>> protocols, Set<String> authTypes) {
         Require.nonNull(protocols, "The protocols a loader can bind must not be null");
+        Require.nonNull(authTypes, "The auth types a loader accepts must not be null");
+        this.authTypes = Set.copyOf(authTypes);
         // Unknown keys fail rather than binding nothing, and enum values match whatever case an
         // author wrote - the published documents use both.
         this.mapper = JsonMapper.builder()
@@ -75,17 +87,21 @@ public final class SuiteLoader {
     }
 
     /**
-     * A loader for documents that use HTTP and nothing else.
+     * A loader for documents that use HTTP and core's auth types and nothing else.
      * <p>
      * Named rather than offered as a no-argument constructor, so that a loader knowing one protocol
      * says so at the call site. A suite it loads that declares any other protocol fails, naming
      * {@code http} as all it knows — which is the right answer for a runner wired the same way, and a
-     * misleading one for a runner that has more. Prefer {@code Brat.loader()} wherever a runner exists.
+     * misleading one for a runner that has more. The same holds for auth: it accepts {@code none},
+     * {@code basic}, {@code bearer} and {@code apikey}, and no type a plugin adds. Prefer
+     * {@code Brat.loader()} wherever a runner exists.
      *
-     * @return a loader that binds every {@code requestDefinition:} as HTTP
+     * @return a loader that binds every {@code requestDefinition:} as HTTP and knows core's auth types
      */
     public static SuiteLoader httpOnly() {
-        return new SuiteLoader(Map.of(HTTP, HttpRequestDefinition.class));
+        return new SuiteLoader(
+                Map.of(HTTP, HttpRequestDefinition.class),
+                Set.of(NoneAuthHandler.TYPE, BasicAuthHandler.TYPE, BearerAuthHandler.TYPE, ApiKeyAuthHandler.TYPE));
     }
 
     /**
@@ -96,7 +112,8 @@ public final class SuiteLoader {
      *        {@code <string>} for content with no file behind it. May be {@code null}, in which case
      *        errors carry a position but no name
      * @return the bound suite, guaranteed <em>addressable</em>: every node has a name, sibling names
-     *         are unique, no name holds a {@code /}, and no two requests share an authored {@code id}
+     *         are unique, no name holds a {@code /}, and no two requests share an authored {@code id}.
+     *         Every {@code auth} has a type, and one without {@code ${...}} is a type this loader knows
      * @throws BratException for anything that makes the document unusable, each naming the offending
      *         key and where it sat — see {@link YamlComposer} for what the document itself must be,
      *         and {@link SuiteChecks} for the rules a bound suite must satisfy. A value of the wrong
@@ -108,7 +125,7 @@ public final class SuiteLoader {
             throw LoaderErrors.at(origin, document, "", "A suite document must be a mapping");
         }
         var suite = bind(document, origin);
-        SuiteChecks.check(suite, document, origin);
+        SuiteChecks.check(suite, document, origin, authTypes);
         return suite;
     }
 

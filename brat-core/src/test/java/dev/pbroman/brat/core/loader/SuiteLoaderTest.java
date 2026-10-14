@@ -1,6 +1,7 @@
 package dev.pbroman.brat.core.loader;
 
 import java.util.Map;
+import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import dev.pbroman.brat.core.api.data.RequestDefinition;
@@ -134,7 +135,7 @@ class SuiteLoaderTest {
     @Test
     void load_bindsTheProtocolTheBlockDeclares() {
         // given - a loader wired for two protocols, which is what a plugin's handler produces
-        var loader = new SuiteLoader(Map.of(HTTP, HttpRequestDefinition.class, "stub", StubDefinition.class));
+        var loader = new SuiteLoader(Map.of(HTTP, HttpRequestDefinition.class, "stub", StubDefinition.class), Set.of());
         var yaml = """
                 name: s
                 requests:
@@ -264,7 +265,13 @@ class SuiteLoaderTest {
 
     @Test
     void constructor_rejectsNullProtocols() {
-        assertThatThrownBy(() -> new SuiteLoader(null)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new SuiteLoader(null, Set.of())).isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void constructor_rejectsNullAuthTypes() {
+        assertThatThrownBy(() -> new SuiteLoader(Map.of(HTTP, HttpRequestDefinition.class), null))
+                .isInstanceOf(BratException.class);
     }
 
     /** A definition of a protocol core knows nothing about, to prove the lookup is not hardcoded. */
@@ -666,6 +673,183 @@ class SuiteLoaderTest {
 
         // then
         assertThatCode(() -> underTest.load(yaml)).doesNotThrowAnyException();
+    }
+
+    // ---------- auth types ----------
+
+    @Test
+    void load_acceptsARegisteredAuthType() {
+        // given
+        var yaml = """
+                name: s
+                auth:
+                  type: basic
+                  args:
+                    username: admin
+                    password: "${secrets.adminPassword}"
+                requests:
+                  - name: r
+                """;
+
+        // then
+        assertThatCode(() -> underTest.load(yaml)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void load_rejectsAnUnknownAuthTypeOnARequestNamingItsPositionAndTheRegisteredTypes() {
+        // given - a typo is known before the run, so it fails before any request is sent
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    auth:
+                      type: bearr
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("bearr")
+                .hasMessageContaining("line 5")
+                .hasMessageContaining("apikey, basic, bearer, none");
+    }
+
+    @Test
+    void load_rejectsAnUnknownAuthTypeOnANestedSuite() {
+        // given
+        var yaml = """
+                name: s
+                subSuites:
+                  - name: admin
+                    auth:
+                      type: oauth2
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("oauth2")
+                .hasMessageContaining("line 5");
+    }
+
+    @Test
+    void load_listsTheTypesThisLoaderWasGivenSorted() {
+        // given
+        var loader = new SuiteLoader(Map.of(HTTP, HttpRequestDefinition.class), Set.of("zeta", "none", "alpha"));
+        var yaml = "name: s\nauth:\n  type: beta\n";
+
+        // then
+        assertThatThrownBy(() -> loader.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("alpha, none, zeta");
+    }
+
+    @Test
+    void load_acceptsAPluginsAuthTypeThisLoaderWasGiven() {
+        // given
+        var loader = new SuiteLoader(Map.of(HTTP, HttpRequestDefinition.class), Set.of("aws-sigv4"));
+        var yaml = "name: s\nauth:\n  type: aws-sigv4\n";
+
+        // then
+        assertThatCode(() -> loader.load(yaml)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void load_matchesAnAuthTypeExactly() {
+        // given - execution looks the type up exactly, so the loader must not accept what it would not find
+        var yaml = "name: s\nauth:\n  type: Bearer\n";
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("Bearer");
+    }
+
+    @Test
+    void load_leavesATokenisedAuthTypeToExecution() {
+        // given - its value is not known until the run
+        var yaml = """
+                name: s
+                requests:
+                  - name: whole
+                    auth:
+                      type: "${vars.authType}"
+                  - name: partial
+                    auth:
+                      type: "aws-${vars.signatureVersion}"
+                """;
+
+        // then
+        assertThatCode(() -> underTest.load(yaml)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void load_rejectsAnAuthWithoutATypeAtTheBlock() {
+        // given
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    auth:
+                      args:
+                        token: abc
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("type")
+                .hasMessageContaining("line 4")
+                .hasMessageNotContaining("abc");
+    }
+
+    @Test
+    void load_rejectsABlankAuthType() {
+        // given
+        var yaml = """
+                name: s
+                auth:
+                  type: " "
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("type")
+                .hasMessageContaining("line 2");
+    }
+
+    @Test
+    void load_leavesANodeWithoutAuthAlone() {
+        // given - no auth inherits, which is not an auth without a type
+        var yaml = "name: s\nauth:\nrequests:\n  - name: r\n";
+
+        // then
+        assertThatCode(() -> underTest.load(yaml)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void httpOnly_knowsCoresAuthTypes() {
+        // given
+        var yaml = """
+                name: s
+                requests:
+                  - name: none
+                    auth:
+                      type: none
+                  - name: basic
+                    auth:
+                      type: basic
+                  - name: bearer
+                    auth:
+                      type: bearer
+                  - name: apikey
+                    auth:
+                      type: apikey
+                """;
+
+        // then - args are the handler's to check, at execution
+        assertThatCode(() -> SuiteLoader.httpOnly().load(yaml)).doesNotThrowAnyException();
     }
 
     // ---------- what an error may say ----------

@@ -4,18 +4,21 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.Request;
 import dev.pbroman.brat.core.data.TestSuite;
 import org.apache.commons.lang3.StringUtils;
 
 import static dev.pbroman.brat.core.util.Constants.PATH_DELIMITER;
+import static dev.pbroman.brat.core.util.Constants.TOKEN_PREFIX;
 
 /**
  * The rules a bound suite must satisfy that binding itself cannot express.
  * <p>
  * Jackson can reject a key it does not know and a value of the wrong shape. It cannot say that two
- * siblings share a name, that an id is claimed twice, or that {@code constants} belong only to the
- * root — those are properties of the document as a whole, and this is where they live. Split out of
+ * siblings share a name, that an id is claimed twice, that {@code constants} belong only to the
+ * root, or that an auth type is one something can apply — those are properties of the document as a
+ * whole, or of what the runner knows, and this is where they live. Split out of
  * {@code SuiteLoader} because the rule set grows and is what a maintainer comes back to, while
  * composing and binding do not change.
  * <p>
@@ -36,14 +39,15 @@ final class SuiteChecks {
      * @param suite the bound root suite
      * @param document the converted document, for positions
      * @param origin what to call the document in an error
+     * @param authTypes the auth types a token-free {@code type} may name
      * @throws dev.pbroman.brat.core.exception.BratException on the first rule a node breaks: a missing
      *         name, a {@code /} inside one, two siblings sharing one, two requests sharing an
-     *         {@code id}, {@code constants} below the root, or a {@code repeatUntil} with no
-     *         {@code condition}
+     *         {@code id}, {@code constants} below the root, a {@code repeatUntil} with no
+     *         {@code condition}, or an {@code auth} breaking {@link #checkAuth}'s rules
      */
-    static void check(TestSuite suite, YamlDocument document, String origin) {
+    static void check(TestSuite suite, YamlDocument document, String origin, Set<String> authTypes) {
         var ids = new HashSet<String>();
-        checkSuite(suite, "", true, ids, document, origin);
+        checkSuite(suite, "", true, ids, document, origin, authTypes);
     }
 
     /**
@@ -55,10 +59,18 @@ final class SuiteChecks {
      * @param ids the authored ids seen so far, added to
      * @param document the converted document
      * @param origin what to call the document
+     * @param authTypes the auth types a token-free {@code type} may name
      */
     private static void checkSuite(
-            TestSuite suite, String pointer, boolean isRoot, Set<String> ids, YamlDocument document, String origin) {
+            TestSuite suite,
+            String pointer,
+            boolean isRoot,
+            Set<String> ids,
+            YamlDocument document,
+            String origin,
+            Set<String> authTypes) {
         checkName(suite.name(), pointer, document, origin);
+        checkAuth(suite.auth(), pointer + "/auth", authTypes, document, origin);
         if (!isRoot && !suite.constants().isEmpty()) {
             throw LoaderErrors.at(
                     origin,
@@ -77,13 +89,14 @@ final class SuiteChecks {
             claimSibling(siblings, request.name(), requestPointer, document, origin);
             claimId(ids, request, requestPointer, document, origin);
             checkRequired(request, requestPointer, document, origin);
+            checkAuth(request.auth(), requestPointer + "/auth", authTypes, document, origin);
         }
 
         var subSuites = suite.subSuites();
         for (var i = 0; i < subSuites.size(); i++) {
             var subPointer = pointer + "/subSuites/" + i;
             claimSibling(siblings, subSuites.get(i).name(), subPointer, document, origin);
-            checkSuite(subSuites.get(i), subPointer, false, ids, document, origin);
+            checkSuite(subSuites.get(i), subPointer, false, ids, document, origin, authTypes);
         }
     }
 
@@ -109,6 +122,45 @@ final class SuiteChecks {
                     pointer + "/flowControl/repeatUntil",
                     "A 'repeatUntil' needs a 'condition'. Repeating until nothing is not a shorter way "
                             + "of writing 'repeat N times'");
+        }
+    }
+
+    /**
+     * Requires an {@code auth} block's type to be one something can apply.
+     * <p>
+     * Only a <strong>token-free</strong> type is checked, meaning one in which <code>${</code> does not
+     * occur: that is the only kind whose value is known before the run. A type holding a token,
+     * wholly or in part, is left for execution, where a type nothing is registered for fails that one
+     * request.
+     *
+     * @param auth the node's auth block, or {@code null} where it declares none, which passes
+     * @param pointer the auth block's JSON Pointer
+     * @param authTypes the auth types a token-free type may name, matched exactly — {@code Bearer} is
+     *        not {@code bearer}
+     * @param document the converted document
+     * @param origin what to call the document
+     * @throws dev.pbroman.brat.core.exception.BratException if the block has no {@code type}, or a blank
+     *         one, saying an {@code auth} block needs one, at the block's position; or if a token-free
+     *         type is not in {@code authTypes}, at the type's position, naming the type and every type
+     *         in {@code authTypes}, sorted
+     */
+    private static void checkAuth(
+            Auth auth, String pointer, Set<String> authTypes, YamlDocument document, String origin) {
+        if (auth == null) {
+            return;
+        }
+        var type = auth.getType();
+        if (StringUtils.isBlank(type)) {
+            throw LoaderErrors.at(origin, document, pointer, "An auth must have a non-blank type");
+        }
+        if (!type.contains(TOKEN_PREFIX) && !authTypes.contains(type)) {
+            throw LoaderErrors.at(
+                    origin,
+                    document,
+                    pointer + "/type",
+                    String.format(
+                            "The auth type '%s' is unknown. Known types: %s",
+                            type, String.join(", ", authTypes.stream().sorted().toList())));
         }
     }
 

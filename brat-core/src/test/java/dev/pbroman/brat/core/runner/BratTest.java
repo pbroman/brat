@@ -51,6 +51,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
@@ -368,6 +369,31 @@ class BratTest {
         assertThatThrownBy(() -> brat().loader().load(yaml))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("ftp");
+    }
+
+    @Test
+    void loader_acceptsAnAuthTypeAddedOnTheBuilder() {
+        // given
+        var brat = Brat.builder()
+                .requestHandler(handler)
+                .authHandler(new ClosingAuthHandler())
+                .build();
+        var yaml = "name: s\nauth:\n  type: closing\n";
+
+        // then
+        assertThatCode(() -> brat.loader().load(yaml)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void loader_rejectsAnAuthTypeThisRunnerHasNoHandlerFor() {
+        // given
+        var yaml = "name: s\nauth:\n  type: closing\n";
+
+        // then - naming what this runner can apply
+        assertThatThrownBy(() -> brat().loader().load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("closing")
+                .hasMessageContaining("bearer");
     }
 
     // ---------- selecting a handler ----------
