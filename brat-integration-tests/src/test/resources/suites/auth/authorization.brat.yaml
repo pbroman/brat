@@ -1,0 +1,107 @@
+# Three scenarios against one API: an admin, a read-only user and an anonymous caller. Each must get
+# exactly the answer its role earns.
+#
+# The logins sit in the root, so they run before every scenario and inherit no auth themselves.
+name: authorization
+description: each role gets exactly the access it should
+
+requests:
+  - name: log in as admin
+    phase: setup
+    requestDefinition:
+      url: "${env.baseUrl}/login"
+      method: POST
+      headers:
+        Content-Type: application/json
+      body:
+        raw: |
+          {
+            "username": "admin",
+            "password": "${secrets.adminPassword}"
+          }
+    responseActions:
+      setVars:
+        adminToken: "${response.json.$.token}"    # one name per role: vars are shared by the whole run
+
+  - name: log in as reader
+    phase: setup
+    requestDefinition:
+      url: "${env.baseUrl}/login"
+      method: POST
+      headers:
+        Content-Type: application/json
+      body:
+        raw: |
+          {
+            "username": "reader",
+            "password": "${secrets.readerPassword}"
+          }
+    responseActions:
+      setVars:
+        readerToken: "${response.json.$.token}"
+
+subSuites:
+  - name: admin
+    auth:
+      type: bearer
+      args:
+        token: "${vars.adminToken}"               # every request below is sent as admin
+    requests:
+      - name: deletes a user
+        requestDefinition:
+          url: "${env.baseUrl}/secure/users/42"
+          method: DELETE
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 204
+
+  - name: reader
+    auth:
+      type: bearer
+      args:
+        token: "${vars.readerToken}"
+    requests:
+      - name: may read
+        requestDefinition:
+          url: "${env.baseUrl}/secure/users"
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 200
+
+      - name: may not delete
+        requestDefinition:
+          url: "${env.baseUrl}/secure/users/42"
+          method: DELETE
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 403                              # authenticated, but not allowed
+
+      - name: a wrong token is refused
+        auth:
+          type: bearer
+          args:
+            token: not-a-real-token               # overrides the suite's auth for this request only
+        requestDefinition:
+          url: "${env.baseUrl}/secure/users"
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 401
+
+  - name: anonymous                               # nothing above declares auth, so none is sent
+    requests:
+      - name: is refused
+        requestDefinition:
+          url: "${env.baseUrl}/secure/users"
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 401

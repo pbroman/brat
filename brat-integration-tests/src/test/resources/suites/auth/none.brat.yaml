@@ -1,0 +1,30 @@
+# Leaving auth out inherits it; type: none cancels it.
+name: none cancels
+description: a request declaring none is sent without the auth its suite declares
+
+auth:
+  type: basic
+  args:
+    username: reader
+    password: "${secrets.readerPassword}"
+
+requests:
+  - name: inherits the suite's auth
+    requestDefinition:
+      url: "${env.baseUrl}/secure/whoami"
+    responseActions:
+      assertions:
+        - a: "${response.json.$.username}"
+          func: isEqualTo
+          b: reader
+
+  - name: sends none
+    auth:
+      type: none                                  # cancels the suite's auth for this request only
+    requestDefinition:
+      url: "${env.baseUrl}/secure/whoami"
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: 401

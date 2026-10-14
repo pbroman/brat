@@ -1,0 +1,31 @@
+# An API key, in either of the two places APIs expect one.
+name: api key auth
+description: the server recognises an API key in the Authorization header and in its own header
+
+requests:
+  - name: in the Authorization header
+    auth:
+      type: apikey
+      args:
+        key: "${secrets.readerApiKey}"            # sends  Authorization: ApiKey <key>
+    requestDefinition:
+      url: "${env.baseUrl}/secure/whoami"
+    responseActions:
+      assertions:
+        - a: "${response.json.$.username}"
+          func: isEqualTo
+          b: reader
+
+  - name: in a header of its own
+    auth:
+      type: apikey
+      args:
+        key: "${secrets.readerApiKey}"
+        header: x-api-key                         # sends  x-api-key: <key>
+    requestDefinition:
+      url: "${env.baseUrl}/secure/whoami"
+    responseActions:
+      assertions:
+        - a: "${response.json.$.username}"
+          func: isEqualTo
+          b: reader
