@@ -9,10 +9,11 @@ import dev.pbroman.brat.core.data.RequestOptions;
  * and what its response actions produced.
  *
  * @param coordinates which request this was, and where in the run
- * @param requestDefinition what was sent — the interpolated copy where interpolation succeeded, and
- *        the authored one where interpolation is what failed. Ask
- *        {@link dev.pbroman.brat.core.data.ConfigData#isInterpolated()} which one arrived; the type
- *        answers the question itself rather than carrying a second field for it
+ * @param requestDefinition what was sent — the request as the last attempt sent it, credentials
+ *        included; the interpolated copy where no attempt got as far as sending, or where the last one
+ *        failed before it did; and the authored one where interpolation is what failed. Ask
+ *        {@link dev.pbroman.brat.core.data.ConfigData#isInterpolated()} whether it was interpolated;
+ *        the type answers the question itself rather than carrying a second field for it
  * @param requestOptions what the run resolved for the request, on the same terms: the interpolated
  *        copy where interpolation reached and passed it, the authored one otherwise. Never {@code null}
  *        on a result the request processor produced; a directly constructed instance may hold

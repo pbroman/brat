@@ -1,5 +1,7 @@
 package dev.pbroman.brat.core.data;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.dataformat.yaml.YAMLMapper;
@@ -92,7 +94,8 @@ class ConfigDataBindingTest {
         // given
         var yaml = """
                 type: bearer
-                token: "${secrets.serviceToken}"
+                args:
+                  token: "${secrets.serviceToken}"
                 """;
 
         // when
@@ -100,7 +103,34 @@ class ConfigDataBindingTest {
 
         // then
         assertThat(auth.getType()).isEqualTo("bearer");
-        assertThat(auth.getToken()).isEqualTo("${secrets.serviceToken}");
+        assertThat(auth.getArgs()).containsExactlyEntriesOf(Map.of("token", "${secrets.serviceToken}"));
+        assertThat(auth.isInterpolated()).isFalse();
+    }
+
+    @Test
+    void bind_authWithoutArgsHasEmptyArgs() {
+        // given
+        var yaml = """
+                type: none
+                """;
+
+        // when
+        var auth = mapper.readValue(yaml, Auth.class);
+
+        // then
+        assertThat(auth.getArgs()).isEmpty();
+    }
+
+    @Test
+    void bind_authRejectsAFlatCredentialKey() {
+        // given - the shape before args: every argument lives under args, for every type
+        var yaml = """
+                type: bearer
+                token: "${secrets.serviceToken}"
+                """;
+
+        // when / then
+        assertThatThrownBy(() -> mapper.readValue(yaml, Auth.class)).hasMessageContaining("token");
     }
 
     @Test

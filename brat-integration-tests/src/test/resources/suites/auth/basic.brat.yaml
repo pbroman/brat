@@ -1,0 +1,22 @@
+# Basic auth: a username and a password, sent as  Authorization: Basic <base64 of username:password>.
+name: basic auth
+description: the server recognises the account a Basic credential names
+
+auth:
+  type: basic
+  args:
+    username: admin
+    password: "${secrets.adminPassword}"          # kept out of the file, like any real credential
+
+requests:
+  - name: who am I
+    requestDefinition:
+      url: "${env.baseUrl}/secure/whoami"
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: 200
+        - a: "${response.json.$.username}"
+          func: isEqualTo
+          b: admin

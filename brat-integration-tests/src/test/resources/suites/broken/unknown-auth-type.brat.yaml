@@ -1,0 +1,12 @@
+# A typo in an auth type. It is known before the run, so the load fails and no request is sent.
+name: a mistyped auth type
+
+auth:
+  type: beraer
+  args:
+    token: do-not-print-me-anywhere
+
+requests:
+  - name: never sent
+    requestDefinition:
+      url: "${env.baseUrl}/secure/users"

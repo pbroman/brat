@@ -1,7 +1,9 @@
 package dev.pbroman.brat.integration.app;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +58,20 @@ import org.springframework.web.bind.annotation.RestController;
  *       <td>{@code ${response.body}} where {@code ${response.json}} cannot go</td></tr>
  *   <tr><td>{@code GET /status/{code}}</td><td>the code asked for, with a body</td>
  *       <td>a 5xx being a response rather than an error</td></tr>
+ *   <tr><td>{@code POST /login}</td><td>200, the account's token; 401</td>
+ *       <td>a token to capture, and auth that reads it</td></tr>
+ *   <tr><td>{@code GET /secure/whoami}</td><td>200, the caller's account; 401</td>
+ *       <td>which credential reached the server, and that it was well-formed</td></tr>
+ *   <tr><td>{@code GET /secure/users}</td><td>200, every user; 401</td>
+ *       <td>a read any account may make</td></tr>
+ *   <tr><td>{@code DELETE /secure/users/{id}}</td><td>204; 401; 403 for a non-admin</td>
+ *       <td>a write only one role may make</td></tr>
  * </table>
+ *
+ * <p><strong>The {@code /secure} endpoints check credentials by hand</strong>, with no security
+ * framework, and accept every shape core's auth types send: {@code Authorization: Basic},
+ * {@code Bearer} and {@code ApiKey}, and a bare {@code x-api-key} header. Two fixed accounts exist,
+ * {@code admin} and {@code reader}; see {@link #ACCOUNTS}.
  *
  * <p>{@code User} carries the fields that make a response body worth asserting on: a nested object, an
  * array, a number, a boolean, a timestamp and a nullable.
@@ -72,6 +87,15 @@ public class CrudApplication {
 
     /** Polling jobs, keyed by id. */
     private final Map<String, JobState> jobs = new ConcurrentHashMap<>();
+
+    /**
+     * The accounts the {@code /secure} endpoints know, by username. The passwords and the reader's
+     * API key are also in {@code secrets/integration-secrets.yaml}, which is how a suite sends them
+     * without writing them down.
+     */
+    private static final Map<String, Account> ACCOUNTS = Map.of(
+            "admin", new Account("admin", "admin-password", "admin-token", "admin-api-key", true),
+            "reader", new Account("reader", "reader-password", "reader-token", "reader-api-key", false));
 
     // --- users ---
 
@@ -202,6 +226,117 @@ public class CrudApplication {
         return ResponseEntity.status(code).body(Map.of("requested", code));
     }
 
+    // --- auth: endpoints that exist for BRAT's auth types ---
+
+    /**
+     * Exchanges a username and password for the account's fixed token.
+     *
+     * @param login the credentials
+     * @return the token
+     */
+    @PostMapping(path = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, String> login(@RequestBody Login login) {
+        var account = ACCOUNTS.get(login.username());
+        if (account == null || !account.password().equals(login.password())) {
+            throw new Unauthorized("Unknown username or wrong password");
+        }
+        return Map.of("token", account.token());
+    }
+
+    /** Says which account the request's credentials belong to. */
+    @GetMapping(path = "/secure/whoami", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> whoami(
+            @RequestHeader(name = "Authorization", required = false) String authorization,
+            @RequestHeader(name = "x-api-key", required = false) String apiKey) {
+        var account = authenticated(authorization, apiKey);
+        return Map.of("username", account.username(), "admin", account.admin());
+    }
+
+    /** Lists every user, for any authenticated account. */
+    @GetMapping(path = "/secure/users", produces = MediaType.APPLICATION_JSON_VALUE)
+    public List<User> secureUsers(
+            @RequestHeader(name = "Authorization", required = false) String authorization,
+            @RequestHeader(name = "x-api-key", required = false) String apiKey) {
+        authenticated(authorization, apiKey);
+        return allUsers();
+    }
+
+    /** Deletes a user, whether or not it exists, for the admin account only. */
+    @DeleteMapping(path = "/secure/users/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void secureDelete(
+            @PathVariable String id,
+            @RequestHeader(name = "Authorization", required = false) String authorization,
+            @RequestHeader(name = "x-api-key", required = false) String apiKey) {
+        if (!authenticated(authorization, apiKey).admin()) {
+            throw new Forbidden("Only an admin may delete a user");
+        }
+        users.remove(id);
+    }
+
+    /**
+     * The account a request's credentials belong to.
+     *
+     * @param authorization the {@code Authorization} header, or {@code null}
+     * @param apiKey the {@code x-api-key} header, or {@code null}
+     * @return the account
+     * @throws Unauthorized if neither header names an account
+     */
+    private static Account authenticated(String authorization, String apiKey) {
+        if (apiKey != null) {
+            return ACCOUNTS.values().stream()
+                    .filter(account -> account.apiKey().equals(apiKey))
+                    .findFirst()
+                    .orElseThrow(() -> new Unauthorized("Unknown API key"));
+        }
+        if (authorization == null) {
+            throw new Unauthorized("No credentials");
+        }
+        var space = authorization.indexOf(' ');
+        var scheme = space < 0 ? authorization : authorization.substring(0, space);
+        var credential = space < 0 ? "" : authorization.substring(space + 1);
+        var account =
+                switch (scheme) {
+                    case "Basic" -> basic(credential);
+                    case "Bearer" ->
+                        ACCOUNTS.values().stream()
+                                .filter(candidate -> candidate.token().equals(credential))
+                                .findFirst()
+                                .orElse(null);
+                    case "ApiKey" ->
+                        ACCOUNTS.values().stream()
+                                .filter(candidate -> candidate.apiKey().equals(credential))
+                                .findFirst()
+                                .orElse(null);
+                    default -> null;
+                };
+        if (account == null) {
+            throw new Unauthorized("Unknown credentials");
+        }
+        return account;
+    }
+
+    /**
+     * The account a Basic credential names, decoded as UTF-8 as RFC 7617 recommends.
+     *
+     * @param credential the base64 part of the header
+     * @return the account, or {@code null} for a malformed credential or a wrong password
+     */
+    private static Account basic(String credential) {
+        String decoded;
+        try {
+            decoded = new String(Base64.getDecoder().decode(credential), StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+        var colon = decoded.indexOf(':');
+        if (colon < 0) {
+            return null;
+        }
+        var account = ACCOUNTS.get(decoded.substring(0, colon));
+        return account != null && account.password().equals(decoded.substring(colon + 1)) ? account : null;
+    }
+
     // --- internals ---
 
     private User findByUsername(String username) {
@@ -262,6 +397,17 @@ public class CrudApplication {
         }
     }
 
+    /**
+     * The body {@code POST /login} takes.
+     *
+     * @param username the account's name
+     * @param password its password
+     */
+    public record Login(String username, String password) {}
+
+    /** An account the {@code /secure} endpoints know, with every credential it can present. */
+    private record Account(String username, String password, String token, String apiKey, boolean admin) {}
+
     /** A nested object, so a suite can reach {@code ${response.json.$.address.city}}. */
     public record Address(String street, String city, String zip) {}
 
@@ -287,6 +433,20 @@ public class CrudApplication {
     @ResponseStatus(HttpStatus.CONFLICT)
     static class ResourceAlreadyPresent extends RuntimeException {
         ResourceAlreadyPresent(String message) {
+            super(message);
+        }
+    }
+
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    static class Unauthorized extends RuntimeException {
+        Unauthorized(String message) {
+            super(message);
+        }
+    }
+
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    static class Forbidden extends RuntimeException {
+        Forbidden(String message) {
             super(message);
         }
     }

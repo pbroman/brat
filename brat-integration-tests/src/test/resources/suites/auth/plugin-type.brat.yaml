@@ -1,0 +1,19 @@
+# An auth type brat-core has never heard of, from a plugin on the classpath. The suite uses it exactly
+# like a built-in one.
+name: plugin auth type
+description: a request signed by an auth handler that arrived on the classpath
+
+requests:
+  - name: send a signed request
+    auth:
+      type: stub-signature
+      args:
+        secret: abc123
+    requestDefinition:
+      url: "${env.baseUrl}/echo"
+    responseActions:
+      assertions:
+        - a: "${response.body}"
+          func: contains
+          b: 321cba                               # the stub signs by reversing its secret
+          message: the plugin's header must have reached the wire

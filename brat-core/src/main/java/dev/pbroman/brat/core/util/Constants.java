@@ -31,6 +31,9 @@ public final class Constants {
     public static final String FILE_PREFIX = "file:";
     public static final String TOKEN_SUFFIX = "}";
 
+    /** The HTTP header that carries a request's credentials. */
+    public static final String AUTHORIZATION = "Authorization";
+
     /** The protocol of a request core can execute without a plugin, and the default when none is declared. */
     public static final String HTTP = "http";
 
@@ -88,11 +91,6 @@ public final class Constants {
      * a report and typeable as {@code --select "happy path/create an order"}.
      */
     public static final String PATH_DELIMITER = "/";
-
-    public static final String AUTH_TYPE_BASIC = "basic";
-    public static final String AUTH_TYPE_BEARER = "bearer";
-    public static final String AUTH_TYPE_APIKEY = "apikey";
-    public static final String AUTH_TYPE_NONE = "none";
 
     // Condition constants
     public static final String NULL = "null";

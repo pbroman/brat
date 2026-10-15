@@ -312,7 +312,7 @@ class TestSuiteRunnerTest {
     @Test
     void walk_processesARequestWithOptionsBuiltFromItsOwnTimeout() {
         // given
-        var request = new Request("r", null, null, "750", null, null, null, definition(), null, null);
+        var request = new Request("r", null, null, null, "750", null, null, null, definition(), null, null);
         var suite = suite("s", List.of(request), List.of());
         var options = ArgumentCaptor.forClass(RequestOptions.class);
 
@@ -328,7 +328,8 @@ class TestSuiteRunnerTest {
     @Test
     void walk_selectsTheHandlerByTheRequestsNamesMergedOverItsSuites() {
         // given
-        var request = new Request("r", null, null, null, null, null, Map.of("http", "mtls"), definition(), null, null);
+        var request =
+                new Request("r", null, null, null, null, null, null, Map.of("http", "mtls"), definition(), null, null);
         var suite = new TestSuite(
                 "s",
                 null,
@@ -955,7 +956,7 @@ class TestSuiteRunnerTest {
     }
 
     private static Request request(String name, Phase phase) {
-        return new Request(name, null, null, null, null, phase, null, definition(), null, null);
+        return new Request(name, null, null, null, null, null, phase, null, definition(), null, null);
     }
 
     private static TestSuite suite(String name, List<Request> requests, List<TestSuite> subSuites) {
@@ -963,7 +964,7 @@ class TestSuiteRunnerTest {
     }
 
     private static Request timedRequest(String name, String timeout) {
-        return new Request(name, null, null, timeout, null, null, null, definition(), null, null);
+        return new Request(name, null, null, null, timeout, null, null, null, definition(), null, null);
     }
 
     /** Each request's name mapped to the timeout it was processed with. */

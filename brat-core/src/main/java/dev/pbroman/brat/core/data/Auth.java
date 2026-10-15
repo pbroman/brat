@@ -1,19 +1,19 @@
 package dev.pbroman.brat.core.data;
 
-import java.util.List;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import lombok.Getter;
 
-import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_APIKEY;
-import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_BASIC;
-import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_BEARER;
-import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_NONE;
-
 /**
- * Authentication configuration for a request: a {@code type} plus the fields that type needs.
+ * Authentication configuration for a request: a {@code type} naming the mechanism, plus the
+ * {@code args} that mechanism reads.
+ * <p>
+ * Every mechanism, built-in or added by a plugin, has this one shape. The handler registered for the
+ * {@code type} owns the meaning of {@code args} and rejects a key it does not know.
  * <p>
  * {@code final}: a new auth mechanism is added by writing an {@code AuthHandler} for its
  * {@code type}, never by subclassing this. A subclass could not be reached from a suite file anyway
@@ -23,76 +23,36 @@ import static dev.pbroman.brat.core.util.Constants.AUTH_TYPE_NONE;
 @Getter
 public final class Auth extends ConfigData {
 
-    public static final List<String> AUTH_TYPES =
-            List.of(AUTH_TYPE_NONE, AUTH_TYPE_BASIC, AUTH_TYPE_BEARER, AUTH_TYPE_APIKEY);
-
     private final String type;
-    private final String username;
-    private final String password;
-    private final String token;
+
+    /** The mechanism's arguments; never {@code null}, unmodifiable, in the order they were declared. */
+    private final Map<String, String> args;
 
     /**
      * {@code outcomes} defaults to {@code null} (not yet an interpolated copy). This is the
      * constructor the loader binds an authored {@code auth:} block to.
      *
-     * @param type the auth type
-     * @param username the username
-     * @param password the password
-     * @param token the token
+     * @param type the auth type, possibly holding {@code ${...}} tokens
+     * @param args the mechanism's arguments, or {@code null} for none. A {@code null} value inside it is
+     *        kept, and rejected when the block is interpolated
      */
     @JsonCreator
-    public Auth(String type, String username, String password, String token) {
-        this(type, username, password, token, null);
-    }
-
-    /**
-     * {@code token} and {@code outcomes} default to {@code null}.
-     *
-     * @param type the auth type
-     * @param username the username
-     * @param password the password
-     */
-    public Auth(String type, String username, String password) {
-        this(type, username, password, null, null);
-    }
-
-    /**
-     * {@code username}, {@code password}, and {@code outcomes} default to {@code null}.
-     *
-     * @param type the auth type
-     * @param token the token
-     */
-    public Auth(String type, String token) {
-        this(type, null, null, token, null);
-    }
-
-    /**
-     * {@code type} defaults to {@code AUTH_TYPE_NONE}; {@code username}, {@code password},
-     * {@code token}, and {@code outcomes} default to {@code null}.
-     * <p>
-     * Note this constructs an <em>explicit</em> "no auth", which is not the same as no auth block at
-     * all: down a suite tree an absent block inherits from its parent, while a declared {@code none}
-     * cancels that inheritance.
-     */
-    public Auth() {
-        this(AUTH_TYPE_NONE, null, null);
+    public Auth(String type, Map<String, String> args) {
+        this(type, args, null);
     }
 
     /**
      * Constructor for an interpolated {@link Auth} object with its named outcomes.
      *
      * @param type the auth type
-     * @param username a username or {@code null}
-     * @param password a password or {@code null}
-     * @param token a token or {@code null}
-     * @param outcomes the named interpolation outcomes
+     * @param args the mechanism's arguments, or {@code null} for none
+     * @param outcomes the named interpolation outcomes of an interpolated copy, or {@code null} on an
+     *        as-authored instance
      */
-    public Auth(
-            String type, String username, String password, String token, Map<String, InterpolationOutcome> outcomes) {
+    public Auth(String type, Map<String, String> args, Map<String, InterpolationOutcome> outcomes) {
         super(outcomes);
         this.type = type;
-        this.username = username;
-        this.password = password;
-        this.token = token;
+        // Copied by hand rather than with Map.copyOf, which rejects the null values authored YAML may hold.
+        this.args = args == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(args));
     }
 }

@@ -124,7 +124,7 @@ class RequestOptionsTest {
         var outcomes = Map.of("timeout", new InterpolationOutcome("5000", "${vars.t} -> 5000"));
 
         // when
-        var options = new RequestOptions("5000", outcomes);
+        var options = new RequestOptions("5000", null, outcomes);
 
         // then
         assertThat(options.isInterpolated()).isTrue();

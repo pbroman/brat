@@ -28,7 +28,6 @@ public final class RequestOptions extends ConfigData {
     /** The word a suite writes to ask for the default timeout explicitly, matched ignoring case. */
     public static final String DEFAULT_TIMEOUT_KEYWORD = "default";
 
-    // Gains `auth` once an AuthHandler exists to consume it.
     /**
      * How long to wait for the request, in milliseconds and in text form; {@value #DEFAULT_TIMEOUT_KEYWORD} or
      * blank for {@link dev.pbroman.brat.core.util.Constants#DEFAULT_TIMEOUT_MS}; or {@code null} when
@@ -39,16 +38,25 @@ public final class RequestOptions extends ConfigData {
     private final String timeout;
 
     /**
+     * The credentials this request is sent with, or {@code null} when nothing above it declared any.
+     * Already applied by the time a request handler receives these options: a handler sends the
+     * request it is given and never applies this again.
+     */
+    private final Auth auth;
+
+    /**
      * Constructs an interpolated copy of a request's options, carrying its named outcomes.
      *
      * @param timeout the resolved timeout in milliseconds, in text form, or {@code null} for the
      *        default
+     * @param auth the interpolated credentials, or {@code null} for none
      * @param outcomes the named interpolation outcomes of an interpolated copy, or {@code null} on an
      *        as-assembled instance
      */
-    public RequestOptions(String timeout, Map<String, InterpolationOutcome> outcomes) {
+    public RequestOptions(String timeout, Auth auth, Map<String, InterpolationOutcome> outcomes) {
         super(outcomes);
         this.timeout = timeout;
+        this.auth = auth;
     }
 
     /**
@@ -57,9 +65,22 @@ public final class RequestOptions extends ConfigData {
      *
      * @param timeout the timeout in milliseconds, in text form, possibly holding {@code ${...}}
      *        tokens
+     * @param auth the credentials the walk resolved for the request, as authored, or {@code null} for
+     *        none
+     */
+    public RequestOptions(String timeout, Auth auth) {
+        this(timeout, auth, null);
+    }
+
+    /**
+     * Options with a timeout and no credentials; {@code auth} and {@code outcomes} default to
+     * {@code null}.
+     *
+     * @param timeout the timeout in milliseconds, in text form, possibly holding {@code ${...}}
+     *        tokens
      */
     public RequestOptions(String timeout) {
-        this(timeout, null);
+        this(timeout, null, null);
     }
 
     /**

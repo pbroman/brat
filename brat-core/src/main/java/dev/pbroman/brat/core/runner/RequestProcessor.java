@@ -1,13 +1,19 @@
 package dev.pbroman.brat.core.runner;
 
 import java.util.Optional;
+import java.util.function.UnaryOperator;
 
 import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.handler.RequestHandler;
 import dev.pbroman.brat.core.api.handler.ResponseHandler;
 import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
+import dev.pbroman.brat.core.auth.AuthHandlerRegistry;
+import dev.pbroman.brat.core.auth.NoneAuthHandler;
+import dev.pbroman.brat.core.auth.RequestAuthenticator;
+import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.FlowControl;
+import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.Request;
 import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.result.RequestCoordinates;
@@ -48,6 +54,7 @@ public class RequestProcessor {
     private final ConfigDataInterpolator<FlowControl> flowControlInterpolator;
     private final ConfigDataInterpolator<RequestOptions> requestOptionsInterpolator;
     private final RequestExecutor requestExecutor;
+    private final AuthHandlerRegistry authHandlers;
 
     /**
      * Constructs a processor over the collaborators it delegates to.
@@ -63,6 +70,7 @@ public class RequestProcessor {
      * @param requestOptionsInterpolator produces the interpolated, validated copy of the request's
      *        options
      * @param requestExecutor performs the request's attempts and says how they ended
+     * @param authHandlers the auth handlers a request's {@code auth} type is looked up in
      */
     public RequestProcessor(
             Interpolation interpolation,
@@ -71,7 +79,8 @@ public class RequestProcessor {
             ResponseHandler responseHandler,
             ConfigDataInterpolator<FlowControl> flowControlInterpolator,
             ConfigDataInterpolator<RequestOptions> requestOptionsInterpolator,
-            RequestExecutor requestExecutor) {
+            RequestExecutor requestExecutor,
+            AuthHandlerRegistry authHandlers) {
         this.interpolation = interpolation;
         this.requestDefinitionInterpolators = requestDefinitionInterpolators;
         this.conditionEvaluator = conditionEvaluator;
@@ -79,6 +88,7 @@ public class RequestProcessor {
         this.flowControlInterpolator = flowControlInterpolator;
         this.requestOptionsInterpolator = requestOptionsInterpolator;
         this.requestExecutor = requestExecutor;
+        this.authHandlers = authHandlers;
     }
 
     /**
@@ -110,6 +120,13 @@ public class RequestProcessor {
      *       is not a positive whole number of milliseconds fails here, as
      *       {@link RequestStatus.Errored}, and never reaches an attempt. The result carries the
      *       interpolated definition and the <em>authored</em> options.</li>
+     *   <li><strong>The credentials are resolved</strong>, when the options carry an {@code auth}: its
+     *       handler is looked up by the interpolated type, once for the whole request. An HTTP request
+     *       accepts every registered type; a request of any other protocol accepts only {@code none},
+     *       since auth is HTTP-only. A type nothing is registered for, or a type other than
+     *       {@code none} on a non-HTTP request, is {@link RequestStatus.Errored} — no attempt is made,
+     *       and a polling request is not retried. The message names the type, and for an unregistered
+     *       one every registered type. The result carries the interpolated definition and options.</li>
      *   <li><strong>The flow control is interpolated</strong>, when the request declares one, since
      *       {@code waitAfter}, {@code maxAttempts} and {@code waitBetweenAttempts} may be tokens.
      *       Failing here — a value that does not interpolate, or is not a valid number — is
@@ -121,7 +138,15 @@ public class RequestProcessor {
      *       the attempts run out — see below. Failing to reach the server is
      *       {@link RequestStatus.Errored} for a request that does not poll. Note what is <em>not</em>
      *       a failure: every status code the server answered with, including 4xx and 5xx, is a
-     *       response.</li>
+     *       response.
+     *       <p>
+     *       <strong>Credentials are applied on every attempt</strong>, to the interpolated
+     *       definition, before it is sent — so the request handler receives it already
+     *       authenticated. Applying them failing — the auth handler throwing, or returning a header
+     *       the request already carries — makes the request {@link RequestStatus.Errored} with the
+     *       auth handler's message, at once: a polling request is not retried. The result carries
+     *       the definition <strong>as the last attempt sent it</strong>, credentials included, or the
+     *       interpolated one where that attempt failed before sending.</li>
      *   <li><strong>The response is flattened</strong> into the {@code responseVars} namespace, and
      *       <strong>removed again when this method returns</strong>, on every path. {@code ${response.*}}
      *       therefore means "the response this request just received" and nothing else: no later
@@ -236,6 +261,14 @@ public class RequestProcessor {
             return errored(coordinates, interpolatedRequestDef, options, message, methodStart, 0);
         }
 
+        UnaryOperator<RequestDefinition> authenticate;
+        try {
+            authenticate = authenticator(interpolatedRequestDef, interpolatedOptions.getAuth());
+        } catch (Exception e) {
+            var message = FailureMessages.causeOf(e, "Auth");
+            return errored(coordinates, interpolatedRequestDef, interpolatedOptions, message, methodStart, 0);
+        }
+
         Optional<PollBounds> pollBounds;
         long waitAfterMs;
         try {
@@ -250,8 +283,15 @@ public class RequestProcessor {
         }
 
         try {
-            var status = requestExecutor.execute(
-                    interpolatedRequestDef, interpolatedOptions, handler, pollBounds, coordinates, runtimeData);
+            var executed = requestExecutor.execute(
+                    interpolatedRequestDef,
+                    authenticate,
+                    interpolatedOptions,
+                    handler,
+                    pollBounds,
+                    coordinates,
+                    runtimeData);
+            var status = executed.status();
             ResponseActionsResult responseActionsResult = null;
             if (carriesAResponse(status) && request.responseActions() != null) {
                 try {
@@ -259,17 +299,12 @@ public class RequestProcessor {
                 } catch (Exception e) {
                     var message = FailureMessages.causeOf(e, "The response actions");
                     return errored(
-                            coordinates,
-                            interpolatedRequestDef,
-                            interpolatedOptions,
-                            message,
-                            methodStart,
-                            waitAfterMs);
+                            coordinates, executed.sent(), interpolatedOptions, message, methodStart, waitAfterMs);
                 }
             }
             return new RequestResult(
                     coordinates,
-                    interpolatedRequestDef,
+                    executed.sent(),
                     interpolatedOptions,
                     status,
                     elapsedMs(methodStart),
@@ -281,6 +316,37 @@ public class RequestProcessor {
             // remember to.
             runtimeData.clearResponseVars();
         }
+    }
+
+    /**
+     * What each attempt does to {@code definition} to apply {@code auth}, decided once per request.
+     *
+     * @param definition the interpolated definition
+     * @param auth the interpolated credentials, or {@code null} where nothing declared any
+     * @return {@link UnaryOperator#identity()} for no {@code auth}, and for {@code none} on a
+     *         definition that is not an {@link HttpRequestDefinition}; otherwise an operator applying
+     *         {@code auth} to {@code definition} through its handler, by {@link RequestAuthenticator}
+     * @throws BratException if no handler is registered for {@code auth}'s type, naming it and every
+     *         registered type; or if {@code definition} is not an {@link HttpRequestDefinition} — whatever
+     *         protocol it names — and the type is not {@code none}, naming the type and the protocol and
+     *         saying auth is HTTP-only
+     */
+    private UnaryOperator<RequestDefinition> authenticator(RequestDefinition definition, Auth auth) {
+        if (auth == null) {
+            return UnaryOperator.identity();
+        }
+        if (!(definition instanceof HttpRequestDefinition)) {
+            if (NoneAuthHandler.TYPE.equals(auth.getType())) {
+                return UnaryOperator.identity();
+            } else {
+                throw new BratException(String.format(
+                        "Auth type '%s' is HTTP-only, defined protocol is '%s'",
+                        auth.getType(), definition.protocol()));
+            }
+        }
+        var handler = authHandlers.get(auth.getType());
+        // The executor applies this to the definition it was given, so the cast holds.
+        return def -> RequestAuthenticator.authenticated(auth, handler, (HttpRequestDefinition) def);
     }
 
     /**

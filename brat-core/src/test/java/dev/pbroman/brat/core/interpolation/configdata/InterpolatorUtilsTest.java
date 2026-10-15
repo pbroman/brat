@@ -27,7 +27,7 @@ class InterpolatorUtilsTest {
     @Test
     void checkNotInterpolated_doesNotThrowIfNotInterpolated() {
         // given
-        var auth = new Auth();
+        var auth = new Auth("none", null);
 
         // when / then
         InterpolatorUtils.checkNotInterpolated(auth);
@@ -42,7 +42,7 @@ class InterpolatorUtilsTest {
     @Test
     void checkNotInterpolated_throwsIfAlreadyInterpolated() {
         // given
-        var auth = new Auth("none", null, null, null, Map.of());
+        var auth = new Auth("none", null, Map.of());
 
         // when / then
         assertThatThrownBy(() -> InterpolatorUtils.checkNotInterpolated(auth)).isInstanceOf(BratException.class);

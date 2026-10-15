@@ -4,13 +4,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import dev.pbroman.brat.core.api.auth.AuthHandler;
 import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.handler.RequestHandler;
 import dev.pbroman.brat.core.api.handler.ResponseHandler;
 import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
+import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.listener.AttemptFinished;
 import dev.pbroman.brat.core.api.resolver.ConditionResolver;
+import dev.pbroman.brat.core.auth.AuthHandlerRegistry;
+import dev.pbroman.brat.core.auth.BearerAuthHandler;
+import dev.pbroman.brat.core.auth.NoneAuthHandler;
+import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
@@ -34,6 +40,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -56,12 +63,14 @@ class RequestProcessorPollingTest {
     private ResponseHandler responseHandler;
     private RequestProcessor underTest;
     private RuntimeData runtimeData;
+    private Interpolation interpolation;
     private final List<AttemptFinished> attempts = new ArrayList<>();
+    private final CountingAuthHandler countingAuthHandler = new CountingAuthHandler();
 
     private final Condition pollCondition = new Condition("isEqualTo", "${response.statusCode}", "200");
     private final HttpRequestDefinition authored = new HttpRequestDefinition("http://x/jobs/1", "GET", null, null);
     private final HttpRequestDefinition interpolated =
-            new HttpRequestDefinition("http://x/jobs/1", "GET", null, null, Map.of());
+            new HttpRequestDefinition("http://x/jobs/1", "GET", null, null, null, Map.of());
     private final RequestCoordinates coordinates = new RequestCoordinates("s/poll", null, "poll", Phase.MAIN, 1);
 
     @SuppressWarnings("unchecked")
@@ -78,7 +87,7 @@ class RequestProcessorPollingTest {
         responseHandler = mock(ResponseHandler.class);
         attempts.clear();
 
-        var interpolation = mock(Interpolation.class);
+        interpolation = mock(Interpolation.class);
         var conditionEvaluator = new ConditionEvaluator(interpolation, conditionInterpolator, conditionResolver);
         underTest = new RequestProcessor(
                 interpolation,
@@ -87,7 +96,8 @@ class RequestProcessorPollingTest {
                 responseHandler,
                 flowControlInterpolator,
                 new RequestOptionsInterpolator(),
-                new RequestExecutor(conditionEvaluator, attempts::add));
+                new RequestExecutor(conditionEvaluator, attempts::add),
+                new AuthHandlerRegistry(List.of(new NoneAuthHandler(), new BearerAuthHandler(), countingAuthHandler)));
 
         runtimeData = new RuntimeData(Map.of(), Map.of());
         when(requestDefinitionInterpolator.interpolated(any(), any(), any())).thenReturn(interpolated);
@@ -99,7 +109,7 @@ class RequestProcessorPollingTest {
         var repeatUntil = new RepeatUntil(pollCondition, maxAttempts, wait, messageOnFail);
         var flowControl = new FlowControl(null, repeatUntil);
         when(flowControlInterpolator.interpolated(any(), any(), any())).thenReturn(flowControl);
-        return new Request("poll", null, null, null, null, null, null, authored, null, flowControl);
+        return new Request("poll", null, null, null, null, null, null, null, authored, null, flowControl);
     }
 
     /** A polling request that also declares response actions, so the two can be observed together. */
@@ -109,6 +119,7 @@ class RequestProcessorPollingTest {
         when(flowControlInterpolator.interpolated(any(), any(), any())).thenReturn(flowControl);
         return new Request(
                 "poll",
+                null,
                 null,
                 null,
                 null,
@@ -183,7 +194,7 @@ class RequestProcessorPollingTest {
     void process_emitsNoAttemptFinishedForARequestThatDoesNotPoll() {
         // given
         when(requestHandler.performRequest(any(), any())).thenReturn(response(200));
-        var request = new Request("once", null, null, null, null, null, null, authored, null, null);
+        var request = new Request("once", null, null, null, null, null, null, null, authored, null, null);
 
         // when
         underTest.process(request, OPTIONS, coordinates, runtimeData, requestHandler);
@@ -204,6 +215,7 @@ class RequestProcessorPollingTest {
         when(flowControlInterpolator.interpolated(any(), any(), any())).thenReturn(flowControl);
         var request = new Request(
                 "poll",
+                null,
                 null,
                 null,
                 null,
@@ -272,5 +284,87 @@ class RequestProcessorPollingTest {
                 .asString()
                 .contains("must be a positive number");
         verify(requestHandler, never()).performRequest(any(), any());
+    }
+
+    // ---------- auth ----------
+
+    /** Options carrying {@code auth}, interpolated by an interpolation that returns every value as written. */
+    private RequestOptions optionsWith(Auth auth) {
+        when(interpolation.outcome(anyString(), any()))
+                .thenAnswer(call -> new InterpolationOutcome(call.getArgument(0), call.getArgument(0)));
+        return new RequestOptions(null, auth);
+    }
+
+    @Test
+    void process_appliesTheCredentialsOncePerAttempt() {
+        // given
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202));
+        when(conditionResolver.resolve(any())).thenReturn(false, false, true);
+
+        // when
+        underTest.process(
+                polling("5", "0", null),
+                optionsWith(new Auth(CountingAuthHandler.TYPE, null)),
+                coordinates,
+                runtimeData,
+                requestHandler);
+
+        // then - so a value that must be fresh, such as a signing timestamp, is fresh on every attempt
+        assertThat(countingAuthHandler.calls).isEqualTo(3);
+    }
+
+    @Test
+    void process_neverRetriesAnAuthTypeNothingIsRegisteredFor() {
+        // when
+        var result = underTest.process(
+                polling("5", "0", null),
+                optionsWith(new Auth("aws-sigv4", null)),
+                coordinates,
+                runtimeData,
+                requestHandler);
+
+        // then - deterministic, so no attempt is made and none is reported
+        assertThat(result.status()).isInstanceOf(RequestStatus.Errored.class);
+        assertThat(attempts).isEmpty();
+        verify(requestHandler, never()).performRequest(any(), any());
+    }
+
+    @Test
+    void process_endsAPollAtOnceWhenTheAuthHandlerRefusesTheCredentials() {
+        // when - a blank token is refused the same way on every attempt
+        var result = underTest.process(
+                polling("5", "0", null),
+                optionsWith(new Auth(BearerAuthHandler.TYPE, Map.of("token", " "))),
+                coordinates,
+                runtimeData,
+                requestHandler);
+
+        // then - one attempt, reported as errored, and nothing sent
+        assertThat(result.status())
+                .asInstanceOf(type(RequestStatus.Errored.class))
+                .extracting(RequestStatus.Errored::message)
+                .asString()
+                .contains("token");
+        assertThat(attempts).hasSize(1);
+        verify(requestHandler, never()).performRequest(any(), any());
+    }
+
+    /** An auth handler counting its calls, adding a header that differs per call. */
+    private static final class CountingAuthHandler implements AuthHandler {
+
+        static final String TYPE = "counting";
+
+        private int calls;
+
+        @Override
+        public String type() {
+            return TYPE;
+        }
+
+        @Override
+        public Map<String, String> apply(Auth auth, HttpRequestDefinition request) {
+            calls++;
+            return Map.of("X-Attempt", String.valueOf(calls));
+        }
     }
 }

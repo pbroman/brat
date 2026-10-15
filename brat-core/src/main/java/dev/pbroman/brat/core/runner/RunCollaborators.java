@@ -5,6 +5,7 @@ import java.util.List;
 import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.api.resolver.ConditionResolver;
+import dev.pbroman.brat.core.auth.AuthHandlerRegistry;
 import dev.pbroman.brat.core.data.Assertion;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.FlowControl;
@@ -21,6 +22,7 @@ import dev.pbroman.brat.core.secrets.SecretsBootstrap;
  * @param conditionResolver resolves every condition and assertion
  * @param secretsBootstrap builds each run's secrets chain from its environment
  * @param protocolRegistry the handlers and request-definition interpolators, by protocol
+ * @param authHandlerRegistry the auth handlers, by type
  * @param conditionInterpolator interpolates skip and poll conditions
  * @param assertionInterpolator interpolates assertions
  * @param flowControlInterpolator interpolates a request's flow control
@@ -32,6 +34,7 @@ record RunCollaborators(
         ConditionResolver conditionResolver,
         SecretsBootstrap secretsBootstrap,
         ProtocolRegistry protocolRegistry,
+        AuthHandlerRegistry authHandlerRegistry,
         ConfigDataInterpolator<Condition> conditionInterpolator,
         ConfigDataInterpolator<Assertion> assertionInterpolator,
         ConfigDataInterpolator<FlowControl> flowControlInterpolator) {}

@@ -12,6 +12,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import dev.pbroman.brat.core.api.auth.AuthHandler;
 import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
 import dev.pbroman.brat.core.api.handler.RequestHandler;
@@ -27,6 +28,7 @@ import dev.pbroman.brat.core.api.listener.RunListener;
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.api.secrets.SecretsProviderFactory;
+import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
@@ -49,6 +51,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
@@ -73,6 +76,7 @@ class BratTest {
     private static Request request(String name, String url) {
         return new Request(
                 name,
+                null,
                 null,
                 null,
                 null,
@@ -130,6 +134,7 @@ class BratTest {
     private static Request requestWithHandlers(Map<String, String> requestHandlers) {
         return new Request(
                 "r",
+                null,
                 null,
                 null,
                 null,
@@ -366,6 +371,31 @@ class BratTest {
                 .hasMessageContaining("ftp");
     }
 
+    @Test
+    void loader_acceptsAnAuthTypeAddedOnTheBuilder() {
+        // given
+        var brat = Brat.builder()
+                .requestHandler(handler)
+                .authHandler(new ClosingAuthHandler())
+                .build();
+        var yaml = "name: s\nauth:\n  type: closing\n";
+
+        // then
+        assertThatCode(() -> brat.loader().load(yaml)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void loader_rejectsAnAuthTypeThisRunnerHasNoHandlerFor() {
+        // given
+        var yaml = "name: s\nauth:\n  type: closing\n";
+
+        // then - naming what this runner can apply
+        assertThatThrownBy(() -> brat().loader().load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("closing")
+                .hasMessageContaining("bearer");
+    }
+
     // ---------- selecting a handler ----------
 
     @Test
@@ -375,6 +405,7 @@ class BratTest {
         var brat = Brat.builder().requestHandler(recording).build();
         var request = new Request(
                 "r",
+                null,
                 null,
                 null,
                 "${env.timeout}",
@@ -688,6 +719,7 @@ class BratTest {
                 null,
                 null,
                 null,
+                null,
                 new Condition("isAlwaysTrue", "a", null),
                 null,
                 null,
@@ -828,6 +860,7 @@ class BratTest {
                 null,
                 null,
                 null,
+                null,
                 new HttpRequestDefinition("${env.baseUrl}/x", "GET", null, null),
                 null,
                 new FlowControl("${env.pause}", null));
@@ -936,6 +969,7 @@ class BratTest {
         var events = new ArrayList<RunEvent>();
         var polling = new Request(
                 "poll",
+                null,
                 null,
                 null,
                 null,
@@ -1190,7 +1224,7 @@ class BratTest {
         // given - a token-free path is knowable before anything runs
         var definition =
                 new HttpRequestDefinition("http://url", "POST", Map.of("file", "file:/no/such/body.json"), null);
-        var request = new Request("create", null, null, null, null, null, null, definition, null, null);
+        var request = new Request("create", null, null, null, null, null, null, null, definition, null, null);
 
         // then - and it throws rather than reporting, because no run ever started
         assertThatThrownBy(() -> brat().run(suite(request), environment))
@@ -1602,6 +1636,137 @@ class BratTest {
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("closed")
                 .hasMessageNotContaining("missing.brat.yaml");
+    }
+
+    // ---------- auth handlers ----------
+
+    @Test
+    void authHandler_rejectsNull() {
+        // when / then
+        assertThatThrownBy(() -> Brat.builder().authHandler(null)).isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void close_closesTheAuthHandlersItDiscoveredEvenWhenOneOfThemThrows() {
+        // given
+        ClosingAuthHandler.CLOSES.set(0);
+        ThrowingCloseAuthHandler.ATTEMPTS.set(0);
+        var brat = Brat.builder().classLoader(closeableAuthLoader()).build();
+
+        // when - and it does not throw, though one handler does
+        brat.close();
+
+        // then
+        assertThat(ClosingAuthHandler.CLOSES).hasValue(1);
+        assertThat(ThrowingCloseAuthHandler.ATTEMPTS).hasValue(1);
+    }
+
+    @Test
+    void build_closesTheAuthHandlersItDiscoveredWhenItFails() {
+        // given - discovery creates the handler, then a default reporter nobody registered fails the build
+        ClosingAuthHandler.CLOSES.set(0);
+        var builder = Brat.builder().classLoader(closeableAuthLoader()).defaultReporters(List.of("nobody"));
+
+        // when
+        assertThatThrownBy(builder::build).isInstanceOf(BratException.class);
+
+        // then - no runner was returned, so nothing else could ever close it
+        assertThat(ClosingAuthHandler.CLOSES).hasValue(1);
+    }
+
+    @Test
+    void close_leavesAnAuthHandlerAddedOnTheBuilderOpen() {
+        // given
+        var wired = new ClosingAuthHandler();
+        ClosingAuthHandler.CLOSES.set(0);
+        var brat = Brat.builder().authHandler(wired).build();
+
+        // when
+        brat.close();
+
+        // then - whoever created it closes it
+        assertThat(ClosingAuthHandler.CLOSES).hasValue(0);
+    }
+
+    @Test
+    void build_failsOnADiscoveredAuthHandlerWithABlankTypeNamingIt() {
+        // given
+        var root = BratTest.class.getClassLoader().getResource("blank-auth-type-plugin-fixture/");
+        var builder = Brat.builder().classLoader(new URLClassLoader(new URL[] {root}, BratTest.class.getClassLoader()));
+
+        // when / then
+        assertThatThrownBy(builder::build)
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining(BlankTypeAuthHandler.class.getName());
+    }
+
+    /**
+     * A classloader declaring {@link ClosingAuthHandler} and {@link ThrowingCloseAuthHandler} as plugins.
+     *
+     * @return the loader
+     */
+    private static ClassLoader closeableAuthLoader() {
+        var root = BratTest.class.getClassLoader().getResource("closeable-auth-plugin-fixture/");
+        return new URLClassLoader(new URL[] {root}, BratTest.class.getClassLoader());
+    }
+
+    /** A discoverable auth handler counting how often it is closed. */
+    public static final class ClosingAuthHandler implements AuthHandler, AutoCloseable {
+
+        /** How often any instance was closed. */
+        static final AtomicInteger CLOSES = new AtomicInteger();
+
+        @Override
+        public String type() {
+            return "closing";
+        }
+
+        @Override
+        public Map<String, String> apply(Auth auth, HttpRequestDefinition request) {
+            return Map.of();
+        }
+
+        @Override
+        public void close() {
+            CLOSES.incrementAndGet();
+        }
+    }
+
+    /** A discoverable auth handler whose close always fails. */
+    public static final class ThrowingCloseAuthHandler implements AuthHandler, AutoCloseable {
+
+        /** How often any instance was asked to close. */
+        static final AtomicInteger ATTEMPTS = new AtomicInteger();
+
+        @Override
+        public String type() {
+            return "throwing-close";
+        }
+
+        @Override
+        public Map<String, String> apply(Auth auth, HttpRequestDefinition request) {
+            return Map.of();
+        }
+
+        @Override
+        public void close() {
+            ATTEMPTS.incrementAndGet();
+            throw new IllegalStateException("cannot close");
+        }
+    }
+
+    /** A discoverable auth handler with no usable type. */
+    public static final class BlankTypeAuthHandler implements AuthHandler {
+
+        @Override
+        public String type() {
+            return " ";
+        }
+
+        @Override
+        public Map<String, String> apply(Auth auth, HttpRequestDefinition request) {
+            return Map.of();
+        }
     }
 
     /**

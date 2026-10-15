@@ -24,10 +24,17 @@ import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.i
 @Slf4j
 public final class RequestOptionsInterpolator implements ConfigDataInterpolator<RequestOptions> {
 
+    private static final String AUTH_PREFIX = "auth.";
+
+    private final AuthInterpolator authInterpolator = new AuthInterpolator();
+
     /**
-     * Interpolates {@code timeout} and validates the result.
+     * Interpolates {@code timeout} and {@code auth}, and validates the timeout.
      * <p>
-     * The one outcome key is {@code timeout}, unprefixed, recorded only when a timeout was declared.
+     * Outcome keys are {@code timeout}, unprefixed and recorded only when a timeout was declared, then
+     * the auth block's own outcomes prefixed with {@code auth.} ({@code auth.type},
+     * {@code auth.args.<name>}), recorded only when an {@code auth} is present — see
+     * {@link AuthInterpolator#interpolated} for those, every argument among them masked.
      * The copy is validated with {@link RequestOptions#timeoutMs()} before it is returned, so
      * {@link RequestOptions#timeoutMs()} never throws on a copy this method produced.
      * <p>
@@ -38,19 +45,31 @@ public final class RequestOptionsInterpolator implements ConfigDataInterpolator<
      * @param target the options to interpolate
      * @param interpolation the interpolation implementation
      * @param runtimeData the runtime data
-     * @return a new instance with {@code timeout} interpolated, carrying its outcome. A {@code null}
-     *         {@code timeout} yields no outcome and stays {@code null}; the default is applied by
-     *         {@link RequestOptions#timeoutMs()}
+     * @return a new instance with {@code timeout} and {@code auth} interpolated, carrying their
+     *         outcomes. A {@code null} {@code timeout} yields no outcome and stays {@code null}; the
+     *         default is applied by {@link RequestOptions#timeoutMs()}. A {@code null} {@code auth}
+     *         yields no outcome and stays {@code null}; otherwise the copy holds an interpolated
+     *         {@link dev.pbroman.brat.core.data.Auth}
      * @throws BratException if {@code target} is {@code null} or is already an interpolated copy
      * @throws BratException if {@code timeout} interpolates to something other than blank,
      *         {@value RequestOptions#DEFAULT_TIMEOUT_KEYWORD} or a positive whole number of milliseconds
+     * @throws BratException if {@code auth} cannot be interpolated, under the conditions of
+     *         {@link AuthInterpolator#interpolated}
      */
     @Override
     public RequestOptions interpolated(RequestOptions target, Interpolation interpolation, RuntimeData runtimeData) {
         checkNotInterpolated(target);
         var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
         var timeoutOutcome = interpolateIfPresent(interpolation, runtimeData, outcomes, "timeout", target.getTimeout());
-        var interpolated = new RequestOptions(asStringOrNull(timeoutOutcome), outcomes);
+        var auth = target.getAuth() == null
+                ? null
+                : authInterpolator.interpolated(target.getAuth(), interpolation, runtimeData);
+        if (auth != null) {
+            for (var authOutcome : auth.getOutcomes().entrySet()) {
+                outcomes.put(AUTH_PREFIX + authOutcome.getKey(), authOutcome.getValue());
+            }
+        }
+        var interpolated = new RequestOptions(asStringOrNull(timeoutOutcome), auth, outcomes);
         if (timeoutOutcome != null && StringUtils.isBlank(interpolated.getTimeout())) {
             log.warn(
                     "The timeout '{}' resolved to blank, so the default applies; write '{}' to ask for the default"

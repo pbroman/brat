@@ -72,4 +72,27 @@ public final class ArgsUtils {
         }
         return argument;
     }
+
+    /**
+     * Returns an argument its owner requires to hold text, such as a credential.
+     * <p>
+     * Blank is treated as missing because, for an argument like this, it nearly always <em>is</em>
+     * missing: an unset variable or a capture that never ran resolves to empty text, and sending it on
+     * produces a failure that reads as the other side's fault.
+     *
+     * @param args the bag to read; must not be {@code null}
+     * @param subject what owns the bag, named as it should read in the message
+     * @param key the argument to read
+     * @return the value, which is never {@code null} or blank
+     * @throws BratException if {@code args} has no entry for {@code key}, holds it as {@code null}, or
+     *         holds it blank — whitespace only included. The message names the key and the subject,
+     *         never the value
+     */
+    public static String requiredNonBlankArg(Map<String, String> args, String subject, String key) {
+        var argument = requiredArg(args, subject, key);
+        if (argument.isBlank()) {
+            throw new BratException(String.format("The '%s' argument is blank, which %s cannot use", key, subject));
+        }
+        return argument;
+    }
 }

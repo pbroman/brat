@@ -1,9 +1,11 @@
 package dev.pbroman.brat.core.interpolation.configdata;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
@@ -55,6 +57,71 @@ class RequestOptionsInterpolatorTest {
 
         // then
         assertThat(result.getOutcomes()).containsOnlyKeys("timeout");
+    }
+
+    @Test
+    void interpolated_interpolatesTheAuth() {
+        // given
+        var options = new RequestOptions(null, new Auth("bearer", Map.of("token", "${vars.t}")));
+
+        // when
+        var result = interpolator.interpolated(options, interpolation, runtimeData);
+
+        // then
+        assertThat(result.getAuth().isInterpolated()).isTrue();
+        assertThat(result.getAuth().getArgs()).containsEntry("token", "5000");
+    }
+
+    @Test
+    void interpolated_recordsTheAuthOutcomesUnderTheAuthPrefixAfterTheTimeout() {
+        // given
+        var options = new RequestOptions("${vars.timeout}", new Auth("bearer", Map.of("token", "${vars.t}")));
+
+        // when
+        var result = interpolator.interpolated(options, interpolation, runtimeData);
+
+        // then
+        assertThat(result.getOutcomes().keySet()).containsExactly("timeout", "auth.type", "auth.args.token");
+    }
+
+    @Test
+    void interpolated_keepsTheAuthArgsMasked() {
+        // given
+        var options = new RequestOptions(null, new Auth("bearer", Map.of("token", "literal")));
+
+        // when
+        var result = interpolator.interpolated(options, interpolation, runtimeData);
+
+        // then
+        var token = result.getOutcomes().get("auth.args.token");
+        assertThat(token.containsSecret()).isTrue();
+        assertThat(token.reportingString()).isEqualTo("***");
+    }
+
+    @Test
+    void interpolated_leavesAnUndeclaredAuthAlone() {
+        // given
+        var options = new RequestOptions("${vars.timeout}", null);
+
+        // when
+        var result = interpolator.interpolated(options, interpolation, runtimeData);
+
+        // then - absent stays absent; nothing substitutes 'none'
+        assertThat(result.getAuth()).isNull();
+        assertThat(result.getOutcomes()).containsOnlyKeys("timeout");
+    }
+
+    @Test
+    void interpolated_throwsIfTheAuthCannotBeInterpolated() {
+        // given
+        var args = new HashMap<String, String>();
+        args.put("token", null);
+        var options = new RequestOptions(null, new Auth("bearer", args));
+
+        // when / then
+        assertThatThrownBy(() -> interpolator.interpolated(options, interpolation, runtimeData))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("token");
     }
 
     @Test
@@ -136,7 +203,7 @@ class RequestOptionsInterpolatorTest {
     @Test
     void interpolated_throwsIfTargetIsAlreadyACopy() {
         // given
-        var copy = new RequestOptions("5000", Map.of("timeout", new InterpolationOutcome("5000", "5000")));
+        var copy = new RequestOptions("5000", null, Map.of("timeout", new InterpolationOutcome("5000", "5000")));
 
         // when / then
         assertThatThrownBy(() -> interpolator.interpolated(copy, interpolation, runtimeData))

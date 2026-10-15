@@ -43,7 +43,8 @@ class SuiteBindingTest {
                   runId: "${__uuid}"
                 auth:
                   type: bearer
-                  token: "${secrets.serviceToken}"
+                  args:
+                    token: "${secrets.serviceToken}"
                 timeout: "10000"
                 requests:
                   - name: create an order
@@ -205,7 +206,7 @@ class SuiteBindingTest {
         var suite = new TestSuite("s", null, null, null, null, null, null, null, requests, null);
 
         // when
-        requests.add(new Request("r", null, null, null, null, null, null, null, null, null));
+        requests.add(new Request("r", null, null, null, null, null, null, null, null, null, null));
 
         // then
         assertThat(suite.requests()).isEmpty();
@@ -270,7 +271,7 @@ class SuiteBindingTest {
         handlers.put("http", "mtls");
 
         // when
-        var request = new Request("r", null, null, null, null, Phase.TEARDOWN, handlers, null, null, null);
+        var request = new Request("r", null, null, null, null, null, Phase.TEARDOWN, handlers, null, null, null);
         handlers.put("ftp", "other");
 
         // then - declared values survive, and the map is copied
@@ -281,7 +282,7 @@ class SuiteBindingTest {
     @Test
     void constructor_defaultsPhaseOnARequestToo() {
         // when
-        var request = new Request("r", null, null, null, null, null, null, null, null, null);
+        var request = new Request("r", null, null, null, null, null, null, null, null, null, null);
 
         // then
         assertThat(request.phase()).isEqualTo(Phase.MAIN);

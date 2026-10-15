@@ -20,6 +20,8 @@ import dev.pbroman.brat.core.api.data.RequestDefinition;
  * @param id optional, author-supplied, never generated. Means only "this node survives a rename" —
  *        baselines and trend history key on it and fall back to the path without one. The loader
  *        rejects a duplicate id within one document
+ * @param auth credentials for this request, or {@code null} to inherit the nearest suite's. A
+ *        declared block replaces the inherited one wholesale, so {@code type: none} cancels it
  * @param timeout how long to wait for this request, in milliseconds and in text form, possibly
  *        holding {@code ${...}} tokens; or {@code null} to use the default. Resolved into the
  *        {@link RequestOptions} the handler receives, which is where it is validated
@@ -37,6 +39,7 @@ public record Request(
         String name,
         String description,
         String id,
+        Auth auth,
         String timeout,
         Condition skipCondition,
         Phase phase,
