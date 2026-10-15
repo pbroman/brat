@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
+import dev.pbroman.brat.core.api.handler.HttpResponseVars;
 import dev.pbroman.brat.core.api.listener.AttemptFinished;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.FlowControl;
@@ -18,7 +19,6 @@ import dev.pbroman.brat.core.data.result.RequestCoordinates;
 import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.handler.HttpResponseVars;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

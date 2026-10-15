@@ -45,7 +45,7 @@ class EnvironmentReaderTest {
         // then
         assertThat(result.env()).isEmpty();
         assertThat(result.params()).isEmpty();
-        assertThat(result.secretsConfig().providerParams()).isEmpty();
+        assertThat(result.secretsConfig().providerArgs()).isEmpty();
         assertThat(result.secretsConfig().sources()).isEmpty();
         assertThat(result.suiteLocation()).isNull();
     }
@@ -245,7 +245,7 @@ class EnvironmentReaderTest {
         var result = reader.read(dir.toString(), Map.of());
 
         // then - a provider document configures behaviour, so its tokens stay for the chain builder
-        assertThat(result.secretsConfig().paramsFor("vault")).containsEntry("address", "${env.vaultUrl}");
+        assertThat(result.secretsConfig().argsFor("vault")).containsEntry("address", "${env.vaultUrl}");
     }
 
     @Test
@@ -319,7 +319,7 @@ class EnvironmentReaderTest {
 
         // then - '.' before digits, uppercase before lowercase, and no numeric comparison
         assertThat(result.secretsConfig().sources())
-                .extracting(source -> Path.of(source.params().get("location").substring("file:".length()))
+                .extracting(source -> Path.of(source.args().get("location").substring("file:".length()))
                         .getFileName()
                         .toString())
                 .containsExactly(

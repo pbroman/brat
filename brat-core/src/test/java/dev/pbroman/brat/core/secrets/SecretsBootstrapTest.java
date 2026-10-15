@@ -189,7 +189,7 @@ class SecretsBootstrapTest {
     }
 
     @Test
-    void build_usesThePrefixFromTheSysenvParams() {
+    void build_usesThePrefixFromTheSysenvArgs() {
         // given
         environment.put("MY_API_KEY", "from-env");
         var config = config(Map.of("sysenv", Map.of("prefix", "MY_")));
@@ -306,7 +306,7 @@ class SecretsBootstrapTest {
     }
 
     @Test
-    void build_closesWhatItAlreadyBuiltWhenASecretInTypeParamsIsUnresolvable() {
+    void build_closesWhatItAlreadyBuiltWhenASecretInTypeArgsIsUnresolvable() {
         // given
         var closed = new AtomicBoolean();
         var seed = new StubFactory("seed").returning(closeTracking(closed));
@@ -327,7 +327,7 @@ class SecretsBootstrapTest {
     // --- parameters handed to a factory ---
 
     @Test
-    void build_handsAFactoryItsTypesParams() {
+    void build_handsAFactoryItsTypesArgs() {
         // given
         var factory = new StubFactory("file");
         var config = config(Map.of("file", Map.of("charset", "UTF-8")), source("file", "one.yaml"));
@@ -336,10 +336,9 @@ class SecretsBootstrapTest {
         bootstrap(factory).build(config, runtimeData);
 
         // then
-        assertThat(factory.receivedParams)
+        assertThat(factory.receivedArgs)
                 .singleElement()
-                .satisfies(
-                        params -> assertThat(params).contains(entry("charset", "UTF-8"), entry(LOCATION, "one.yaml")));
+                .satisfies(args -> assertThat(args).contains(entry("charset", "UTF-8"), entry(LOCATION, "one.yaml")));
     }
 
     @Test
@@ -352,13 +351,13 @@ class SecretsBootstrapTest {
         bootstrap(factory).build(config, runtimeData);
 
         // then
-        assertThat(factory.receivedParams)
+        assertThat(factory.receivedArgs)
                 .singleElement()
-                .satisfies(params -> assertThat(params).contains(entry(LOCATION, "from-source")));
+                .satisfies(args -> assertThat(args).contains(entry(LOCATION, "from-source")));
     }
 
     @Test
-    void build_interpolatesTheTypesParams() {
+    void build_interpolatesTheTypesArgs() {
         // given
         var factory = new StubFactory("file");
         var config = config(Map.of("file", Map.of("stage", "${constants.stage}")), source("file", "one.yaml"));
@@ -367,13 +366,13 @@ class SecretsBootstrapTest {
         bootstrap(factory).build(config, runtimeData);
 
         // then
-        assertThat(factory.receivedParams)
+        assertThat(factory.receivedArgs)
                 .singleElement()
-                .satisfies(params -> assertThat(params).contains(entry("stage", "dev")));
+                .satisfies(args -> assertThat(args).contains(entry("stage", "dev")));
     }
 
     @Test
-    void build_leavesSourceParamsUninterpolated() {
+    void build_leavesSourceArgsUninterpolated() {
         // given
         var factory = new StubFactory("file");
         var config = config(Map.of(), source("file", "${constants.stage}"));
@@ -382,9 +381,9 @@ class SecretsBootstrapTest {
         bootstrap(factory).build(config, runtimeData);
 
         // then
-        assertThat(factory.receivedParams)
+        assertThat(factory.receivedArgs)
                 .singleElement()
-                .satisfies(params -> assertThat(params).contains(entry(LOCATION, "${constants.stage}")));
+                .satisfies(args -> assertThat(args).contains(entry(LOCATION, "${constants.stage}")));
     }
 
     @Test
@@ -401,9 +400,9 @@ class SecretsBootstrapTest {
         bootstrap(seed, vault).build(config, runtimeData);
 
         // then
-        assertThat(vault.receivedParams)
+        assertThat(vault.receivedArgs)
                 .singleElement()
-                .satisfies(params -> assertThat(params).contains(entry("url", "https://vault/t0ken/v1")));
+                .satisfies(args -> assertThat(args).contains(entry("url", "https://vault/t0ken/v1")));
     }
 
     // --- build with a leading provider ---
@@ -434,9 +433,9 @@ class SecretsBootstrapTest {
         bootstrap(vault).build(config, runtimeData, leading);
 
         // then
-        assertThat(vault.receivedParams)
+        assertThat(vault.receivedArgs)
                 .singleElement()
-                .satisfies(params -> assertThat(params).contains(entry("token", "t0ken")));
+                .satisfies(args -> assertThat(args).contains(entry("token", "t0ken")));
     }
 
     @Test
@@ -502,9 +501,9 @@ class SecretsBootstrapTest {
         bootstrap(seed, vault).build(config, runtimeData);
 
         // then
-        assertThat(vault.receivedParams)
+        assertThat(vault.receivedArgs)
                 .singleElement()
-                .satisfies(params -> assertThat(params).contains(entry("credentials", "admin:s3cret")));
+                .satisfies(args -> assertThat(args).contains(entry("credentials", "admin:s3cret")));
     }
 
     @Test
@@ -521,15 +520,15 @@ class SecretsBootstrapTest {
         bootstrap(seed, vault).build(config, runtimeData);
 
         // then
-        assertThat(vault.receivedParams)
+        assertThat(vault.receivedArgs)
                 .singleElement()
-                .satisfies(params -> assertThat(params).contains(entry("path", "dev/t0ken")));
+                .satisfies(args -> assertThat(args).contains(entry("path", "dev/t0ken")));
     }
 
     // --- the ordering rule ---
 
     @Test
-    void build_resolvesASecretInTypeParamsFromAnEarlierSource() {
+    void build_resolvesASecretInTypeArgsFromAnEarlierSource() {
         // given
         var seed = new StubFactory("seed").serving("seed.yaml", Map.of("vaultToken", "t0ken"));
         var vault = new StubFactory("vault");
@@ -542,13 +541,13 @@ class SecretsBootstrapTest {
         bootstrap(seed, vault).build(config, runtimeData);
 
         // then
-        assertThat(vault.receivedParams)
+        assertThat(vault.receivedArgs)
                 .singleElement()
-                .satisfies(params -> assertThat(params).contains(entry("token", "t0ken")));
+                .satisfies(args -> assertThat(args).contains(entry("token", "t0ken")));
     }
 
     @Test
-    void build_throwsIfASecretInTypeParamsComesFromALaterSource() {
+    void build_throwsIfASecretInTypeArgsComesFromALaterSource() {
         // given
         var seed = new StubFactory("seed").serving("seed.yaml", Map.of("vaultToken", "t0ken"));
         var vault = new StubFactory("vault");
@@ -563,7 +562,7 @@ class SecretsBootstrapTest {
     }
 
     @Test
-    void build_throwsIfASecretInTypeParamsComesFromItsOwnSource() {
+    void build_throwsIfASecretInTypeArgsComesFromItsOwnSource() {
         // given
         var vault = new StubFactory("vault").serving("prod", Map.of("vaultToken", "t0ken"));
         var config = config(Map.of("vault", Map.of("token", "${secrets.vaultToken}")), source("vault", "prod"));
@@ -573,7 +572,7 @@ class SecretsBootstrapTest {
     }
 
     @Test
-    void build_resolvesASecretInTypeParamsFromTheEnvironmentDespiteItComingLast() {
+    void build_resolvesASecretInTypeArgsFromTheEnvironmentDespiteItComingLast() {
         // given
         environment.put("BRAT_SECRET_VAULT_TOKEN", "t0ken");
         var vault = new StubFactory("vault");
@@ -583,13 +582,13 @@ class SecretsBootstrapTest {
         bootstrap(vault).build(config, runtimeData);
 
         // then
-        assertThat(vault.receivedParams)
+        assertThat(vault.receivedArgs)
                 .singleElement()
-                .satisfies(params -> assertThat(params).contains(entry("token", "t0ken")));
+                .satisfies(args -> assertThat(args).contains(entry("token", "t0ken")));
     }
 
     @Test
-    void build_interpolatesATypesParamsOnceHoweverManySourcesUseIt() {
+    void build_interpolatesATypesArgsOnceHoweverManySourcesUseIt() {
         // given
         var lookups = new AtomicInteger();
         var seed = new StubFactory("seed").returning(counting(lookups, "vaultToken", "t0ken"));
@@ -604,12 +603,12 @@ class SecretsBootstrapTest {
         bootstrap(seed, vault).build(config, runtimeData);
 
         // then
-        assertThat(vault.receivedParams).hasSize(2);
+        assertThat(vault.receivedArgs).hasSize(2);
         assertThat(lookups).hasValue(1);
     }
 
     @Test
-    void build_interpolatesATypesParamsAgainForEveryBuild() {
+    void build_interpolatesATypesArgsAgainForEveryBuild() {
         // given
         environment.put("BRAT_SECRET_VAULT_TOKEN", "first");
         var vault = new StubFactory("vault");
@@ -622,8 +621,8 @@ class SecretsBootstrapTest {
         bootstrap.build(config, runtimeData);
 
         // then
-        assertThat(vault.receivedParams).hasSize(2);
-        assertThat(vault.receivedParams.get(1)).contains(entry("token", "second"));
+        assertThat(vault.receivedArgs).hasSize(2);
+        assertThat(vault.receivedArgs.get(1)).contains(entry("token", "second"));
     }
 
     // --- helpers ---
@@ -633,8 +632,8 @@ class SecretsBootstrapTest {
     }
 
     private static SecretsProviderConfig config(
-            Map<String, Map<String, String>> providerParams, SecretsSource... sources) {
-        return new SecretsProviderConfig(providerParams, List.of(sources));
+            Map<String, Map<String, String>> providerArgs, SecretsSource... sources) {
+        return new SecretsProviderConfig(providerArgs, List.of(sources));
     }
 
     private static SecretsSource source(String type, String location) {
@@ -668,7 +667,7 @@ class SecretsBootstrapTest {
 
         private final Map<String, Map<String, String>> secretsByLocation = new HashMap<>();
 
-        private final List<Map<String, String>> receivedParams = new ArrayList<>();
+        private final List<Map<String, String>> receivedArgs = new ArrayList<>();
 
         private SecretsProvider fixedProvider;
 
@@ -703,14 +702,14 @@ class SecretsBootstrapTest {
         }
 
         @Override
-        public SecretsProvider create(Map<String, String> params) {
-            receivedParams.add(params);
+        public SecretsProvider create(Map<String, String> args) {
+            receivedArgs.add(args);
             if (failure != null) {
                 throw failure;
             }
             return fixedProvider != null
                     ? fixedProvider
-                    : new MapSecretsProvider(secretsByLocation.getOrDefault(params.get(LOCATION), Map.of()));
+                    : new MapSecretsProvider(secretsByLocation.getOrDefault(args.get(LOCATION), Map.of()));
         }
     }
 }

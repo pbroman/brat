@@ -8,7 +8,9 @@ import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.Assertion;
 import dev.pbroman.brat.core.data.ChainedCondition;
+import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateArgs;
@@ -18,7 +20,7 @@ import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.i
 /**
  * Interpolates every field of an {@link Assertion}, including its chain.
  * <p>
- * An assertion is a {@link dev.pbroman.brat.core.data.Condition} with a {@code message}, a
+ * An assertion is a {@link Condition} with a {@code message}, a
  * {@code severity} and a chain of further conditions over the same {@code a}. It needs its own
  * interpolator rather than borrowing {@code ConditionInterpolator} for two reasons: interpolating it
  * as a condition would return a plain condition, losing the three fields it adds; and its {@code a}
@@ -60,7 +62,7 @@ public final class AssertionInterpolator implements ConfigDataInterpolator<Asser
      * @return a new assertion with every interpolatable field and every chain link interpolated. A
      *         {@code null} {@code b} or {@code message} yields no outcome for that field and stays
      *         {@code null} on the copy; an empty chain yields an empty chain
-     * @throws dev.pbroman.brat.core.exception.BratException if {@code target} is already an
+     * @throws BratException if {@code target} is already an
      *         interpolated copy, or if an {@code args} entry has a {@code null} value. A link that
      *         fails to interpolate propagates, so a chain is interpolated wholly or not at all
      */

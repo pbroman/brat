@@ -7,6 +7,7 @@ import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.api.secrets.SecretsProviderFactory;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.NamespaceUtils;
+import dev.pbroman.brat.core.util.ResourceReader;
 
 import static dev.pbroman.brat.core.util.Constants.SECRETS;
 import static dev.pbroman.brat.core.util.Require.nonBlank;
@@ -16,7 +17,7 @@ import static dev.pbroman.brat.core.util.ResourceReader.readFileToString;
 /**
  * Creates providers for plaintext YAML secrets files.
  * <p>
- * The file is read from the location given as a parameter, flattened to dotted keys, and served
+ * The file is read from the location given as an argument, flattened to dotted keys, and served
  * from memory, so the file is read once when the chain is built rather than per lookup.
  */
 public final class FileSecretsProviderFactory implements SecretsProviderFactory {
@@ -27,9 +28,9 @@ public final class FileSecretsProviderFactory implements SecretsProviderFactory 
     public static final String TYPE = "file";
 
     /**
-     * The parameter naming the file to read.
+     * The argument naming the file to read.
      */
-    public static final String LOCATION_PARAM = "location";
+    public static final String LOCATION_ARG = "location";
 
     /**
      * The key a secrets file declares its own type with, which is configuration rather than a
@@ -43,11 +44,11 @@ public final class FileSecretsProviderFactory implements SecretsProviderFactory 
     }
 
     /**
-     * Creates a provider serving the entries of the file at {@code params.get("location")}.
+     * Creates a provider serving the entries of the file at {@code args.get("location")}.
      * <p>
-     * The location is a resource location as {@link dev.pbroman.brat.core.util.ResourceReader}
+     * The location is a resource location as {@link ResourceReader}
      * resolves it. A {@code type} entry in the file is removed rather than served, so a file
-     * declaring {@code type: file} does not expose a secret named {@code type}. Any other parameter
+     * declaring {@code type: file} does not expose a secret named {@code type}. Any other argument
      * is ignored.
      * <p>
      * <strong>The file is literal.</strong> A secrets file supplies values, and nothing in it is
@@ -55,19 +56,19 @@ public final class FileSecretsProviderFactory implements SecretsProviderFactory 
      * text, is refused rather than served. The {@code type} entry is neither served nor checked: it
      * is read by whatever routed the file here, and that is where it is checked.
      *
-     * @param params the resolved parameters; must hold {@code location}
+     * @param args the resolved arguments; must hold {@code location}
      * @return a provider over the file's entries, resolving nothing if the file holds no entries
-     * @throws BratException if {@code params} is {@code null}, if it has no {@code location} entry
+     * @throws BratException if {@code args} is {@code null}, if it has no {@code location} entry
      *         or a blank one, if the file cannot be read, if its content is not a document
      *         {@link FlatYamlLoader} accepts, or if any value it would serve holds a {@code ${...}} token —
      *         the message then names the location and the key, as {@code secrets.<key>}, and
      *         <strong>never the value</strong>
      */
     @Override
-    public SecretsProvider create(Map<String, String> params) {
-        nonNull(params, "params may not be null");
-        var location = params.get(LOCATION_PARAM);
-        nonBlank(location, "The params must contain a valid " + LOCATION_PARAM);
+    public SecretsProvider create(Map<String, String> args) {
+        nonNull(args, "args may not be null");
+        var location = args.get(LOCATION_ARG);
+        nonBlank(location, "The args must contain a valid " + LOCATION_ARG);
         var map = new HashMap<>(FlatYamlLoader.load(readFileToString(location)));
         map.remove(TYPE_KEY);
         try {

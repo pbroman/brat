@@ -87,7 +87,7 @@ public final class NumberConditionResolverRule extends AbstractConditionResolver
     }
 
     @Override
-    public String category() {
+    protected String category() {
         return NUMBER_CONDITION;
     }
 

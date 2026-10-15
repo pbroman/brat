@@ -61,7 +61,7 @@ public final class DateConditionResolverRule extends AbstractConditionResolverRu
     }
 
     @Override
-    public String category() {
+    protected String category() {
         return DATE_CONDITION;
     }
 

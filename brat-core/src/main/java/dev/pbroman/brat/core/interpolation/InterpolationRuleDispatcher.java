@@ -20,7 +20,7 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  * keeps a captured response field holding the text {@code ${secrets.apiKey}} from resolving to a
  * secret.
  */
-public class InterpolationRuleDispatcher implements Interpolation {
+public final class InterpolationRuleDispatcher implements Interpolation {
 
     protected final List<InterpolationRule> rules;
 

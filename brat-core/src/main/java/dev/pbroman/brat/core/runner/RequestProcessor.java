@@ -35,7 +35,7 @@ import lombok.extern.slf4j.Slf4j;
  * <strong>Nothing escapes a request.</strong> Every failure between accepting a {@code Request} and
  * returning its result becomes part of that result — a definition that cannot be interpolated and a
  * call that cannot be made are both {@link RequestStatus.Errored}, and a failing assertion or capture
- * is data on the {@link dev.pbroman.brat.core.data.result.ResponseActionsResult}. A
+ * is data on the {@link ResponseActionsResult}. A
  * {@link BratException} leaves this class only for a <em>structural</em> failure that is not about
  * this request at all: a {@code null} argument, or a missing collaborator.
  * <p>
@@ -45,7 +45,7 @@ import lombok.extern.slf4j.Slf4j;
  * wired once.
  */
 @Slf4j
-public class RequestProcessor {
+final class RequestProcessor {
 
     private final Interpolation interpolation;
     private final RequestDefinitionInterpolators requestDefinitionInterpolators;
@@ -72,7 +72,7 @@ public class RequestProcessor {
      * @param requestExecutor performs the request's attempts and says how they ended
      * @param authHandlers the auth handlers a request's {@code auth} type is looked up in
      */
-    public RequestProcessor(
+    RequestProcessor(
             Interpolation interpolation,
             RequestDefinitionInterpolators requestDefinitionInterpolators,
             ConditionEvaluator conditionEvaluator,

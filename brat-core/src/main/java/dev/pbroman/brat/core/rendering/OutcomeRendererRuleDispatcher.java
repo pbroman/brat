@@ -14,7 +14,7 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  * Priority-ordered dispatcher over {@link OutcomeRendererRule}s: tries each rule in priority order
  * and returns the first rendering a rule does not decline.
  */
-public class OutcomeRendererRuleDispatcher implements OutcomeRenderer {
+public final class OutcomeRendererRuleDispatcher implements OutcomeRenderer {
 
     protected final List<OutcomeRendererRule> rules;
 

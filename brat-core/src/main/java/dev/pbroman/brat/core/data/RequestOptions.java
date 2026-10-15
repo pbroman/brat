@@ -2,8 +2,10 @@ package dev.pbroman.brat.core.data;
 
 import java.util.Map;
 
+import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.util.Constants;
 import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 
@@ -14,7 +16,7 @@ import static dev.pbroman.brat.core.util.Constants.DEFAULT_TIMEOUT_MS;
  * <p>
  * The suite tree's orchestration metadata, resolved for a single request: declared on
  * {@link TestSuite} and {@link Request}, cascaded by the walk, and handed to the request handler
- * beside the {@link dev.pbroman.brat.core.api.data.RequestDefinition} it executes. The definition is
+ * beside the {@link RequestDefinition} it executes. The definition is
  * the <em>payload</em> — what goes on the wire — while this is everything the run decided
  * <em>about</em> sending it.
  * <p>
@@ -30,7 +32,7 @@ public final class RequestOptions extends ConfigData {
 
     /**
      * How long to wait for the request, in milliseconds and in text form; {@value #DEFAULT_TIMEOUT_KEYWORD} or
-     * blank for {@link dev.pbroman.brat.core.util.Constants#DEFAULT_TIMEOUT_MS}; or {@code null} when
+     * blank for {@link Constants#DEFAULT_TIMEOUT_MS}; or {@code null} when
      * nothing declared one, which reads as the default too. Text rather than a number
      * because it may hold {@code ${...}} tokens until this block is interpolated; read it through
      * {@link #timeoutMs()} to get the defaulted, validated value.
@@ -87,7 +89,7 @@ public final class RequestOptions extends ConfigData {
      * The timeout as a positive number of milliseconds, defaulted when none was declared.
      * <p>
      * A {@code null} or blank {@code timeout}, or {@value #DEFAULT_TIMEOUT_KEYWORD} in any case, yields
-     * {@link dev.pbroman.brat.core.util.Constants#DEFAULT_TIMEOUT_MS}; surrounding whitespace is
+     * {@link Constants#DEFAULT_TIMEOUT_MS}; surrounding whitespace is
      * ignored throughout. On an interpolated copy this never throws, since interpolation has already validated
      * the value; on an as-assembled instance whose {@code timeout} still holds a {@code ${...}} token
      * it throws, because the token is not a number.

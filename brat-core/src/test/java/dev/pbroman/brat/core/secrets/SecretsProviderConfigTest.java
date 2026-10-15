@@ -17,52 +17,52 @@ class SecretsProviderConfigTest {
     private static final SecretsSource FILE_SOURCE = new SecretsSource("file", Map.of("location", "one.yaml"));
 
     @Test
-    void constructor_keepsProviderParamsAndSources() {
+    void constructor_keepsProviderArgsAndSources() {
         // when
         var underTest = new SecretsProviderConfig(
                 Map.of("vault", Map.of("address", "https://vault.example.com")), List.of(FILE_SOURCE));
 
         // then
-        assertThat(underTest.providerParams()).containsOnlyKeys("vault");
+        assertThat(underTest.providerArgs()).containsOnlyKeys("vault");
         assertThat(underTest.sources()).containsExactly(FILE_SOURCE);
     }
 
     @Test
-    void constructor_acceptsNoParamsAndNoSources() {
+    void constructor_acceptsNoArgsAndNoSources() {
         // when
         var underTest = new SecretsProviderConfig(Map.of(), List.of());
 
         // then
-        assertThat(underTest.providerParams()).isEmpty();
+        assertThat(underTest.providerArgs()).isEmpty();
         assertThat(underTest.sources()).isEmpty();
     }
 
     @Test
-    void constructor_copiesTheProviderParams() {
+    void constructor_copiesTheProviderArgs() {
         // given
-        var providerParams = new HashMap<String, Map<String, String>>();
-        providerParams.put("vault", Map.of("address", "one"));
+        var providerArgs = new HashMap<String, Map<String, String>>();
+        providerArgs.put("vault", Map.of("address", "one"));
 
         // when
-        var underTest = new SecretsProviderConfig(providerParams, List.of());
-        providerParams.put("sops", Map.of("key", "two"));
+        var underTest = new SecretsProviderConfig(providerArgs, List.of());
+        providerArgs.put("sops", Map.of("key", "two"));
 
         // then
-        assertThat(underTest.providerParams()).containsOnlyKeys("vault");
+        assertThat(underTest.providerArgs()).containsOnlyKeys("vault");
     }
 
     @Test
-    void constructor_copiesEachTypesParams() {
+    void constructor_copiesEachTypesArgs() {
         // given
-        var params = new HashMap<String, String>();
-        params.put("address", "one");
+        var args = new HashMap<String, String>();
+        args.put("address", "one");
 
         // when
-        var underTest = new SecretsProviderConfig(Map.of("vault", params), List.of());
-        params.put("address", "two");
+        var underTest = new SecretsProviderConfig(Map.of("vault", args), List.of());
+        args.put("address", "two");
 
         // then
-        assertThat(underTest.paramsFor("vault")).containsOnly(entry("address", "one"));
+        assertThat(underTest.argsFor("vault")).containsOnly(entry("address", "one"));
     }
 
     @Test
@@ -80,7 +80,7 @@ class SecretsProviderConfigTest {
     }
 
     @Test
-    void constructor_throwsIfProviderParamsIsNull() {
+    void constructor_throwsIfProviderArgsIsNull() {
         // when / then
         assertThatThrownBy(() -> new SecretsProviderConfig(null, List.of())).isInstanceOf(BratException.class);
     }
@@ -94,33 +94,33 @@ class SecretsProviderConfigTest {
     @Test
     void constructor_throwsIfAProviderTypeIsBlank() {
         // given
-        var providerParams = new HashMap<String, Map<String, String>>();
-        providerParams.put("  ", Map.of("address", "one"));
+        var providerArgs = new HashMap<String, Map<String, String>>();
+        providerArgs.put("  ", Map.of("address", "one"));
 
         // when / then
-        assertThatThrownBy(() -> new SecretsProviderConfig(providerParams, List.of()))
+        assertThatThrownBy(() -> new SecretsProviderConfig(providerArgs, List.of()))
                 .isInstanceOf(BratException.class);
     }
 
     @Test
-    void constructor_throwsIfATypesParamsAreNull() {
+    void constructor_throwsIfATypesArgsAreNull() {
         // given
-        var providerParams = new HashMap<String, Map<String, String>>();
-        providerParams.put("vault", null);
+        var providerArgs = new HashMap<String, Map<String, String>>();
+        providerArgs.put("vault", null);
 
         // when / then
-        assertThatThrownBy(() -> new SecretsProviderConfig(providerParams, List.of()))
+        assertThatThrownBy(() -> new SecretsProviderConfig(providerArgs, List.of()))
                 .isInstanceOf(BratException.class);
     }
 
     @Test
     void constructor_throwsIfAProviderParamValueIsNull() {
         // given
-        var params = new HashMap<String, String>();
-        params.put("address", null);
+        var args = new HashMap<String, String>();
+        args.put("address", null);
 
         // when / then
-        assertThatThrownBy(() -> new SecretsProviderConfig(Map.of("vault", params), List.of()))
+        assertThatThrownBy(() -> new SecretsProviderConfig(Map.of("vault", args), List.of()))
                 .isInstanceOf(BratException.class);
     }
 
@@ -135,37 +135,37 @@ class SecretsProviderConfigTest {
     }
 
     @Test
-    void paramsFor_returnsTheParamsConfiguredForTheType() {
+    void argsFor_returnsTheArgsConfiguredForTheType() {
         // given
         var underTest =
                 new SecretsProviderConfig(Map.of("vault", Map.of("address", "https://vault.example.com")), List.of());
 
         // when
-        var result = underTest.paramsFor("vault");
+        var result = underTest.argsFor("vault");
 
         // then
         assertThat(result).containsOnly(entry("address", "https://vault.example.com"));
     }
 
     @Test
-    void paramsFor_returnsEmptyForAnUnconfiguredType() {
+    void argsFor_returnsEmptyForAnUnconfiguredType() {
         // given
         var underTest = new SecretsProviderConfig(Map.of(), List.of());
 
         // when
-        var result = underTest.paramsFor("file");
+        var result = underTest.argsFor("file");
 
         // then
         assertThat(result).isEmpty();
     }
 
     @Test
-    void paramsFor_throwsIfTypeIsBlank() {
+    void argsFor_throwsIfTypeIsBlank() {
         // given
         var underTest = new SecretsProviderConfig(Map.of(), List.of());
 
         // when / then
-        assertThatThrownBy(() -> underTest.paramsFor(" ")).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.argsFor(" ")).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -178,7 +178,7 @@ class SecretsProviderConfigTest {
 
         // then
         assertThat(result.sources()).containsExactly(FILE_SOURCE);
-        assertThat(result.providerParams()).containsOnlyKeys("vault");
+        assertThat(result.providerArgs()).containsOnlyKeys("vault");
     }
 
     @Test

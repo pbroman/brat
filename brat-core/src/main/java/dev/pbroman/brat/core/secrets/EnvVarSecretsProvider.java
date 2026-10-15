@@ -19,7 +19,7 @@ import org.apache.commons.lang3.StringUtils;
  * provider rather than resolving a credential to the empty string — an empty variable is far more
  * often an unset CI variable that expanded to nothing than a deliberately empty secret.
  */
-public final class EnvVarSecretsProvider implements SecretsProvider {
+final class EnvVarSecretsProvider implements SecretsProvider {
 
     /**
      * The prefix applied when none is given.
@@ -31,21 +31,11 @@ public final class EnvVarSecretsProvider implements SecretsProvider {
     private final UnaryOperator<String> lookup;
 
     /**
-     * Constructs a provider reading from the process environment with {@link #DEFAULT_PREFIX}.
-     */
-    public EnvVarSecretsProvider() {
-        this(DEFAULT_PREFIX);
-    }
-
-    /**
-     * Constructs a provider reading from the process environment with a given prefix.
+     * Constructs a provider reading environment variables through {@code lookup}.
      *
      * @param prefix the prefix applied to the transformed key; {@code null} is treated as no prefix
+     * @param lookup reads one environment variable by name, {@code System::getenv} outside tests
      */
-    public EnvVarSecretsProvider(String prefix) {
-        this(prefix, System::getenv);
-    }
-
     EnvVarSecretsProvider(String prefix, UnaryOperator<String> lookup) {
         this.prefix = StringUtils.defaultString(prefix);
         this.lookup = lookup;

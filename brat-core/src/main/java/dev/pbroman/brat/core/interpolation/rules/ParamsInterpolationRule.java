@@ -24,7 +24,7 @@ public final class ParamsInterpolationRule extends AbstractInterpolationRule {
     }
 
     @Override
-    public String resolve(String input, RuntimeData runtimeData) {
+    protected String resolve(String input, RuntimeData runtimeData) {
         requireNamespaces(runtimeData, PARAMS);
         return simpleInterpolation(input, runtimeData, runtimeData.getParams());
     }

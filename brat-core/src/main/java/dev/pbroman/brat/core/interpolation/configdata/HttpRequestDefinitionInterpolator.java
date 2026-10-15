@@ -8,6 +8,7 @@ import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.interpolation.RequestDefinitionInterpolator;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateMapWithOutcomes;
@@ -51,7 +52,7 @@ public final class HttpRequestDefinitionInterpolator implements RequestDefinitio
      * @return a new request definition whose every declared field is interpolated and whose
      *         {@code body} carries a {@code _bodyString} — derived by the constructor for a
      *         {@code raw} or form-encoded body, and read from disk here for a {@code file} one
-     * @throws dev.pbroman.brat.core.exception.BratException if {@code target} is already an
+     * @throws BratException if {@code target} is already an
      *         interpolated copy; if the interpolated headers contain two names differing only in
      *         case; or if a {@code file} body cannot be resolved, read, or interpolated
      */

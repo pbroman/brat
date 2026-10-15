@@ -25,6 +25,7 @@ import dev.pbroman.brat.core.auth.BasicAuthHandler;
 import dev.pbroman.brat.core.auth.BearerAuthHandler;
 import dev.pbroman.brat.core.auth.NoneAuthHandler;
 import dev.pbroman.brat.core.data.TestSuite;
+import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.data.result.RunResult;
 import dev.pbroman.brat.core.data.result.SuiteError;
 import dev.pbroman.brat.core.exception.BratException;
@@ -229,7 +230,7 @@ public final class Brat implements AutoCloseable {
      * <p>
      * <strong>The built-in default is seeded here, and only when it can be honoured.</strong> If
      * nothing was configured as the default for {@code http} and a handler named
-     * {@link dev.pbroman.brat.core.handler.ApacheHttpRequestHandler#NAME} is registered for it, that
+     * {@link ApacheHttpRequestHandler#NAME} is registered for it, that
      * one becomes the default — so adding a second HTTP handler, by wiring or by a plugin jar
      * appearing on the classpath, never silently changes which client an existing suite uses. Where
      * that handler is not registered, nothing is seeded and the registry's own ladder decides.
@@ -376,7 +377,7 @@ public final class Brat implements AutoCloseable {
      * @param suite the suite to run; must not be {@code null}
      * @param environment the launch namespaces and secrets configuration for this run; never
      *        {@code null}
-     * @return the run's record, holding one {@link dev.pbroman.brat.core.data.result.RequestResult}
+     * @return the run's record, holding one {@link RequestResult}
      *         per request that ran, in execution order, and one {@link SuiteError} per suite that was
      *         aborted
      * @throws BratException if either argument is {@code null}, if this runner has been
@@ -746,7 +747,7 @@ public final class Brat implements AutoCloseable {
          * Adds a run reporter, selectable by its own {@code name()}.
          * <p>
          * Core registers {@code console}, printing to {@code System.out}; adding a
-         * {@link dev.pbroman.brat.core.reporting.ConsoleRunReporter} over another stream redirects it.
+         * {@link ConsoleRunReporter} over another stream redirects it.
          *
          * @param reporter the reporter to add; must not be {@code null}. One whose name another
          *        registration already used replaces it, logged at WARN naming both

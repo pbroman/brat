@@ -28,7 +28,7 @@ import static dev.pbroman.brat.core.api.interpolation.FunctionArgs.requireArgCou
  *   <dd>The remainder, taking the sign of {@code a}. A zero divisor is an error.</dd>
  * </dl>
  */
-public final class MathFunctions {
+final class MathFunctions {
 
     private static final MathContext DECIMAL_16 = MathContext.DECIMAL64;
 

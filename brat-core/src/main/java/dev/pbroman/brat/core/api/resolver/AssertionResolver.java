@@ -5,6 +5,7 @@ import java.util.List;
 import dev.pbroman.brat.core.data.Assertion;
 import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 
 /**
  * Interface for assertion resolvers.
@@ -32,7 +33,7 @@ public interface AssertionResolver {
      * @param runtimeData the object containing values
      * @return one result per condition resolved, never {@code null} and never empty; a failed result
      *         carries {@code false} and the failure's message
-     * @throws dev.pbroman.brat.core.exception.BratException for a <em>wiring</em> error — one that is
+     * @throws BratException for a <em>wiring</em> error — one that is
      *         the caller's mistake rather than the suite author's, such as being handed an assertion
      *         that is already an interpolated copy. Such an error is deliberately not converted to a
      *         result, because a result would report it against the author

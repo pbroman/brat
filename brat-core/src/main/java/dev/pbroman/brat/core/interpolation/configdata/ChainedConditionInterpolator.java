@@ -7,6 +7,7 @@ import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.ChainedCondition;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateArgs;
@@ -39,7 +40,7 @@ public final class ChainedConditionInterpolator implements ConfigDataInterpolato
      *         interpolated, carrying one outcome per interpolated field in that order. A
      *         {@code null} {@code b} or {@code message} yields no outcome for that field and stays
      *         {@code null} on the copy
-     * @throws dev.pbroman.brat.core.exception.BratException if {@code target} is already an
+     * @throws BratException if {@code target} is already an
      *         interpolated copy, or if an {@code args} entry has a {@code null} value
      */
     @Override

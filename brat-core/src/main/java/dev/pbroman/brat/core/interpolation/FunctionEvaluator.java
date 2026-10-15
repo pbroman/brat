@@ -5,8 +5,10 @@ import java.util.List;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.util.Constants;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
 import static dev.pbroman.brat.core.interpolation.InterpolationPatterns.FUNCTION_CALL_PREFIX;
@@ -18,7 +20,7 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  * Resolves a {@code ${__name(arg, …)}} function call by resolving its arguments and invoking the
  * named function.
  * <p>
- * A call is not an {@link dev.pbroman.brat.core.api.interpolation.InterpolationRule}: a rule is a
+ * A call is not an {@link InterpolationRule}: a rule is a
  * pure lookup on one token, while a call must evaluate sub-templates of its own, and a rule that
  * needed the dispatcher owning it would be a cycle. {@link InterpolationScanner} therefore routes a
  * token beginning {@code ${__} } here instead of to the dispatcher, and hands over the interpolation
@@ -84,7 +86,7 @@ public final class FunctionEvaluator {
      *         masked as {@code ***} when it is secret-bearing
      * @throws BratException if {@code call} is {@code null}, or is not a call token — one opening
      *         with {@link InterpolationPatterns#FUNCTION_CALL_PREFIX} and closing with
-     *         {@link dev.pbroman.brat.core.util.Constants#TOKEN_SUFFIX}; if {@code interpolation} is {@code null};
+     *         {@link Constants#TOKEN_SUFFIX}; if {@code interpolation} is {@code null};
      *         if the argument list is unclosed or is not followed immediately by the closing brace;
      *         if a quoted argument has no closing quote; if no function is registered under the
      *         name; if the function throws; if the function returns {@code null}; or if

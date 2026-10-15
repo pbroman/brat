@@ -19,7 +19,7 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  * evaluator is handed this scanner so that a call's arguments resolve as fields do — which is what
  * lets an argument hold a nested token or another call.
  */
-public class InterpolationScanner implements Interpolation {
+public final class InterpolationScanner implements Interpolation {
 
     private final Interpolation dispatcher;
 

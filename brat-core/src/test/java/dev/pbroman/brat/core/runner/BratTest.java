@@ -1171,11 +1171,6 @@ class BratTest {
         public Optional<Boolean> resolve(Condition condition) {
             return "isAlwaysTrue".equals(condition.getFunc()) ? Optional.of(true) : Optional.empty();
         }
-
-        @Override
-        public String category() {
-            return "test";
-        }
     }
 
     private static final class StubRunControl implements RunControl {

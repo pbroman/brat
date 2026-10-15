@@ -1,4 +1,4 @@
-package dev.pbroman.brat.core.handler;
+package dev.pbroman.brat.core.api.handler;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import dev.pbroman.brat.core.data.result.HttpResponse;
+import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.Require;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DeserializationFeature;
@@ -23,10 +24,10 @@ import static dev.pbroman.brat.core.util.Constants.STATUS_CODE;
  * {@code ${response.statusCode}}, {@code ${response.body}}, {@code ${response.headers.…}} and
  * {@code ${response.json.…}} have something to resolve against.
  * <p>
- * This lives beside the HTTP handler rather than on {@code RuntimeData} deliberately. The namespace
+ * This belongs to the HTTP protocol rather than to {@code RuntimeData}, deliberately. The namespace
  * is protocol-shaped — {@code statusCode} and {@code headers} mean nothing to an FTP request — so a
- * second protocol adds its own builder here instead of a second method on the type every protocol
- * shares.
+ * second protocol flattens its own response, in its own handler's {@code responseVars}, instead of
+ * adding a method to the type every protocol shares.
  * <p>
  * <strong>Every header value is kept here; the projection to one string happens later.</strong>
  * {@code ${response.headers.Content-Type}} substitutes a single string, so
@@ -69,7 +70,7 @@ public final class HttpResponseVars {
      * @param response the response to flatten
      * @return an unmodifiable map of the namespace, whose {@code headers} entry is itself
      *         unmodifiable, case-insensitive and multi-valued; never {@code null}
-     * @throws dev.pbroman.brat.core.exception.BratException if {@code response} is {@code null}
+     * @throws BratException if {@code response} is {@code null}
      */
     public static Map<String, Object> of(HttpResponse response) {
         Require.nonNull(response, "The response must not be null");

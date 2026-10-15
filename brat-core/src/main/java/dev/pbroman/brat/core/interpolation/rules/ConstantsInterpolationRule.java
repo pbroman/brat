@@ -23,7 +23,7 @@ public final class ConstantsInterpolationRule extends AbstractInterpolationRule 
     }
 
     @Override
-    public String resolve(String input, RuntimeData runtimeData) {
+    protected String resolve(String input, RuntimeData runtimeData) {
         requireNamespaces(runtimeData, CONSTANTS);
         return simpleInterpolation(input, runtimeData, runtimeData.getConstants());
     }

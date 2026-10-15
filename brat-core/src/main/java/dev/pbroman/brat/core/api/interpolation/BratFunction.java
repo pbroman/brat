@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.function.Function;
 
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.interpolation.FunctionRegistry;
 
 import static dev.pbroman.brat.core.util.Require.nonNull;
 
@@ -32,7 +33,7 @@ public interface BratFunction {
      * <p>
      * Must not be {@code null} or blank, must not itself carry the {@code __} prefix — that is
      * syntax, not part of the name — and must be constant for the life of the function. Those
-     * requirements are stated rather than enforced here: {@link dev.pbroman.brat.core.interpolation.FunctionRegistry}
+     * requirements are stated rather than enforced here: {@link FunctionRegistry}
      * is the single place that validates them, so that an implementation not built through
      * {@link #of} is checked identically.
      * <p>
@@ -61,7 +62,7 @@ public interface BratFunction {
      * <p>
      * <strong>Does not validate the name.</strong> A blank name, or one carrying the {@code __}
      * prefix, produces a function that is rejected later, when a registry is built from it. That is
-     * deliberate: {@link dev.pbroman.brat.core.interpolation.FunctionRegistry} has to check every
+     * deliberate: {@link FunctionRegistry} has to check every
      * implementation it is given, including ones written as classes rather than through this method,
      * and a second name validator here would be a copy of those rules free to drift from them.
      * <p>

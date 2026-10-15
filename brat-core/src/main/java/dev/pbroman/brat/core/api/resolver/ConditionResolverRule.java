@@ -56,11 +56,4 @@ public interface ConditionResolverRule {
     default int priority() {
         return 0;
     }
-
-    /**
-     * A placeholder string for the condition function category (e.g. Number, String ...).
-     *
-     * @return the placeholder
-     */
-    String category();
 }

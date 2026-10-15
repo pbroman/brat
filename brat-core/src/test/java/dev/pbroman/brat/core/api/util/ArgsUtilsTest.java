@@ -1,4 +1,4 @@
-package dev.pbroman.brat.core.util;
+package dev.pbroman.brat.core.api.util;
 
 import java.util.HashMap;
 import java.util.Map;

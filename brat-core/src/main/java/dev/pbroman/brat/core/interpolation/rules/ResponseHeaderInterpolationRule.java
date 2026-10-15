@@ -6,6 +6,7 @@ import java.util.TreeMap;
 
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 import lombok.extern.slf4j.Slf4j;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
@@ -36,12 +37,12 @@ public final class ResponseHeaderInterpolationRule extends AbstractInterpolation
     /**
      * {@inheritDoc}
      *
-     * @throws dev.pbroman.brat.core.exception.BratException if {@code runtimeData} is {@code null}
+     * @throws BratException if {@code runtimeData} is {@code null}
      *         or holds no {@code responseVars}
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     @Override
-    public String resolve(String input, RuntimeData runtimeData) {
+    protected String resolve(String input, RuntimeData runtimeData) {
         requireNamespaces(runtimeData, RESPONSE_VARS);
         if (runtimeData.getResponseVars().get(HEADERS) instanceof Map headers) {
             return simpleInterpolation(input, runtimeData, firstValues(headers));

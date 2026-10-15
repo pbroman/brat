@@ -9,6 +9,7 @@ import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.interpolation.InterpolationPatterns;
 import dev.pbroman.brat.core.interpolation.TokenScanner;
+import dev.pbroman.brat.core.secrets.CompositeSecretsProvider;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
 import static dev.pbroman.brat.core.util.Constants.SECRETS;
@@ -32,7 +33,7 @@ public final class SecretsInterpolationRule implements InterpolationRule {
      * Constructs a rule resolving against a provider.
      *
      * @param provider the provider to resolve secrets against, typically a
-     *        {@link dev.pbroman.brat.core.secrets.CompositeSecretsProvider}
+     *        {@link CompositeSecretsProvider}
      * @throws BratException if {@code provider} is {@code null}
      */
     public SecretsInterpolationRule(SecretsProvider provider) {

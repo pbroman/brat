@@ -22,7 +22,7 @@ class AssertionResultTest {
                 Map.of(
                         "a", new InterpolationOutcome("s3cr3t", "${secrets.token} → ***", true),
                         "b", new InterpolationOutcome("abc", "abc")));
-        var result = new AssertionResult(interpolated, "token must match", false);
+        var result = new AssertionResult(interpolated, "token must match", false, AssertionSeverity.FAIL);
 
         // when
         var rendered = result.toString();
@@ -34,7 +34,7 @@ class AssertionResultTest {
     @Test
     void toString_doesNotCallAPassingResultFailed() {
         // given
-        var result = new AssertionResult(new Condition("isEqualTo", "a", "a"), null, true);
+        var result = new AssertionResult(new Condition("isEqualTo", "a", "a"), null, true, AssertionSeverity.FAIL);
 
         // when
         var rendered = result.toString();

@@ -36,7 +36,7 @@ import static dev.pbroman.brat.core.api.interpolation.FunctionArgs.requireArgCou
  *       resolves to. Whitespace counts as a value.</dd>
  * </dl>
  */
-public final class TextFunctions {
+final class TextFunctions {
 
     private TextFunctions() {
         // no instances

@@ -15,6 +15,7 @@ import dev.pbroman.brat.core.data.ChainedCondition;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.FailureMessages;
 
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
@@ -68,14 +69,14 @@ public final class AssertionChainResolver implements AssertionResolver {
      *       other link still resolves, so the list keeps one result per condition. An unrecognized
      *       {@code func} and a func handed the wrong shape of operand both land here.</li>
      * </ul>
-     * Both catch {@link Exception}, per {@link dev.pbroman.brat.core.api.resolver.AssertionResolver}, and
+     * Both catch {@link Exception}, per {@link AssertionResolver}, and
      * both phrase the cause through {@link FailureMessages#causeOf(Exception, String)}.
      *
      * @param assertion the assertion to resolve, as authored — never an interpolated copy
      * @param runtimeData the object containing values
      * @return one result per condition — the assertion's own plus one per chain link, in that order
      *         — or a single failed result if the assertion could not be interpolated
-     * @throws dev.pbroman.brat.core.exception.BratException if {@code assertion} is already an
+     * @throws BratException if {@code assertion} is already an
      *         interpolated copy. That is a wiring error rather than an authoring one, so it is not
      *         converted to a result
      */

@@ -3,6 +3,7 @@ package dev.pbroman.brat.core.data.runtime;
 import java.util.HashMap;
 import java.util.Map;
 
+import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.Require;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -20,7 +21,7 @@ import static dev.pbroman.brat.core.util.Constants.VARS;
  * {@code ${namespace.key}} tokens against during a single test suite run.
  */
 @Getter
-public class RuntimeData {
+public final class RuntimeData {
 
     private final Map<String, Map<String, Object>> data;
 
@@ -209,7 +210,7 @@ public class RuntimeData {
      *
      * @param name the variable to set
      * @param value the value to set
-     * @throws dev.pbroman.brat.core.exception.BratException if {@code name} is {@code null}
+     * @throws BratException if {@code name} is {@code null}
      */
     public void setVar(String name, Object value) {
         Require.nonNull(name, "The var name must not be null");
@@ -233,7 +234,7 @@ public class RuntimeData {
      *
      * @param name the variable the entry would have set
      * @param message why the entry failed
-     * @throws dev.pbroman.brat.core.exception.BratException if {@code name} is {@code null}
+     * @throws BratException if {@code name} is {@code null}
      */
     public void setVarFailed(String name, String message) {
         Require.nonNull(name, "The var name must not be null");

@@ -317,7 +317,7 @@ public final class JsonConditionResolverRule extends AbstractConditionResolverRu
     }
 
     @Override
-    public String category() {
+    protected String category() {
         return JSON_CONDITION;
     }
 

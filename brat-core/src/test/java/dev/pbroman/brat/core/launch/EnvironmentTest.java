@@ -42,7 +42,7 @@ class EnvironmentTest {
 
         // then — no sources configured; the environment-variable provider is still appended by the chain
         assertThat(environment.secretsConfig().sources()).isEmpty();
-        assertThat(environment.secretsConfig().providerParams()).isEmpty();
+        assertThat(environment.secretsConfig().providerArgs()).isEmpty();
         assertThat(environment.env()).containsEntry("baseUrl", "http://localhost");
     }
 

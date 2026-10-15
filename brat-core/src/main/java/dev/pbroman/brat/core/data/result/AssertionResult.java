@@ -29,12 +29,4 @@ public record AssertionResult(Condition condition, String message, boolean passe
             severity = AssertionSeverity.FAIL;
         }
     }
-
-    /**
-     * Equivalent to {@link #AssertionResult(Condition, String, boolean, AssertionSeverity)} with the
-     * severity defaulted to {@link AssertionSeverity#FAIL}.
-     */
-    public AssertionResult(Condition condition, String message, boolean passed) {
-        this(condition, message, passed, AssertionSeverity.FAIL);
-    }
 }

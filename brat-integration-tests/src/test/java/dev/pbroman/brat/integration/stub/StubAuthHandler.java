@@ -3,9 +3,9 @@ package dev.pbroman.brat.integration.stub;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.auth.AuthHandler;
+import dev.pbroman.brat.core.api.util.ArgsUtils;
 import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
-import dev.pbroman.brat.core.util.ArgsUtils;
 
 /**
  * An auth type core has never heard of, {@code stub-signature}: it signs a request by sending its

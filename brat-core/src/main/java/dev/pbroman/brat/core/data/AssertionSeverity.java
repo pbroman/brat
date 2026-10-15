@@ -1,13 +1,17 @@
 package dev.pbroman.brat.core.data;
 
+import dev.pbroman.brat.core.api.resolver.AssertionResolver;
+import dev.pbroman.brat.core.data.result.AssertionResult;
+import dev.pbroman.brat.core.handler.ResponseActionsHandler;
+
 /**
  * How much a failing {@link Assertion} matters, declared by the suite author.
  * <p>
  * The constants are ordered least severe first, so a future, more severe value (one that aborts the
  * run rather than only failing an assertion) appends without disturbing the ladder.
  * <p>
- * Nothing in {@code brat-core} acts on this yet: an {@link dev.pbroman.brat.core.api.resolver.AssertionResolver}
- * records it on every {@link dev.pbroman.brat.core.data.result.AssertionResult} it produces, and the
+ * Nothing in {@code brat-core} acts on this yet: an {@link AssertionResolver}
+ * records it on every {@link AssertionResult} it produces, and the
  * runner that aggregates those results decides what each value means for a run.
  */
 public enum AssertionSeverity {
@@ -22,7 +26,7 @@ public enum AssertionSeverity {
      * <p>
      * It fails <em>that assertion</em> only — the suite still runs to completion and reports every
      * further failure, which is what the conversion boundary in
-     * {@link dev.pbroman.brat.core.handler.ResponseActionsHandler} exists for.
+     * {@link ResponseActionsHandler} exists for.
      */
     FAIL
 }

@@ -143,7 +143,7 @@ class LaunchReaderTest {
         // then - environment variables remain, since the chain always ends with them
         assertThat(result.environment().env()).isEmpty();
         assertThat(result.environment().secretsConfig().sources()).isEmpty();
-        assertThat(result.environment().secretsConfig().providerParams()).isEmpty();
+        assertThat(result.environment().secretsConfig().providerArgs()).isEmpty();
     }
 
     @Test
