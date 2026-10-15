@@ -9,8 +9,8 @@ import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.exception.BratException;
 
-import static dev.pbroman.brat.core.util.ArgsUtils.rejectUnknownArgs;
-import static dev.pbroman.brat.core.util.ArgsUtils.requiredNonBlankArg;
+import static dev.pbroman.brat.core.api.util.ArgsUtils.rejectUnknownArgs;
+import static dev.pbroman.brat.core.api.util.ArgsUtils.requiredNonBlankArg;
 import static dev.pbroman.brat.core.util.Constants.AUTHORIZATION;
 
 /**
@@ -40,7 +40,7 @@ public final class BasicAuthHandler implements AuthHandler {
      *        required; never {@code null}
      * @param request the request; never {@code null}, and not read
      * @return a map holding exactly the {@code Authorization} header
-     * @throws dev.pbroman.brat.core.exception.BratException if {@code auth.getArgs()} holds a key
+     * @throws BratException if {@code auth.getArgs()} holds a key
      *         other than {@code username} and {@code password}; if either is absent or blank; or if
      *         {@code username} contains a {@code :}, which Basic authentication cannot encode. Each
      *         message names the argument and never quotes its value

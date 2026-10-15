@@ -145,7 +145,7 @@ public final class InterpolatorUtils {
      * @param outcome an outcome, or {@code null}
      * @return {@link InterpolationOutcome#asString()}, or {@code null} if {@code outcome} is
      *         {@code null}
-     * @throws dev.pbroman.brat.core.exception.BratException if {@code outcome} is present and its
+     * @throws BratException if {@code outcome} is present and its
      *         value is {@code null}
      */
     public static String asStringOrNull(InterpolationOutcome outcome) {
@@ -225,7 +225,7 @@ public final class InterpolatorUtils {
      * @return a new, mutable map of argument name to interpolated value, in the iteration order of
      *         {@code args}. Never {@code null}, and holds no {@code null} value; empty when
      *         {@code args} is empty
-     * @throws dev.pbroman.brat.core.exception.BratException if an {@code args} entry has a
+     * @throws BratException if an {@code args} entry has a
      *         {@code null} value. This is deliberate rather than treating it as absent: a key the
      *         author wrote with nothing after it is a mistake, and an unread argument would otherwise
      *         never reach a point of use
@@ -268,7 +268,7 @@ public final class InterpolatorUtils {
      * @return an outcome whose value is the file's interpolated content and whose reporting string
      *         names the resolved location and the content's size. Never {@code null}; an empty file
      *         yields an outcome with empty content rather than {@code null}
-     * @throws dev.pbroman.brat.core.exception.BratException if {@code location} is {@code null} or
+     * @throws BratException if {@code location} is {@code null} or
      *         blank; if it is bare and the runtime data carries no suite location; if no resource
      *         exists there or it cannot be read; or if interpolating the content fails. Every message
      *         names the location and none quotes the content

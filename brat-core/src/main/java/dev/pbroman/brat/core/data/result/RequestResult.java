@@ -2,6 +2,7 @@ package dev.pbroman.brat.core.data.result;
 
 import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.data.AssertionSeverity;
+import dev.pbroman.brat.core.data.ConfigData;
 import dev.pbroman.brat.core.data.RequestOptions;
 
 /**
@@ -12,7 +13,7 @@ import dev.pbroman.brat.core.data.RequestOptions;
  * @param requestDefinition what was sent — the request as the last attempt sent it, credentials
  *        included; the interpolated copy where no attempt got as far as sending, or where the last one
  *        failed before it did; and the authored one where interpolation is what failed. Ask
- *        {@link dev.pbroman.brat.core.data.ConfigData#isInterpolated()} whether it was interpolated;
+ *        {@link ConfigData#isInterpolated()} whether it was interpolated;
  *        the type answers the question itself rather than carrying a second field for it
  * @param requestOptions what the run resolved for the request, on the same terms: the interpolated
  *        copy where interpolation reached and passed it, the authored one otherwise. Never {@code null}

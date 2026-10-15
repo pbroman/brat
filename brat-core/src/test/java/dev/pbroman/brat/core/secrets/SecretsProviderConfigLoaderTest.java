@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.entry;
 class SecretsProviderConfigLoaderTest {
 
     @Test
-    void load_readsEachProviderTypesParams() {
+    void load_readsEachProviderTypesArgs() {
         // given
         var yaml = """
                 providers:
@@ -24,13 +24,13 @@ class SecretsProviderConfigLoaderTest {
         var result = SecretsProviderConfigLoader.load(yaml);
 
         // then
-        assertThat(result.providerParams()).containsOnlyKeys("vault", "sysenv");
-        assertThat(result.paramsFor("vault")).containsOnly(entry("address", "https://vault.example.com"));
-        assertThat(result.paramsFor("sysenv")).containsOnly(entry("prefix", "BRAT_SECRET_"));
+        assertThat(result.providerArgs()).containsOnlyKeys("vault", "sysenv");
+        assertThat(result.argsFor("vault")).containsOnly(entry("address", "https://vault.example.com"));
+        assertThat(result.argsFor("sysenv")).containsOnly(entry("prefix", "BRAT_SECRET_"));
     }
 
     @Test
-    void load_flattensNestedParamsToDottedKeys() {
+    void load_flattensNestedArgsToDottedKeys() {
         // given
         var yaml = """
                 providers:
@@ -44,8 +44,7 @@ class SecretsProviderConfigLoaderTest {
         var result = SecretsProviderConfigLoader.load(yaml);
 
         // then
-        assertThat(result.paramsFor("vault"))
-                .containsOnly(entry("auth.method", "approle"), entry("auth.roleId", "r0le"));
+        assertThat(result.argsFor("vault")).containsOnly(entry("auth.method", "approle"), entry("auth.roleId", "r0le"));
     }
 
     @Test
@@ -61,7 +60,7 @@ class SecretsProviderConfigLoaderTest {
         var result = SecretsProviderConfigLoader.load(yaml);
 
         // then
-        assertThat(result.paramsFor("vault")).containsOnly(entry("auth.method", "approle"));
+        assertThat(result.argsFor("vault")).containsOnly(entry("auth.method", "approle"));
     }
 
     @Test
@@ -77,7 +76,7 @@ class SecretsProviderConfigLoaderTest {
         var result = SecretsProviderConfigLoader.load(yaml);
 
         // then
-        assertThat(result.paramsFor("vault")).containsOnly(entry("token", "${secrets.vaultToken}"));
+        assertThat(result.argsFor("vault")).containsOnly(entry("token", "${secrets.vaultToken}"));
     }
 
     @Test
@@ -97,30 +96,30 @@ class SecretsProviderConfigLoaderTest {
     }
 
     @Test
-    void load_returnsNoParamsForAnEmptyDocument() {
+    void load_returnsNoArgsForAnEmptyDocument() {
         // when
         var result = SecretsProviderConfigLoader.load("");
 
         // then
-        assertThat(result.providerParams()).isEmpty();
+        assertThat(result.providerArgs()).isEmpty();
     }
 
     @Test
-    void load_returnsNoParamsForACommentsOnlyDocument() {
+    void load_returnsNoArgsForACommentsOnlyDocument() {
         // when
         var result = SecretsProviderConfigLoader.load("# nothing configured here\n");
 
         // then
-        assertThat(result.providerParams()).isEmpty();
+        assertThat(result.providerArgs()).isEmpty();
     }
 
     @Test
-    void load_returnsNoParamsForAnEmptyProvidersMapping() {
+    void load_returnsNoArgsForAnEmptyProvidersMapping() {
         // when
         var result = SecretsProviderConfigLoader.load("providers: {}\n");
 
         // then
-        assertThat(result.providerParams()).isEmpty();
+        assertThat(result.providerArgs()).isEmpty();
     }
 
     @Test
@@ -153,7 +152,7 @@ class SecretsProviderConfigLoaderTest {
     }
 
     @Test
-    void load_throwsIfAProviderTypeHasNoParams() {
+    void load_throwsIfAProviderTypeHasNoArgs() {
         // given
         var yaml = """
                 providers:

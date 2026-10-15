@@ -7,7 +7,7 @@ import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.exception.BratException;
 
-import static dev.pbroman.brat.core.util.ArgsUtils.rejectUnknownArgs;
+import static dev.pbroman.brat.core.api.util.ArgsUtils.rejectUnknownArgs;
 
 /**
  * The {@code none} auth type: sends no credentials.

@@ -1,5 +1,6 @@
 package dev.pbroman.brat.core.api.rendering;
 
+import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.exception.BratException;
 
 /**
@@ -14,7 +15,7 @@ public interface OutcomeRenderer {
      * Renders {@code target} in the shape identified by {@code kind}.
      * <p>
      * Every outcome is shown by its
-     * {@link dev.pbroman.brat.core.api.interpolation.InterpolationOutcome#reportingString()
+     * {@link InterpolationOutcome#reportingString()
      * reportingString}, never by its value, so a secret appears masked.
      *
      * @param kind the render kind (e.g. {@code "console"}, {@code "verbose-cli"}, {@code "log"});

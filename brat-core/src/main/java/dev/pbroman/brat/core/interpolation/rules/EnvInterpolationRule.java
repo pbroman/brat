@@ -21,7 +21,7 @@ public final class EnvInterpolationRule extends AbstractInterpolationRule {
     }
 
     @Override
-    public String resolve(String input, RuntimeData runtimeData) {
+    protected String resolve(String input, RuntimeData runtimeData) {
         requireNamespaces(runtimeData, ENV);
         return simpleInterpolation(input, runtimeData, runtimeData.getEnv());
     }

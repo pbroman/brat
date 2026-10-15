@@ -68,7 +68,7 @@ public final class StringConditionResolverRule extends AbstractConditionResolver
     }
 
     @Override
-    public String category() {
+    protected String category() {
         return STRING_CONDITION;
     }
 

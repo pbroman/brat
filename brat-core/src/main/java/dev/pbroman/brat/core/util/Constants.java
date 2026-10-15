@@ -71,10 +71,7 @@ public final class Constants {
     public static final String NUMBER_CONDITION = "Number";
     public static final String STRING_CONDITION = "String";
     public static final String BOOLEAN_CONDITION = "Boolean";
-    public static final String NULL_CONDITION = "Null";
     public static final String DATE_CONDITION = "Date";
-    public static final String TIME_CONDITION = "Time";
-    public static final String DATETIME_CONDITION = "DateTime";
     public static final String FORMAT_CONDITION = "Format";
     public static final String JSON_CONDITION = "Json";
 

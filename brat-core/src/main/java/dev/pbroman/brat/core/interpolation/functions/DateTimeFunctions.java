@@ -39,7 +39,7 @@ import static dev.pbroman.brat.core.api.interpolation.FunctionArgs.requireArgCou
  *       {@code DateTimeFormatter} pattern. A missing sign means {@code +}.</dd>
  * </dl>
  */
-public final class DateTimeFunctions {
+final class DateTimeFunctions {
 
     private static final Pattern OFFSET = Pattern.compile("([+-]?)(\\d+)([smhdwM])");
 

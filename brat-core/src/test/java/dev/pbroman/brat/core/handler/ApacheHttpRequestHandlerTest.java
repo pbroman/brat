@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import dev.pbroman.brat.core.api.handler.HttpResponseVars;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.result.HttpResponse;

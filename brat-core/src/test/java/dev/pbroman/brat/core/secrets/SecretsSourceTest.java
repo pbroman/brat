@@ -13,36 +13,36 @@ import static org.assertj.core.api.Assertions.entry;
 class SecretsSourceTest {
 
     @Test
-    void constructor_keepsTypeAndParams() {
+    void constructor_keepsTypeAndArgs() {
         // when
         var underTest = new SecretsSource("file", Map.of("location", "classpath:secrets/secrets001.yaml"));
 
         // then
         assertThat(underTest.type()).isEqualTo("file");
-        assertThat(underTest.params()).containsOnly(entry("location", "classpath:secrets/secrets001.yaml"));
+        assertThat(underTest.args()).containsOnly(entry("location", "classpath:secrets/secrets001.yaml"));
     }
 
     @Test
-    void constructor_acceptsEmptyParams() {
+    void constructor_acceptsEmptyArgs() {
         // when
         var underTest = new SecretsSource("sysenv", Map.of());
 
         // then
-        assertThat(underTest.params()).isEmpty();
+        assertThat(underTest.args()).isEmpty();
     }
 
     @Test
-    void constructor_copiesTheParams() {
+    void constructor_copiesTheArgs() {
         // given
-        var params = new HashMap<String, String>();
-        params.put("location", "one.yaml");
+        var args = new HashMap<String, String>();
+        args.put("location", "one.yaml");
 
         // when
-        var underTest = new SecretsSource("file", params);
-        params.put("location", "two.yaml");
+        var underTest = new SecretsSource("file", args);
+        args.put("location", "two.yaml");
 
         // then
-        assertThat(underTest.params()).containsOnly(entry("location", "one.yaml"));
+        assertThat(underTest.args()).containsOnly(entry("location", "one.yaml"));
     }
 
     @Test
@@ -58,7 +58,7 @@ class SecretsSourceTest {
     }
 
     @Test
-    void constructor_throwsIfParamsIsNull() {
+    void constructor_throwsIfArgsIsNull() {
         // when / then
         assertThatThrownBy(() -> new SecretsSource("file", null)).isInstanceOf(BratException.class);
     }
@@ -66,20 +66,20 @@ class SecretsSourceTest {
     @Test
     void constructor_throwsIfAParamKeyIsBlank() {
         // given
-        var params = new HashMap<String, String>();
-        params.put(" ", "value");
+        var args = new HashMap<String, String>();
+        args.put(" ", "value");
 
         // when / then
-        assertThatThrownBy(() -> new SecretsSource("file", params)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new SecretsSource("file", args)).isInstanceOf(BratException.class);
     }
 
     @Test
     void constructor_throwsIfAParamValueIsNull() {
         // given
-        var params = new HashMap<String, String>();
-        params.put("location", null);
+        var args = new HashMap<String, String>();
+        args.put("location", null);
 
         // when / then
-        assertThatThrownBy(() -> new SecretsSource("file", params)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new SecretsSource("file", args)).isInstanceOf(BratException.class);
     }
 }

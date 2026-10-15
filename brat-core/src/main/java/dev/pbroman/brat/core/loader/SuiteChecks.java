@@ -7,6 +7,7 @@ import java.util.Set;
 import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.Request;
 import dev.pbroman.brat.core.data.TestSuite;
+import dev.pbroman.brat.core.exception.BratException;
 import org.apache.commons.lang3.StringUtils;
 
 import static dev.pbroman.brat.core.util.Constants.PATH_DELIMITER;
@@ -40,7 +41,7 @@ final class SuiteChecks {
      * @param document the converted document, for positions
      * @param origin what to call the document in an error
      * @param authTypes the auth types a token-free {@code type} may name
-     * @throws dev.pbroman.brat.core.exception.BratException on the first rule a node breaks: a missing
+     * @throws BratException on the first rule a node breaks: a missing
      *         name, a {@code /} inside one, two siblings sharing one, two requests sharing an
      *         {@code id}, {@code constants} below the root, a {@code repeatUntil} with no
      *         {@code condition}, or an {@code auth} breaking {@link #checkAuth}'s rules
@@ -139,7 +140,7 @@ final class SuiteChecks {
      *        not {@code bearer}
      * @param document the converted document
      * @param origin what to call the document
-     * @throws dev.pbroman.brat.core.exception.BratException if the block has no {@code type}, or a blank
+     * @throws BratException if the block has no {@code type}, or a blank
      *         one, saying an {@code auth} block needs one, at the block's position; or if a token-free
      *         type is not in {@code authTypes}, at the type's position, naming the type and every type
      *         in {@code authTypes}, sorted

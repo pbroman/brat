@@ -7,8 +7,8 @@ import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.exception.BratException;
 
-import static dev.pbroman.brat.core.util.ArgsUtils.rejectUnknownArgs;
-import static dev.pbroman.brat.core.util.ArgsUtils.requiredNonBlankArg;
+import static dev.pbroman.brat.core.api.util.ArgsUtils.rejectUnknownArgs;
+import static dev.pbroman.brat.core.api.util.ArgsUtils.requiredNonBlankArg;
 import static dev.pbroman.brat.core.util.Constants.AUTHORIZATION;
 
 /**

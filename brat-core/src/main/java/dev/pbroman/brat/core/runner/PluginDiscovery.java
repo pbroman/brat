@@ -11,7 +11,7 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
  * Finds the implementations of one extension point that a classloader can see, via
- * {@link java.util.ServiceLoader}.
+ * {@link ServiceLoader}.
  * <p>
  * The registration path for a plugin jar: it declares its implementations in
  * {@code META-INF/services/<interface>} and BRAT finds them with no configuration and no BRAT-specific
@@ -25,7 +25,7 @@ final class PluginDiscovery {
 
     /**
      * Every implementation of {@code service} that {@code classLoader} can see, in the order
-     * {@link java.util.ServiceLoader} yields them.
+     * {@link ServiceLoader} yields them.
      * <p>
      * <strong>The classloader is always explicit</strong> — this never consults the thread-context
      * loader, so the same inputs discover the same plugins whichever thread calls it.

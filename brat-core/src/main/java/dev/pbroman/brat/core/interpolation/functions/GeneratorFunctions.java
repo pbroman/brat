@@ -35,7 +35,7 @@ import static dev.pbroman.brat.core.api.interpolation.FunctionArgs.requireRange;
  *       {@code A-Za-z0-9} if no alphabet is given.</dd>
  * </dl>
  */
-public final class GeneratorFunctions {
+final class GeneratorFunctions {
 
     private static final String DEFAULT_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 

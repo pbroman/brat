@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
@@ -49,7 +50,7 @@ public final class RequestOptionsInterpolator implements ConfigDataInterpolator<
      *         outcomes. A {@code null} {@code timeout} yields no outcome and stays {@code null}; the
      *         default is applied by {@link RequestOptions#timeoutMs()}. A {@code null} {@code auth}
      *         yields no outcome and stays {@code null}; otherwise the copy holds an interpolated
-     *         {@link dev.pbroman.brat.core.data.Auth}
+     *         {@link Auth}
      * @throws BratException if {@code target} is {@code null} or is already an interpolated copy
      * @throws BratException if {@code timeout} interpolates to something other than blank,
      *         {@value RequestOptions#DEFAULT_TIMEOUT_KEYWORD} or a positive whole number of milliseconds

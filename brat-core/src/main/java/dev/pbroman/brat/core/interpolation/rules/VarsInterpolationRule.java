@@ -24,7 +24,7 @@ public final class VarsInterpolationRule extends AbstractInterpolationRule {
     }
 
     @Override
-    public String resolve(String input, RuntimeData runtimeData) {
+    protected String resolve(String input, RuntimeData runtimeData) {
         requireNamespaces(runtimeData, VARS);
         return simpleInterpolation(input, runtimeData, runtimeData.getVars());
     }

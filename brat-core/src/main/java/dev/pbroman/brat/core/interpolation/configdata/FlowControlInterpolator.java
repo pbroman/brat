@@ -8,6 +8,7 @@ import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.RepeatUntil;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.asStringOrNull;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
@@ -41,7 +42,7 @@ public final class FlowControlInterpolator implements ConfigDataInterpolator<Flo
      * @return a new block with {@code waitAfter} interpolated and its repeat-until replaced by an
      *         interpolated copy. A {@code null} {@code waitAfter} yields no outcome and stays
      *         {@code null}; a {@code null} {@code repeatUntil} stays {@code null}
-     * @throws dev.pbroman.brat.core.exception.BratException if {@code target} is already an
+     * @throws BratException if {@code target} is already an
      *         interpolated copy, or if the repeat-until block fails to interpolate
      */
     @Override

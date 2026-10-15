@@ -7,6 +7,7 @@ import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.Require;
 
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
@@ -35,7 +36,7 @@ public final class AuthInterpolator implements ConfigDataInterpolator<Auth> {
      * @param runtimeData the runtime data
      * @return a new auth block with {@code type} and every argument interpolated, carrying the outcomes
      *         above. An empty {@code args} stays empty and contributes no outcome
-     * @throws dev.pbroman.brat.core.exception.BratException if {@code target} is {@code null} or is
+     * @throws BratException if {@code target} is {@code null} or is
      *         already an interpolated copy, if its {@code type} is {@code null}, or if an argument
      *         has a {@code null} value — a key written with nothing after it. The message names the
      *         argument, never a value

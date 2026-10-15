@@ -17,7 +17,7 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  * The dispatcher receives a list of {@link ConditionResolverRule condition resolver rules}, sorts them according to
  * priority and returns the result of the first matching resolver. If none is found, a {@link BratException} is thrown.
  */
-public class ConditionResolverRuleDispatcher implements ConditionResolver {
+public final class ConditionResolverRuleDispatcher implements ConditionResolver {
 
     protected final List<ConditionResolverRule> resolvers;
 

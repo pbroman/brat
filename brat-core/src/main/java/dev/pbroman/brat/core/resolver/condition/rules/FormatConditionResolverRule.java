@@ -4,6 +4,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.DateTimeException;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +69,7 @@ public final class FormatConditionResolverRule extends AbstractConditionResolver
      * A date <em>and</em> a time, per {@link DateTimeFormatter#ISO_DATE_TIME} — with or without an
      * offset or zone. A date on its own is not one, which is what the func name says.
      * <p>
-     * Catches {@link DateTimeException} rather than only {@link java.time.format.DateTimeParseException}: a shape
+     * Catches {@link DateTimeException} rather than only {@link DateTimeParseException}: a shape
      * check must answer {@code false}, never abort the assertion, and the narrower catch would let
      * any other date-time failure escape as a thrown condition.
      */
@@ -102,7 +103,7 @@ public final class FormatConditionResolverRule extends AbstractConditionResolver
     }
 
     @Override
-    public String category() {
+    protected String category() {
         return FORMAT_CONDITION;
     }
 

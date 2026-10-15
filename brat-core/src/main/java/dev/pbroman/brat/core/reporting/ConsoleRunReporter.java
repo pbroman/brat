@@ -5,6 +5,7 @@ import java.io.PrintStream;
 import dev.pbroman.brat.core.api.listener.RunListener;
 import dev.pbroman.brat.core.api.reporting.ReporterContext;
 import dev.pbroman.brat.core.api.reporting.RunReporter;
+import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.exception.BratException;
 
 import static dev.pbroman.brat.core.util.Require.nonNull;
@@ -50,7 +51,7 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  *       {@code [teardown]} for a request outside the main phase, the time unless it was skipped, and
  *       the reason or message of a skipped, errored or given-up request. The verdict is {@code ERROR}
  *       for a request that could not be performed, {@code SKIP} for a skipped one, {@code FAIL} for any
- *       other that {@linkplain dev.pbroman.brat.core.data.result.RequestResult#failed() failed} — a poll
+ *       other that {@linkplain RequestResult#failed() failed} — a poll
  *       that gave up included — and {@code PASS} otherwise. Beneath it, the detail (below).</li>
  *   <li>{@code SuiteExited} — nothing for a completed suite; otherwise {@code SKIPPED},
  *       {@code ABORTED} or {@code CANCELLED}, the suite's name, and the reason where there is one.</li>

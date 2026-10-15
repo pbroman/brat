@@ -1,5 +1,7 @@
 package dev.pbroman.brat.core.api.data;
 
+import dev.pbroman.brat.core.api.handler.RequestHandler;
+
 /**
  * What to send — the type bound narrowing what a request handler can execute to request-shaped
  * domain objects, one implementation per protocol.
@@ -20,7 +22,7 @@ public interface RequestDefinition {
      * that class's own answer, fixed by the type rather than read from the document.
      *
      * @return the protocol, for example {@code http}; never {@code null} or blank, and equal to the
-     *         {@link dev.pbroman.brat.core.api.handler.RequestHandler#protocol()} of every handler
+     *         {@link RequestHandler#protocol()} of every handler
      *         that can execute this definition
      */
     String protocol();

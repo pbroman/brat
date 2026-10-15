@@ -31,7 +31,7 @@ class FileSecretsProviderFactoryTest {
     @Test
     void create_servesTheFilesEntries() {
         // when
-        var result = underTest.create(Map.of(FileSecretsProviderFactory.LOCATION_PARAM, LOCATION));
+        var result = underTest.create(Map.of(FileSecretsProviderFactory.LOCATION_ARG, LOCATION));
 
         // then
         assertThat(result.getSecret("apiKey")).contains("s3cret");
@@ -40,7 +40,7 @@ class FileSecretsProviderFactoryTest {
     @Test
     void create_flattensNestedEntriesToDottedKeys() {
         // when
-        var result = underTest.create(Map.of(FileSecretsProviderFactory.LOCATION_PARAM, LOCATION));
+        var result = underTest.create(Map.of(FileSecretsProviderFactory.LOCATION_ARG, LOCATION));
 
         // then
         assertThat(result.getSecret("db.password")).contains("p4ss");
@@ -49,7 +49,7 @@ class FileSecretsProviderFactoryTest {
     @Test
     void create_doesNotServeTheFilesTypeDeclarationAsASecret() {
         // when
-        var result = underTest.create(Map.of(FileSecretsProviderFactory.LOCATION_PARAM, LOCATION));
+        var result = underTest.create(Map.of(FileSecretsProviderFactory.LOCATION_ARG, LOCATION));
 
         // then
         assertThat(result.getSecret("type")).isEmpty();
@@ -59,24 +59,24 @@ class FileSecretsProviderFactoryTest {
     void create_resolvesNothingForAFileWithoutEntries() {
         // when
         var result = underTest.create(
-                Map.of(FileSecretsProviderFactory.LOCATION_PARAM, "classpath:secrets/secrets-empty.yaml"));
+                Map.of(FileSecretsProviderFactory.LOCATION_ARG, "classpath:secrets/secrets-empty.yaml"));
 
         // then
         assertThat(result.getSecret("apiKey")).isEmpty();
     }
 
     @Test
-    void create_ignoresParamsItDoesNotUse() {
+    void create_ignoresArgsItDoesNotUse() {
         // when
         var result = underTest.create(
-                Map.of(FileSecretsProviderFactory.LOCATION_PARAM, LOCATION, "address", "https://vault.example.com"));
+                Map.of(FileSecretsProviderFactory.LOCATION_ARG, LOCATION, "address", "https://vault.example.com"));
 
         // then
         assertThat(result.getSecret("apiKey")).contains("s3cret");
     }
 
     @Test
-    void create_throwsIfParamsIsNull() {
+    void create_throwsIfArgsIsNull() {
         // when / then
         assertThatThrownBy(() -> underTest.create(null)).isInstanceOf(BratException.class);
     }
@@ -90,18 +90,18 @@ class FileSecretsProviderFactoryTest {
     @Test
     void create_throwsIfTheLocationParamIsBlank() {
         // given
-        var params = new HashMap<String, String>();
-        params.put(FileSecretsProviderFactory.LOCATION_PARAM, "  ");
+        var args = new HashMap<String, String>();
+        args.put(FileSecretsProviderFactory.LOCATION_ARG, "  ");
 
         // when / then
-        assertThatThrownBy(() -> underTest.create(params)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.create(args)).isInstanceOf(BratException.class);
     }
 
     @Test
     void create_throwsIfTheFileCannotBeRead() {
         // when / then
         assertThatThrownBy(() -> underTest.create(
-                        Map.of(FileSecretsProviderFactory.LOCATION_PARAM, "classpath:secrets/does-not-exist.yaml")))
+                        Map.of(FileSecretsProviderFactory.LOCATION_ARG, "classpath:secrets/does-not-exist.yaml")))
                 .isInstanceOf(BratException.class);
     }
 
@@ -109,7 +109,7 @@ class FileSecretsProviderFactoryTest {
     void create_throwsIfTheFileIsNotAFlatYamlDocument() {
         // when / then
         assertThatThrownBy(() -> underTest.create(
-                        Map.of(FileSecretsProviderFactory.LOCATION_PARAM, "classpath:resource-reader/greeting.txt")))
+                        Map.of(FileSecretsProviderFactory.LOCATION_ARG, "classpath:resource-reader/greeting.txt")))
                 .isInstanceOf(BratException.class);
     }
 
@@ -119,7 +119,7 @@ class FileSecretsProviderFactoryTest {
         var location = secretsFile(dir, "apiKey: \"tok-${env.suffix}\"\n");
 
         // then
-        assertThatThrownBy(() -> underTest.create(Map.of(FileSecretsProviderFactory.LOCATION_PARAM, location)))
+        assertThatThrownBy(() -> underTest.create(Map.of(FileSecretsProviderFactory.LOCATION_ARG, location)))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining(location)
                 .hasMessageContaining("secrets.apiKey")
@@ -133,7 +133,7 @@ class FileSecretsProviderFactoryTest {
         var location = secretsFile(dir, "db:\n  password: \"${vars.pw}\"\n");
 
         // then
-        assertThatThrownBy(() -> underTest.create(Map.of(FileSecretsProviderFactory.LOCATION_PARAM, location)))
+        assertThatThrownBy(() -> underTest.create(Map.of(FileSecretsProviderFactory.LOCATION_ARG, location)))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("secrets.db.password")
                 .hasMessageNotContaining("vars.pw");
@@ -145,7 +145,7 @@ class FileSecretsProviderFactoryTest {
         var location = secretsFile(dir, "type: \"${env.kind}\"\napiKey: s3cret\n");
 
         // when
-        var result = underTest.create(Map.of(FileSecretsProviderFactory.LOCATION_PARAM, location));
+        var result = underTest.create(Map.of(FileSecretsProviderFactory.LOCATION_ARG, location));
 
         // then
         assertThat(result.getSecret("apiKey")).contains("s3cret");
@@ -164,7 +164,7 @@ class FileSecretsProviderFactoryTest {
         var location = secretsFile(dir, "password: \"p$ss{w}rd\"\n");
 
         // when
-        var result = underTest.create(Map.of(FileSecretsProviderFactory.LOCATION_PARAM, location));
+        var result = underTest.create(Map.of(FileSecretsProviderFactory.LOCATION_ARG, location));
 
         // then
         assertThat(result.getSecret("password")).contains("p$ss{w}rd");

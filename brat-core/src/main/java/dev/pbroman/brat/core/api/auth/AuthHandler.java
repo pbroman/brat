@@ -4,6 +4,7 @@ import java.util.Map;
 
 import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
+import dev.pbroman.brat.core.exception.BratException;
 
 /**
  * One authentication mechanism for HTTP requests: it turns an {@code auth:} block of its
@@ -62,7 +63,7 @@ public interface AuthHandler {
      * @param request the request about to be sent, interpolated; never {@code null}
      * @return the headers to add, by name; never {@code null}, possibly empty. No name or value is
      *         {@code null} or blank, and no two names differ only in case
-     * @throws dev.pbroman.brat.core.exception.BratException if {@code auth.getArgs()} holds a key this
+     * @throws BratException if {@code auth.getArgs()} holds a key this
      *         handler does not know, lacks one it requires, or holds a value it cannot use — a blank
      *         credential among them — or if the headers cannot be computed. The request then ends in
      *         error with this message, and the run goes on

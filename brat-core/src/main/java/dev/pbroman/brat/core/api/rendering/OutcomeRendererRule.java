@@ -2,6 +2,7 @@ package dev.pbroman.brat.core.api.rendering;
 
 import java.util.Optional;
 
+import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.exception.BratException;
 
 /**
@@ -22,7 +23,7 @@ public interface OutcomeRendererRule {
      * passed to the next rule.
      * <p>
      * Every outcome is shown by its
-     * {@link dev.pbroman.brat.core.api.interpolation.InterpolationOutcome#reportingString()
+     * {@link InterpolationOutcome#reportingString()
      * reportingString}, never by its value, so a secret appears masked.
      *
      * @param kind the render kind; never {@code null}

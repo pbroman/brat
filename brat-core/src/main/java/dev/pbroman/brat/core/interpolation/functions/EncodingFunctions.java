@@ -39,7 +39,7 @@ import static dev.pbroman.brat.core.api.interpolation.FunctionArgs.requireArgCou
  *       Stripe and Twilio require.</dd>
  * </dl>
  */
-public final class EncodingFunctions {
+final class EncodingFunctions {
 
     private static final String UNRESERVED = "-._~";
 

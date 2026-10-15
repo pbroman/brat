@@ -129,7 +129,7 @@ public abstract class AbstractInterpolationRule implements InterpolationRule {
      *
      * @param input the token to resolve
      * @param runtimeData the object containing values
-     * @return the outcome of resolving {@code input}, or {@link java.util.Optional#empty()} if
+     * @return the outcome of resolving {@code input}, or {@link Optional#empty()} if
      *         {@link #claims(String)} rejects it
      * @throws BratException if {@code input} is {@code null}, or under the same condition as
      *         {@link #resolve(String, RuntimeData)}

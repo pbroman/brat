@@ -2,6 +2,7 @@ package dev.pbroman.brat.core.interpolation.rules;
 
 import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
 import static dev.pbroman.brat.core.util.Constants.RESPONSE_STATUS_CODE;
@@ -36,11 +37,11 @@ public final class ResponseStatusCodeInterpolationRule extends AbstractInterpola
     /**
      * {@inheritDoc}
      *
-     * @throws dev.pbroman.brat.core.exception.BratException if {@code runtimeData} is {@code null}
+     * @throws BratException if {@code runtimeData} is {@code null}
      *         or holds no {@code responseVars}, or if the response has no status code
      */
     @Override
-    public String resolve(String input, RuntimeData runtimeData) {
+    protected String resolve(String input, RuntimeData runtimeData) {
         requireNamespaces(runtimeData, RESPONSE_VARS);
         var statusCode = runtimeData.getResponseVars().get(STATUS_CODE);
         nonNull(statusCode, "The response status code is not present.");

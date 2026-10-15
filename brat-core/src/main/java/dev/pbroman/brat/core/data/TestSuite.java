@@ -6,6 +6,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.util.Constants;
 import dev.pbroman.brat.core.util.NamespaceUtils;
 
 import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
@@ -31,7 +33,7 @@ import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
  *        subSuite that declares its own, which is what lets {@code type: none} cancel an inherited
  *        login
  * @param timeout the default request timeout in milliseconds, in text form, or {@code null} for
- *        {@link dev.pbroman.brat.core.util.Constants#DEFAULT_TIMEOUT_MS}. Named for what it is rather
+ *        {@link Constants#DEFAULT_TIMEOUT_MS}. Named for what it is rather
  *        than prefixed: a request's own {@code timeout} is the same word one level down, exactly as
  *        {@code auth} is
  * @param skipCondition skip this suite and everything under it when it holds, or {@code null}
@@ -61,7 +63,7 @@ public record TestSuite(
      * where nulls come from, and rejecting one here would throw the wrong exception type from the
      * wrong place.
      *
-     * @throws dev.pbroman.brat.core.exception.BratException if {@code constants}, once flattened, would
+     * @throws BratException if {@code constants}, once flattened, would
      *         hold one key twice, or if any of its values holds a {@code ${...}} token — each naming the
      *         key as {@code constants.<key>} and never the value
      */

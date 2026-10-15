@@ -7,6 +7,7 @@ import java.util.Locale;
 
 import dev.pbroman.brat.core.api.interpolation.BratFunction;
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.interpolation.FunctionRegistry;
 
 import static dev.pbroman.brat.core.util.Require.nonNull;
 
@@ -59,7 +60,7 @@ public final class StandardFunctions {
      *
      * A name is rejected whether it repeats one from an earlier group or one from the same group;
      * both would shadow, so both fail here. Names are otherwise left to
-     * {@link dev.pbroman.brat.core.interpolation.FunctionRegistry}, which is their single validator
+     * {@link FunctionRegistry}, which is their single validator
      * — a blank name passes through this method and is rejected there. A {@code null} name is the
      * exception, because it cannot be compared without dereferencing it, and an unchecked
      * {@link NullPointerException} would escape instead of a {@link BratException}.

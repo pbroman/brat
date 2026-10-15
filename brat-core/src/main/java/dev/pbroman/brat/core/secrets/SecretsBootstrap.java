@@ -28,7 +28,7 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
 /**
  * Builds the chain of secrets providers described by a {@link SecretsProviderConfig}.
  * <p>
- * Sources are walked in order, each yielding one provider. The parameters a source's provider is
+ * Sources are walked in order, each yielding one provider. The arguments a source's provider is
  * built from are interpolated immediately before it is created, against a chain holding only the
  * providers built before it — so a provider's configuration can resolve a secret from an earlier
  * source, but never from itself or from a later one. That restriction is structural rather than
@@ -39,7 +39,7 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  * it sits, because it is the only provider that needs no credentials of its own and so cannot take
  * part in a cycle. For ordinary lookups it stays last in the chain.
  * <p>
- * Resolved parameter values may be secrets and do not pass through the masking that interpolated
+ * Resolved argument values may be secrets and do not pass through the masking that interpolated
  * suite configuration gets, so they appear in no log line and no exception message from here.
  */
 @Slf4j
@@ -51,9 +51,9 @@ public final class SecretsBootstrap {
     public static final String SYSENV_TYPE = "sysenv";
 
     /**
-     * The parameter setting the environment-variable provider's prefix.
+     * The argument setting the environment-variable provider's prefix.
      */
-    public static final String PREFIX_PARAM = "prefix";
+    public static final String PREFIX_ARG = "prefix";
 
     private final List<InterpolationRule> bootstrapRules;
     private final UnaryOperator<String> envLookup;
@@ -66,7 +66,7 @@ public final class SecretsBootstrap {
      *        chains needing no sources. Two factories declaring the same
      *        {@link SecretsProviderFactory#type()} is not an error — the later one wins and the
      *        replacement is logged at WARN, which is how a plugin overrides a built-in provider
-     * @param bootstrapRules the interpolation rules provider parameters are resolved with,
+     * @param bootstrapRules the interpolation rules provider arguments are resolved with,
      *        typically the {@code constants}, {@code env} and {@code params} rules; the rule
      *        resolving {@code ${secrets.…}} is supplied per step and must not be among them
      * @throws BratException if any argument is {@code null}, if {@code factories} or
@@ -116,25 +116,25 @@ public final class SecretsBootstrap {
      * Each source yields its own provider, in list order, so two sources of the same type are two
      * independent providers and the earlier one wins a key both define. The environment-variable
      * provider is appended last, whether or not {@code config} configures {@code sysenv}: with a
-     * {@code prefix} parameter it uses that prefix, with an explicitly empty one it uses none, and
-     * with no parameters at all it uses {@link EnvVarSecretsProvider#DEFAULT_PREFIX}. Its own
-     * parameters resolve without any secret being available, since nothing precedes it.
+     * {@code prefix} argument it uses that prefix, with an explicitly empty one it uses none, and
+     * with no arguments at all it uses {@link EnvVarSecretsProvider#DEFAULT_PREFIX}. Its own
+     * arguments resolve without any secret being available, since nothing precedes it.
      * <p>
-     * A type's parameters are interpolated once, when the first source of that type is reached, and
+     * A type's arguments are interpolated once, when the first source of that type is reached, and
      * the result is reused by every later source of the same type — so they resolve to one value per
-     * run regardless of where they are used. Source parameters are used exactly as given and are
+     * run regardless of where they are used. Source arguments are used exactly as given and are
      * never interpolated.
      * <p>
-     * What a factory receives is the resolved parameters configured for the source's type, overlaid
-     * with that source's own parameters, so a source can override what its type sets. A type with no
-     * parameters configured leaves the source's own alone.
+     * What a factory receives is the resolved arguments configured for the source's type, overlaid
+     * with that source's own arguments, so a source can override what its type sets. A type with no
+     * arguments configured leaves the source's own alone.
      *
-     * @param config the provider parameters and ordered sources to build from
-     * @param runtimeData the namespaces provider parameters are interpolated against
+     * @param config the provider arguments and ordered sources to build from
+     * @param runtimeData the namespaces provider arguments are interpolated against
      * @return the chain, in source order and with the environment-variable provider last; a
      *         configuration with no sources yields a chain of that provider alone
      * @throws BratException if either argument is {@code null}, if a source names a type no factory
-     *         was registered for, if a provider parameter references a secret no
+     *         was registered for, if a provider argument references a secret no
      *         already-built provider has, or if a factory fails to create its provider; whatever
      *         had already been built is closed before the failure propagates, so a chain that fails
      *         halfway leaks nothing
@@ -148,12 +148,12 @@ public final class SecretsBootstrap {
      * <p>
      * Exactly {@link #build(SecretsProviderConfig, RuntimeData)}, except that {@code leading} is the
      * chain's first provider <strong>throughout</strong>: while the chain is being built, a provider
-     * parameter referencing a secret resolves it from {@code leading} first, and in the returned
+     * argument referencing a secret resolves it from {@code leading} first, and in the returned
      * chain {@code leading} wins every key it has. It is closed with the chain, and closed too if
      * building fails.
      *
-     * @param config the provider parameters and ordered sources to build from
-     * @param runtimeData the namespaces provider parameters are interpolated against
+     * @param config the provider arguments and ordered sources to build from
+     * @param runtimeData the namespaces provider arguments are interpolated against
      * @param leading the provider consulted before every source; must not be {@code null}
      * @return the chain: {@code leading}, then the sources in order, then the environment-variable
      *         provider
@@ -169,8 +169,8 @@ public final class SecretsBootstrap {
     /**
      * Builds the chain with {@code leading} ahead of every source, closing them if building fails.
      *
-     * @param config the provider parameters and ordered sources to build from
-     * @param runtimeData the namespaces provider parameters are interpolated against
+     * @param config the provider arguments and ordered sources to build from
+     * @param runtimeData the namespaces provider arguments are interpolated against
      * @param leading the providers ahead of every source, possibly none
      * @return the chain
      */
@@ -190,14 +190,14 @@ public final class SecretsBootstrap {
                             + sourceTypesNotAvailable);
         }
         var sysenvProvider = createSysenvSecretsProvider(config);
-        Map<String, Map<String, String>> type2interpolatedParams = new HashMap<>();
-        buildProviders(config, runtimeData, providers, sysenvProvider, type2interpolatedParams);
+        Map<String, Map<String, String>> type2interpolatedArgs = new HashMap<>();
+        buildProviders(config, runtimeData, providers, sysenvProvider, type2interpolatedArgs);
         providers.add(sysenvProvider);
         return new CompositeSecretsProvider(providers);
     }
 
     private EnvVarSecretsProvider createSysenvSecretsProvider(SecretsProviderConfig config) {
-        var prefix = config.paramsFor(SYSENV_TYPE).get(PREFIX_PARAM);
+        var prefix = config.argsFor(SYSENV_TYPE).get(PREFIX_ARG);
         return new EnvVarSecretsProvider(
                 Objects.requireNonNullElse(prefix, EnvVarSecretsProvider.DEFAULT_PREFIX), envLookup);
     }
@@ -207,22 +207,22 @@ public final class SecretsBootstrap {
             RuntimeData runtimeData,
             ArrayList<SecretsProvider> providers,
             SecretsProvider sysenvProvider,
-            Map<String, Map<String, String>> type2interpolatedParams) {
+            Map<String, Map<String, String>> type2interpolatedArgs) {
         for (SecretsSource source : config.sources()) {
-            if (!type2interpolatedParams.containsKey(source.type())) {
+            if (!type2interpolatedArgs.containsKey(source.type())) {
                 var secretsInterpolationRule = createSecretsInterpolationRule(providers, sysenvProvider);
                 try {
-                    var interpolatedParams =
-                            interpolateParams(config.paramsFor(source.type()), secretsInterpolationRule, runtimeData);
-                    type2interpolatedParams.put(source.type(), interpolatedParams);
+                    var interpolatedArgs =
+                            interpolatedArgsOf(config.argsFor(source.type()), secretsInterpolationRule, runtimeData);
+                    type2interpolatedArgs.put(source.type(), interpolatedArgs);
                 } catch (BratException e) {
                     closeAndThrow(providers, e.getMessage());
                 }
             }
-            var factoryParams = new HashMap<>(type2interpolatedParams.get(source.type()));
-            factoryParams.putAll(source.params());
+            var factoryArgs = new HashMap<>(type2interpolatedArgs.get(source.type()));
+            factoryArgs.putAll(source.args());
             try {
-                providers.add(type2factoryMap.get(source.type()).create(factoryParams));
+                providers.add(type2factoryMap.get(source.type()).create(factoryArgs));
             } catch (Exception e) {
                 var detail =
                         switch (e) {
@@ -242,9 +242,9 @@ public final class SecretsBootstrap {
         return new SecretsInterpolationRule(new CompositeSecretsProvider(currentProviders));
     }
 
-    private Map<String, String> interpolateParams(
-            Map<String, String> params, InterpolationRule secretsInterpolationRule, RuntimeData runtimeData) {
-        var interpolated = new HashMap<>(params);
+    private Map<String, String> interpolatedArgsOf(
+            Map<String, String> args, InterpolationRule secretsInterpolationRule, RuntimeData runtimeData) {
+        var interpolated = new HashMap<>(args);
         var scanner = createInterpolationScanner(secretsInterpolationRule);
         interpolated.replaceAll(
                 (key, value) -> scanner.outcome(value, runtimeData).asString());

@@ -240,7 +240,7 @@ public final class EnvironmentReader {
     private SecretsSource secretsSource(Path file) {
         var content = load(file, Function.identity());
         var type = recognisedType(file, content).orElseGet(() -> declaredType(file, content));
-        return new SecretsSource(type, Map.of(FileSecretsProviderFactory.LOCATION_PARAM, FILE_PREFIX + file));
+        return new SecretsSource(type, Map.of(FileSecretsProviderFactory.LOCATION_ARG, FILE_PREFIX + file));
     }
 
     /**

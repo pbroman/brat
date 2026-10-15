@@ -5,6 +5,7 @@ import java.nio.file.Path;
 
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.Require;
+import dev.pbroman.brat.core.util.ResourceReader;
 
 import static dev.pbroman.brat.core.util.Constants.CLASSPATH_PREFIX;
 import static dev.pbroman.brat.core.util.Constants.FILE_PREFIX;
@@ -14,7 +15,7 @@ import static dev.pbroman.brat.core.util.Constants.FILE_PREFIX;
  * prefixed, absolute form the rest of BRAT reads.
  * <p>
  * The two disagree about a path with no prefix. To whoever launches a run, {@code orders.brat.yaml}
- * is a file next to where they are; to {@link dev.pbroman.brat.core.util.ResourceReader} it is a
+ * is a file next to where they are; to {@link ResourceReader} it is a
  * classpath lookup. So every location a launch is given passes through here, and nothing downstream
  * ever sees the string as given.
  */

@@ -3,6 +3,7 @@ package dev.pbroman.brat.core.util;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import dev.pbroman.brat.core.exception.BratException;
@@ -33,7 +34,7 @@ public final class NamespaceUtils {
      * {@code db: {primary: {host: x}}} becomes {@code db.primary.host -> x}. A nested key that is not a
      * {@code String} is used by its {@code String.valueOf}, and so is a {@code null} key at any level,
      * which becomes {@code "null"}. A nested map with no entries contributes no
-     * key. Every other value is kept as the same instance under its key — a {@link java.util.List}
+     * key. Every other value is kept as the same instance under its key — a {@link List}
      * included, together with everything inside it: a map that is an element of a list stays a map,
      * since an element has no key to join.
      * <p>

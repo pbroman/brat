@@ -6,9 +6,9 @@ import java.util.Optional;
 
 import dev.pbroman.brat.core.api.resolver.ConditionPredicate;
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
+import dev.pbroman.brat.core.api.util.ArgsUtils;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.util.ArgsUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 
@@ -55,6 +55,14 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
         }
         return Optional.empty();
     }
+
+    /**
+     * The operand category this rule serves, such as {@code Number} or {@code String}, named in its
+     * error messages.
+     *
+     * @return the category's name; never {@code null}
+     */
+    protected abstract String category();
 
     /**
      * Override this to return a list of functions that do not require the b argument.

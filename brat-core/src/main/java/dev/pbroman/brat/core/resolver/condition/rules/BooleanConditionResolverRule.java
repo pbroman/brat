@@ -34,7 +34,7 @@ public final class BooleanConditionResolverRule extends AbstractConditionResolve
     }
 
     @Override
-    public String category() {
+    protected String category() {
         return BOOLEAN_CONDITION;
     }
 

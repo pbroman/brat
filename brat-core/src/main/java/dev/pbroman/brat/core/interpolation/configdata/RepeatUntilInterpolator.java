@@ -7,6 +7,7 @@ import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.data.RepeatUntil;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.exception.BratException;
 
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.asStringOrNull;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
@@ -43,7 +44,7 @@ public final class RepeatUntilInterpolator implements ConfigDataInterpolator<Rep
      * @return a new block with every declared bound interpolated and the authored condition carried
      *         through unchanged. A {@code null} {@code maxAttempts}, {@code waitBetweenAttempts} or
      *         {@code messageOnFail} yields no outcome and stays {@code null} on the copy
-     * @throws dev.pbroman.brat.core.exception.BratException if {@code target} is {@code null} or is
+     * @throws BratException if {@code target} is {@code null} or is
      *         already an interpolated copy
      */
     @Override

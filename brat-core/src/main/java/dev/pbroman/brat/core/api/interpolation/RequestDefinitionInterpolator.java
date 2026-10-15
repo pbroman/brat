@@ -1,6 +1,7 @@
 package dev.pbroman.brat.core.api.interpolation;
 
 import dev.pbroman.brat.core.api.data.RequestDefinition;
+import dev.pbroman.brat.core.api.handler.RequestHandler;
 import dev.pbroman.brat.core.data.ConfigData;
 
 /**
@@ -26,7 +27,7 @@ public interface RequestDefinitionInterpolator<T extends ConfigData & RequestDef
      * The class this interpolates, which is its registration key.
      *
      * @return the definition type; never {@code null}, and equal to the
-     *         {@link dev.pbroman.brat.core.api.handler.RequestHandler#definitionType()} of the
+     *         {@link RequestHandler#definitionType()} of the
      *         handlers for that protocol — a registered protocol whose definition type has no
      *         interpolator is a wiring failure, reported when the runner is built rather than on the
      *         first request. Lookup is by <strong>exact</strong> class, so a subclass of a registered

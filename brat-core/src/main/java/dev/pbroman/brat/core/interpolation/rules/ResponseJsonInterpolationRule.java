@@ -74,7 +74,7 @@ public final class ResponseJsonInterpolationRule implements InterpolationRule {
      * <p>
      * <strong>A token whose path holds another token is declined</strong>, not resolved:
      * {@code ${response.json.${vars.path}}} is a data-derived JSONPath, which nothing in core
-     * computes. This rule implements {@link dev.pbroman.brat.core.api.interpolation.InterpolationRule}
+     * computes. This rule implements {@link InterpolationRule}
      * directly and so applies that test itself, exactly as
      * {@link AbstractInterpolationRule#claims(String)} applies it for the rules extending the base.
      * Declining leaves the field to pass through as written — which is the answer an author needs,

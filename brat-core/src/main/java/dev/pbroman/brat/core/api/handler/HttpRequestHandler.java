@@ -6,7 +6,6 @@ import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.result.HttpResponse;
 import dev.pbroman.brat.core.exception.BratException;
-import dev.pbroman.brat.core.handler.HttpResponseVars;
 
 import static dev.pbroman.brat.core.util.Constants.HTTP;
 

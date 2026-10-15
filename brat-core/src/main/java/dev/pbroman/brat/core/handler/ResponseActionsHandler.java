@@ -10,6 +10,8 @@ import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.result.CaptureFailure;
 import dev.pbroman.brat.core.data.result.ResponseActionsResult;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
+import dev.pbroman.brat.core.data.runtime.VarTombstone;
+import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.FailureMessages;
 import dev.pbroman.brat.core.util.Require;
 
@@ -18,13 +20,13 @@ import dev.pbroman.brat.core.util.Require;
  * every {@code setVars} entry to the {@link RuntimeData}.
  * <p>
  * This is the one deliberate conversion boundary in {@code brat-core}: a failure inside an action
- * becomes data rather than an escaping {@link dev.pbroman.brat.core.exception.BratException}, so a
+ * becomes data rather than an escaping {@link BratException}, so a
  * suite runs to completion and reports every failure instead of aborting on the first. An assertion
  * that cannot be interpolated or resolved becomes a failed {@link AssertionResult}; a capture that
- * cannot be resolved becomes a {@link dev.pbroman.brat.core.data.result.CaptureFailure} and leaves a
- * {@link dev.pbroman.brat.core.data.runtime.VarTombstone} on its variable.
+ * cannot be resolved becomes a {@link CaptureFailure} and leaves a
+ * {@link VarTombstone} on its variable.
  */
-public class ResponseActionsHandler implements ResponseHandler {
+public final class ResponseActionsHandler implements ResponseHandler {
 
     private final Interpolation interpolation;
     private final AssertionResolver assertionResolver;

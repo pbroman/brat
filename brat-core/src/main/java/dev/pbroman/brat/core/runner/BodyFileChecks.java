@@ -25,7 +25,7 @@ import static dev.pbroman.brat.core.util.Constants.TOKEN_PREFIX;
  * otherwise have used, while this checks a <em>file the structure names</em> — addressability, one
  * step later than the loader only because the suite's location is not known until a run is launched.
  */
-public final class BodyFileChecks {
+final class BodyFileChecks {
 
     private BodyFileChecks() {
         // utility class
@@ -45,7 +45,7 @@ public final class BodyFileChecks {
      * @param suiteLocation the location the suite was loaded from, prefix and all, or {@code null}
      *        when it came from no location. A {@code null} does not by itself fail: it fails only if
      *        some request names a bare path, which is then unresolvable
-     * @throws dev.pbroman.brat.core.exception.BratException if {@code suite} is {@code null}, or if
+     * @throws BratException if {@code suite} is {@code null}, or if
      *         any token-free body file cannot be resolved or does not exist. The message names every
      *         offending file and the path of the request that names it, and quotes no file content
      */
