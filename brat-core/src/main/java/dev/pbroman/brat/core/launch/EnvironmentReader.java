@@ -5,7 +5,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,6 +28,7 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.dataformat.yaml.YAMLMapper;
 
+import static dev.pbroman.brat.core.launch.LaunchUtils.fileName;
 import static dev.pbroman.brat.core.util.Constants.FILE_PREFIX;
 import static dev.pbroman.brat.core.util.Constants.TOKEN_PREFIX;
 
@@ -56,6 +56,7 @@ import static dev.pbroman.brat.core.util.Constants.TOKEN_PREFIX;
 @Slf4j
 public final class EnvironmentReader {
 
+    private static final String ENVIRONMENT = "environment";
     private static final String ENV_FILE = "env";
     private static final String PROVIDERS_FILE = "providers";
     private static final Pattern SECRETS_FILE = Pattern.compile("secrets|secrets[0-9].*");
@@ -127,6 +128,10 @@ public final class EnvironmentReader {
      *         <ul>
      *             <li>if {@code directory} is {@code null} or blank, carries {@code classpath:},
      *                 does not exist, is not a directory or cannot be listed — naming it;</li>
+     *             <li>if it holds no environment file — no {@code env}, {@code providers} or secrets
+     *                 file — naming it and the files an environment holds: an environment with nothing
+     *                 in it is far more often a mistyped path than a deliberate choice, and running
+     *                 against it fails later and less clearly;</li>
      *             <li>if {@code params} is {@code null};</li>
      *             <li>if two recognised files differ only in their extension, as {@code env.yaml}
      *                 and {@code env.yml} do — naming both;</li>
@@ -148,6 +153,10 @@ public final class EnvironmentReader {
         var path = LaunchLocations.directory(directory);
         Require.nonNull(params, "The params must not be null");
         var yamlFiles = yamlFilesIn(path, directory);
+        if (yamlFiles.stream().map(EnvironmentReader::baseName).noneMatch(EnvironmentReader::isRecognised)) {
+            throw new BratException("The environment directory '" + directory + "' holds no environment file — "
+                    + "env.yaml, providers.yaml or secrets*.yaml (" + path + ")");
+        }
 
         Map<String, String> env = Map.of();
         var providerConfig = SecretsProviderConfig.empty();
@@ -183,21 +192,7 @@ public final class EnvironmentReader {
      *         or holds two recognised YAML files differing only in their extension
      */
     private static List<Path> yamlFilesIn(Path path, String given) {
-        if (!Files.exists(path)) {
-            throw new BratException("The environment directory '" + given + "' does not exist (" + path + ")");
-        }
-        if (!Files.isDirectory(path)) {
-            throw new BratException("The environment directory '" + given + "' is not a directory (" + path + ")");
-        }
-        List<Path> files;
-        try (var listing = Files.list(path)) {
-            files = listing.filter(Files::isRegularFile)
-                    .sorted(Comparator.comparing(EnvironmentReader::fileName))
-                    .toList();
-        } catch (IOException e) {
-            throw new BratException("The environment directory '" + given + "' cannot be listed", e);
-        }
-
+        var files = LaunchUtils.regularFilesIn(path, given, ENVIRONMENT);
         var yamlFiles = new ArrayList<Path>();
         var byName = new HashMap<String, Path>();
         for (var file : files) {
@@ -214,6 +209,23 @@ public final class EnvironmentReader {
             yamlFiles.add(file);
         }
         return yamlFiles;
+    }
+
+    /**
+     * Whether {@code directory} holds an environment file: a regular file directly in it named
+     * {@code env}, {@code providers}, {@code secrets} or {@code secrets} followed by a digit and then
+     * anything, with a {@code .yaml} or {@code .yml} extension — the files {@link #read} reads.
+     *
+     * @param directory the directory to look in
+     * @return whether it holds one; {@code false} for a path that is not a listable directory
+     */
+    static boolean holdsEnvironmentFile(Path directory) {
+        try {
+            var yamlFiles = yamlFilesIn(directory, fileName(directory));
+            return yamlFiles.stream().map(EnvironmentReader::baseName).anyMatch(EnvironmentReader::isRecognised);
+        } catch (BratException e) {
+            return false;
+        }
     }
 
     /**
@@ -357,15 +369,5 @@ public final class EnvironmentReader {
     private static String baseName(Path file) {
         var name = fileName(file);
         return name.substring(0, name.lastIndexOf('.'));
-    }
-
-    /**
-     * The file's own name, without its directory.
-     *
-     * @param file a file listed from a directory, which always has a name
-     * @return its name
-     */
-    private static String fileName(Path file) {
-        return String.valueOf(file.getFileName());
     }
 }

@@ -8,42 +8,66 @@ import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.Require;
 
 /**
- * What a run is launched with: a suite file, optionally an environment directory, and launch
- * parameters.
+ * What a run is launched with: a suite, optionally an environment, and launch parameters.
  * <p>
- * Locations are held as given — a path relative to the working directory, an absolute one, either
- * behind {@code file:}, or a {@code classpath:} location for the suite — and are only resolved when
- * the launch is read. Built with {@link #of(String)} and the {@code with…} methods, each returning a
- * new launch:
+ * Everything is held as given — a path relative to the working directory, an absolute one, either
+ * behind {@code file:}, or a {@code classpath:} location for the suite — and only resolved when the
+ * launch is read. The suite is a file, or a directory holding one. The environment is named one of two
+ * ways, never both: as a <strong>name</strong>, meaning the directory of that name beside the suite, or
+ * as a <strong>directory</strong> anywhere. Built with {@link #of(String)} and the {@code with…}
+ * methods, each returning a new launch:
  *
  * <pre>{@code
- * var launch = Launch.of("orders-api/orders.brat.yaml")
- *         .withEnvironmentDirectory("orders-api/dev")
+ * var launch = Launch.of("orders-api")              // the one suite in orders-api/
+ *         .withEnvironment("dev")                   // orders-api/dev/
  *         .withParams(Map.of("timeout", "20000"));
  * }</pre>
  *
- * @param suite the suite file, as given; never {@code null} or blank
- * @param environmentDirectory the environment directory, as given, or {@code null} for none — a suite
- *        that needs no environment runs with an empty {@code env} and environment-variable secrets
- *        only; never blank
+ * @param suite the suite file, or a directory holding exactly one, as given; never {@code null} or
+ *        blank
+ * @param environmentDirectory the environment directory, as given, or {@code null}; never blank, and
+ *        never set together with {@code environment}
+ * @param environment the name of the environment directory beside the suite, or {@code null}; never
+ *        blank, never a path, and never set together with {@code environmentDirectory}. With neither, a
+ *        suite runs with an empty {@code env} and environment-variable secrets only
  * @param params the launch parameters, read as {@code ${params.x}} or, prefixed with a namespace, as
  *        overrides; never {@code null}, unmodifiable, holding no {@code null} key or value
  */
-public record Launch(String suite, String environmentDirectory, Map<String, String> params) {
+public record Launch(String suite, String environmentDirectory, String environment, Map<String, String> params) {
 
     /**
      * Validates and copies the arguments.
      *
-     * @param suite the suite file, as given
+     * @param suite the suite file or directory, as given
      * @param environmentDirectory the environment directory, as given, or {@code null}
+     * @param environment the environment's name, or {@code null}
      * @param params the launch parameters
-     * @throws BratException if {@code suite} is {@code null} or blank, if {@code environmentDirectory}
-     *         is blank, or if {@code params} is {@code null} or holds a {@code null} key or value
+     * @throws BratException if {@code suite} is {@code null} or blank; if {@code environmentDirectory}
+     *         is blank; if {@code environment} is blank, holds a {@code /} or {@code \}, or is
+     *         {@code .} or {@code ..} — a name, not a path, the message pointing at
+     *         {@code environmentDirectory} for a path; if both {@code environmentDirectory} and
+     *         {@code environment} are set, naming both; or if {@code params} is {@code null} or holds a
+     *         {@code null} key or value
      */
     public Launch {
         Require.nonBlank(suite, "The suite to launch must not be blank");
         if (environmentDirectory != null) {
             Require.nonBlank(environmentDirectory, "The environment directory must not be blank");
+        }
+        if (environment != null) {
+            Require.nonBlank(environment, "The environment name must not be blank");
+            if (environment.contains("/")
+                    || environment.contains("\\")
+                    || ".".equals(environment)
+                    || "..".equals(environment)) {
+                throw new BratException("The environment '" + environment + "' is a path, not a name: an environment "
+                        + "name means the directory of that name beside the suite. Name any other directory as "
+                        + "the environment directory instead");
+            }
+        }
+        if (environmentDirectory != null && environment != null) {
+            throw new BratException("A launch names an environment or an environment directory, not both: '"
+                    + environment + "' and '" + environmentDirectory + "'");
         }
         Require.nonNull(params, "The launch params must not be null");
         for (var entry : params.entrySet()) {
@@ -56,26 +80,43 @@ public record Launch(String suite, String environmentDirectory, Map<String, Stri
     }
 
     /**
-     * A launch of {@code suite}, with no environment directory and no parameters.
+     * A launch of {@code suite}, with no environment and no parameters.
      *
-     * @param suite the suite file, as given; must not be {@code null} or blank
+     * @param suite the suite file, or a directory holding exactly one, as given; must not be
+     *        {@code null} or blank
      * @return the launch
      * @throws BratException if {@code suite} is {@code null} or blank
      */
     public static Launch of(String suite) {
-        return new Launch(suite, null, Map.of());
+        return new Launch(suite, null, null, Map.of());
     }
 
     /**
-     * A copy of this launch reading {@code directory} as its environment.
+     * A copy of this launch reading {@code directory} as its environment, in place of any environment it
+     * named before.
      *
      * @param directory the environment directory, as given; must not be {@code null} or blank
-     * @return a new launch, identical but for its environment directory
+     * @return a new launch, identical but for its environment
      * @throws BratException if {@code directory} is {@code null} or blank
      */
     public Launch withEnvironmentDirectory(String directory) {
         Require.nonBlank(directory, "The environment directory must not be blank");
-        return new Launch(suite, directory, params);
+        return new Launch(suite, directory, null, params);
+    }
+
+    /**
+     * A copy of this launch reading the directory named {@code name} beside the suite as its environment,
+     * in place of any environment it named before.
+     *
+     * @param name the environment's name, such as {@code dev}; must not be {@code null} or blank, and must
+     *        be a name rather than a path
+     * @return a new launch, identical but for its environment
+     * @throws BratException if {@code name} is {@code null} or blank, or is a path, as the constructor
+     *         says
+     */
+    public Launch withEnvironment(String name) {
+        Require.nonBlank(name, "The environment name must not be blank");
+        return new Launch(suite, null, name, params);
     }
 
     /**
@@ -87,6 +128,6 @@ public record Launch(String suite, String environmentDirectory, Map<String, Stri
      * @throws BratException if {@code newParams} is {@code null} or holds a {@code null} key or value
      */
     public Launch withParams(Map<String, String> newParams) {
-        return new Launch(suite, environmentDirectory, newParams);
+        return new Launch(suite, environmentDirectory, environment, newParams);
     }
 }

@@ -54,8 +54,10 @@ final class EnvVarSecretsProvider implements SecretsProvider {
      * A separator is inserted before an upper-case character when the preceding character is
      * lower-case or a digit, or when the preceding character is upper-case and the following one is
      * lower-case — so an acronym stays intact ({@code apiURL} becomes {@code API_URL}, not
-     * {@code API_U_R_L}). Dots become separators, making the flattened key {@code db.password} and
-     * the camel-case key {@code dbPassword} deliberately equivalent.
+     * {@code API_U_R_L}). Dots and hyphens become separators, making the flattened key
+     * {@code db.password}, the hyphenated key {@code db-password} and the camel-case key
+     * {@code dbPassword} deliberately equivalent — and keeping every name one a shell can export, which
+     * a {@code -} is not.
      *
      * @param key the logical key
      * @return the upper-snake-case form, unchanged if {@code key} is already in that form
@@ -64,7 +66,7 @@ final class EnvVarSecretsProvider implements SecretsProvider {
         var result = new StringBuilder(key.length() + 8);
         for (var i = 0; i < key.length(); i++) {
             var current = key.charAt(i);
-            if (current == '.') {
+            if (current == '.' || current == '-') {
                 result.append('_');
             } else {
                 if (i > 0 && Character.isUpperCase(current) && needsSeparator(key, i)) {
