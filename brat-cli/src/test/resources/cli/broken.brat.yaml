@@ -1,0 +1,7 @@
+name: broken
+requests:
+  - name: misspelt
+    requestDefinition:
+      url: http://127.0.0.1:1/
+    responsActions:                      # not a key a request has, so the suite does not load
+      assertions: []
