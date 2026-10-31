@@ -186,19 +186,6 @@ class BratReporterTest {
         }
     }
 
-    private static final class NeverCancelled implements RunControl {
-
-        @Override
-        public void cancel() {
-            // never asked to in these tests
-        }
-
-        @Override
-        public boolean isCancelled() {
-            return false;
-        }
-    }
-
     private static OutcomeRenderer rendererSeenBy(Brat brat, RecordingReporter reporter) {
         brat.reporter(reporter.name(), Map.of());
         return reporter.contexts.getLast().renderer();
@@ -574,7 +561,7 @@ class BratReporterTest {
         var mine = new RecordingListener();
 
         // when
-        brat.run(suite, environment, List.of(mine), new NeverCancelled());
+        brat.run(suite, environment, List.of(mine), RunControl.create());
 
         // then
         assertThat(recording.listeners).hasSize(createdAtBuild);
@@ -591,7 +578,7 @@ class BratReporterTest {
         var mine = new RecordingListener();
 
         // when
-        assertThatThrownBy(() -> builder().build().run(failing, environment, List.of(mine), new NeverCancelled()))
+        assertThatThrownBy(() -> builder().build().run(failing, environment, List.of(mine), RunControl.create()))
                 .isInstanceOf(BratException.class);
 
         // then - so a listener acquiring on RunStarted never holds anything

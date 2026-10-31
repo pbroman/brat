@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import dev.pbroman.brat.core.api.listener.RunControl;
 import dev.pbroman.brat.core.api.listener.RunEvent;
 import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.data.result.RequestStatus;
@@ -11,7 +12,6 @@ import dev.pbroman.brat.core.data.result.RunResult;
 import dev.pbroman.brat.core.data.result.SuiteError;
 import dev.pbroman.brat.core.data.result.SuiteStatus;
 import dev.pbroman.brat.integration.support.EndToEndTestBase;
-import dev.pbroman.brat.integration.support.TestRunControl;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,7 +29,7 @@ class SuiteTreeTest extends EndToEndTestBase {
     private final List<RunEvent> events = new ArrayList<>();
 
     private RunResult runWithEvents(String resource, Map<String, Object> env) {
-        return BRAT.run(suite(resource), environment(env), List.of(events::add), new TestRunControl());
+        return BRAT.run(suite(resource), environment(env), List.of(events::add), RunControl.create());
     }
 
     private static List<String> pathsOf(RunResult result) {

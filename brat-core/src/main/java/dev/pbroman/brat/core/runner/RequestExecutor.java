@@ -2,11 +2,13 @@ package dev.pbroman.brat.core.runner;
 
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.handler.RequestHandler;
 import dev.pbroman.brat.core.api.listener.AttemptFinished;
+import dev.pbroman.brat.core.data.Phase;
 import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.result.RequestCoordinates;
 import dev.pbroman.brat.core.data.result.RequestStatus;
@@ -26,8 +28,11 @@ import dev.pbroman.brat.core.util.FailureMessages;
  */
 class RequestExecutor {
 
+    private static final String STOPPED_WHILE_WAITING = "The run was stopped while waiting for the condition";
+
     private final ConditionEvaluator conditionEvaluator;
     private final Consumer<AttemptFinished> attemptListener;
+    private final Predicate<Phase> stopRequested;
 
     /**
      * Constructs an executor over the collaborators it delegates to.
@@ -37,10 +42,16 @@ class RequestExecutor {
      *
      * @param conditionEvaluator interpolates and answers the loop condition
      * @param attemptListener receives one {@link AttemptFinished} per attempt of a polling request
+     * @param stopRequested whether the run wants the work of a phase to stop now, asked with the
+     *        polling request's own phase while it waits between attempts
      */
-    RequestExecutor(ConditionEvaluator conditionEvaluator, Consumer<AttemptFinished> attemptListener) {
+    RequestExecutor(
+            ConditionEvaluator conditionEvaluator,
+            Consumer<AttemptFinished> attemptListener,
+            Predicate<Phase> stopRequested) {
         this.conditionEvaluator = conditionEvaluator;
         this.attemptListener = attemptListener;
+        this.stopRequested = stopRequested;
     }
 
     /**
@@ -62,6 +73,16 @@ class RequestExecutor {
      * <strong>The wait falls between attempts, not after the last one.</strong> A loop of {@code n}
      * attempts waits {@code n - 1} times: pausing after the final attempt only delays a give-up that
      * has already been decided.
+     * <p>
+     * <strong>A stop ends the loop between attempts</strong>, as {@link RequestStatus.Errored} with the
+     * message {@code "The run was stopped while waiting for the condition"}. The executor asks the
+     * {@code stopRequested} it was constructed with, passing {@code coordinates}' phase, before each wait and
+     * within every {@value PauseUtils#SLICE_MILLIS} ms of it, so a stop ends a long wait promptly; with a
+     * wait of {@code 0} it still asks once between two attempts. It never asks during an attempt — an
+     * attempt under way finishes, and if its condition holds the request is
+     * {@link RequestStatus.Completed} — nor after the last attempt, where nothing is left to stop and the loop
+     * ends as it would have. A request without bounds never asks: whether it starts is the walk's
+     * decision. The result carries what the last attempt sent.
      * <p>
      * <strong>A condition that cannot be evaluated ends the loop at once</strong> as
      * {@link RequestStatus.Errored}. It is an authoring error rather than a transient one, and
@@ -90,8 +111,8 @@ class RequestExecutor {
      *        {@code responseVars} each completed attempt replaces
      * @return how the attempts ended, and what the last attempt sent — {@code definition} itself where
      *         {@code prepare} failed on that attempt; never {@code null}
-     * @throws BratException if the thread is interrupted while waiting between attempts, which is
-     *         cancellation of the run rather than a failure of this request
+     * @throws BratException if the thread is interrupted while waiting between attempts, which ends the
+     *         run rather than failing this request
      */
     <T extends RequestDefinition, R> Executed<T> execute(
             T definition,
@@ -151,8 +172,8 @@ class RequestExecutor {
             } else {
                 attemptFinished(coordinates, attemptNo, bounds.maxAttempts(), lastStatus, false);
             }
-            if (attemptNo < bounds.maxAttempts()) {
-                sleep(bounds.waitBetweenAttempts());
+            if (attemptNo < bounds.maxAttempts() && !waitBetweenAttempts(bounds, coordinates.phase())) {
+                return new Executed<>(new RequestStatus.Errored(STOPPED_WHILE_WAITING), last.sent());
             }
         }
         return new Executed<>(exhausted(last.status(), bounds.messageOnFail()), last.sent());
@@ -225,25 +246,22 @@ class RequestExecutor {
     }
 
     /**
-     * Pauses between two attempts.
+     * Waits between two attempts, ending early when the run wants work of {@code phase} to stop.
      * <p>
-     * An interrupt is <strong>cancellation of the run, not a failure of this request</strong>, so the
-     * flag is restored and the exception propagates rather than becoming a status. This is the seam
-     * that matters when cancellation becomes interrupt-based inside a request; swallowing it here is
-     * what would make such a cancellation do nothing.
+     * An interrupt <strong>ends the run rather than failing this request</strong>, so the flag is
+     * restored and the exception propagates rather than becoming a status; swallowing it here is what
+     * would make an interrupt do nothing.
      *
+     * @param bounds the loop's bounds, holding the wait
+     * @param phase the polling request's phase
+     * @return {@code true} if the whole wait passed; {@code false} if a stop ended it or came first
      * @throws BratException if the thread is interrupted while waiting
      */
-    private static void sleep(long millis) {
-        if (millis <= 0) {
-            return;
-        }
-        try {
-            Thread.sleep(millis);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new BratException("Interrupted while waiting between attempts", e);
-        }
+    private boolean waitBetweenAttempts(PollBounds bounds, Phase phase) {
+        return PauseUtils.pause(
+                bounds.waitBetweenAttempts(),
+                () -> stopRequested.test(phase),
+                "Interrupted while waiting between attempts");
     }
 
     /**

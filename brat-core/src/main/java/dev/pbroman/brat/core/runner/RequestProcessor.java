@@ -158,8 +158,9 @@ final class RequestProcessor {
      *
      * <p>
      * <strong>What a poll can end as</strong> is {@link RequestExecutor}'s to decide and is documented
-     * there: the condition holding, the attempts running out with a response in hand, or the attempts
-     * running out with the final one errored. The bounds it runs within — including what is rejected
+     * there: the condition holding, the attempts running out with a response in hand, the attempts
+     * running out with the final one errored, or a stop of the run ending the wait between two
+     * attempts. The bounds it runs within — including what is rejected
      * and what is defaulted — belong to {@link PollBounds}. Neither is restated here, so that neither
      * can drift from it.
      * <p>

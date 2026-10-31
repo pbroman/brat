@@ -390,7 +390,7 @@ public final class Brat implements AutoCloseable {
         nonNull(environment, "The environment to run against must not be null");
         var listeners =
                 defaultReporters.stream().map(name -> reporter(name, Map.of())).toList();
-        return run(suite, environment, listeners, new NoOpRunControl());
+        return run(suite, environment, listeners, RunControl.create());
     }
 
     /**
@@ -434,9 +434,11 @@ public final class Brat implements AutoCloseable {
      * <p>
      * Exactly {@code listeners} are called: the default reporters are not added.
      * <p>
-     * Cancellation is checked <strong>before every suite and every request</strong>, so an in-flight
-     * request finishes and nothing starts after it — teardown included. Every suite already entered
-     * then reports {@code SuiteExited(Cancelled)}.
+     * Stopping is checked <strong>before every suite and every request</strong>, so an in-flight request
+     * finishes. After a {@link RunControl#stop() stop} no setup or main request starts and no suite is
+     * entered, while every suite still open runs its teardown; after a {@link RunControl#cancel()
+     * cancel} nothing starts, teardown included. Either way every suite already entered then reports
+     * {@code SuiteExited(Cancelled)}, and the result has {@code cancelled} set.
      * <p>
      * Every {@code RequestStarted} is followed by a {@code RequestFinished}: a request whose handler
      * cannot be resolved aborts the run <em>before</em> it is announced, so no listener is left holding
@@ -449,7 +451,7 @@ public final class Brat implements AutoCloseable {
      *        {@code null}, possibly empty
      * @param runControl the channel a listener or the caller stops the run through; never
      *        {@code null}
-     * @return the run's record, with {@code cancelled} set if the run was stopped early
+     * @return the run's record, with {@code cancelled} set if the run was stopped or cancelled
      * @throws BratException under the same conditions as {@link #run(TestSuite, Environment)}, or if
      *         {@code listeners} or {@code runControl} is {@code null}
      */
@@ -569,20 +571,6 @@ public final class Brat implements AutoCloseable {
             } catch (Exception e) {
                 log.warn("The handler '{}' failed to close", handler.getClass().getName(), e);
             }
-        }
-    }
-
-    /** The control a run with no caller-supplied one uses: nothing ever cancels it. */
-    private static final class NoOpRunControl implements RunControl {
-
-        @Override
-        public void cancel() {
-            // Nothing can observe a cancellation on a run that was handed no control.
-        }
-
-        @Override
-        public boolean isCancelled() {
-            return false;
         }
     }
 

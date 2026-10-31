@@ -73,7 +73,7 @@ final class Run {
         String error = null;
         try {
             open(suite, environment);
-            result = finish(startedAt, runControl.isCancelled(), null);
+            result = finish(startedAt, runControl.isStopping(), null);
             return result;
         } catch (BratException e) {
             error = e.getMessage();
@@ -95,7 +95,7 @@ final class Run {
      * Builds the run's record from what has been collected so far.
      *
      * @param startedAt when the run began, in milliseconds
-     * @param cancelled whether the run was cancelled
+     * @param cancelled whether the run was stopped or cancelled
      * @param error what ended the run early, or {@code null}
      * @return the record
      */
@@ -104,18 +104,18 @@ final class Run {
     }
 
     /**
-     * Whether the run was cancelled, asked once a failure has already ended it.
+     * Whether the run was stopped or cancelled, asked once a failure has already ended it.
      * <p>
      * The control is the caller's code, and it may be what failed. Throwing again here would lose the
      * terminal event every listener is promised and replace the failure the caller is about to receive,
      * so a failure of any kind is logged and read as not cancelled — the run's own error already says
      * it did not finish.
      *
-     * @return whether the run was cancelled; {@code false} if asking failed
+     * @return whether the run was stopped or cancelled; {@code false} if asking failed
      */
     private boolean cancelledAfterFailure() {
         try {
-            return runControl.isCancelled();
+            return runControl.isStopping();
         } catch (RuntimeException | Error e) {
             log.warn(
                     "The run control {} threw while the run was ending",
@@ -198,7 +198,7 @@ final class Run {
                 responseHandler,
                 collaborators.flowControlInterpolator(),
                 new RequestOptionsInterpolator(),
-                new RequestExecutor(conditionEvaluator, attemptListener),
+                new RequestExecutor(conditionEvaluator, attemptListener, TestSuiteRunner.stopRequested(runControl)),
                 collaborators.authHandlerRegistry());
 
         new TestSuiteRunner(

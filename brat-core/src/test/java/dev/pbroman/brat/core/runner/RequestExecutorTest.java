@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
 
 import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
 import dev.pbroman.brat.core.api.handler.HttpResponseVars;
@@ -43,6 +45,8 @@ class RequestExecutorTest {
     private RequestExecutor underTest;
     private RuntimeData runtimeData;
     private final List<AttemptFinished> attempts = new ArrayList<>();
+    /** What the run answers when the executor asks whether to stop; never stops unless a test says so. */
+    private Predicate<Phase> stopRequested = phase -> false;
 
     private final Condition pollCondition = new Condition("isEqualTo", "${response.statusCode}", "200");
     private final HttpRequestDefinition definition =
@@ -57,7 +61,7 @@ class RequestExecutorTest {
         when(requestHandler.responseVars(any())).thenAnswer(call -> HttpResponseVars.of(call.getArgument(0)));
         conditionEvaluator = mock(ConditionEvaluator.class);
         attempts.clear();
-        underTest = new RequestExecutor(conditionEvaluator, attempts::add);
+        underTest = new RequestExecutor(conditionEvaluator, attempts::add, phase -> stopRequested.test(phase));
         runtimeData = new RuntimeData(Map.of(), Map.of());
     }
 
@@ -567,5 +571,150 @@ class RequestExecutorTest {
         assertThat(attempts).hasSize(1);
         assertThat(attempts.get(0).error()).contains("already carries the header 'Authorization'");
         verify(requestHandler, never()).performRequest(any(), any());
+    }
+
+    // ---------- stopping ----------
+
+    @Test
+    void execute_endsAPollErroredWhenAStopIsRequestedBetweenAttempts() {
+        // given - a stop arrives while the first attempt is under way
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202));
+        conditionHolds(false);
+        stopRequested = phase -> attempts.size() >= 1;
+
+        // when
+        var executed = underTest.execute(
+                definition, identity(), OPTIONS, requestHandler, bounds("5", "0", null), coordinates, runtimeData);
+
+        // then - the attempt finished, no further one started, and the poll says why it ended
+        assertThat(executed.status())
+                .asInstanceOf(type(RequestStatus.Errored.class))
+                .extracting(RequestStatus.Errored::message)
+                .isEqualTo("The run was stopped while waiting for the condition");
+        assertThat(executed.sent()).isSameAs(definition);
+        verify(requestHandler, times(1)).performRequest(any(), any());
+    }
+
+    @Test
+    void execute_endsALongWaitWithinASliceOfAStop() throws InterruptedException {
+        // given - a stop ten seconds before the wait would end
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202));
+        conditionHolds(false);
+        var stop = new AtomicBoolean();
+        stopRequested = phase -> stop.get();
+        var stopper = new Thread(() -> {
+            try {
+                Thread.sleep(150);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            stop.set(true);
+        });
+        var started = System.nanoTime();
+        stopper.start();
+
+        // when
+        var status = underTest
+                .execute(
+                        definition,
+                        identity(),
+                        OPTIONS,
+                        requestHandler,
+                        bounds("3", "10000", null),
+                        coordinates,
+                        runtimeData)
+                .status();
+        stopper.join();
+
+        // then
+        assertThat((System.nanoTime() - started) / 1_000_000).isLessThan(2_000L);
+        assertThat(status).isInstanceOf(RequestStatus.Errored.class);
+        verify(requestHandler, times(1)).performRequest(any(), any());
+    }
+
+    @Test
+    void execute_asksWhetherToStopWithThePollingRequestsOwnPhase() {
+        // given - a teardown poll, which only a cancel may end
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202));
+        conditionHolds(false);
+        var asked = new ArrayList<Phase>();
+        stopRequested = phase -> {
+            asked.add(phase);
+            return false;
+        };
+        var teardown = new RequestCoordinates("s/gone", null, "gone", Phase.TEARDOWN, 1);
+
+        // when
+        underTest.execute(
+                definition, identity(), OPTIONS, requestHandler, bounds("2", "0", null), teardown, runtimeData);
+
+        // then
+        assertThat(asked).isNotEmpty().containsOnly(Phase.TEARDOWN);
+    }
+
+    @Test
+    void execute_completesAPollWhoseConditionHoldsDespiteAStop() {
+        // given - stopping throughout; the attempt under way still counts
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(200));
+        conditionHolds(true);
+        stopRequested = phase -> true;
+
+        // when
+        var status = underTest
+                .execute(
+                        definition,
+                        identity(),
+                        OPTIONS,
+                        requestHandler,
+                        bounds("5", "0", null),
+                        coordinates,
+                        runtimeData)
+                .status();
+
+        // then
+        assertThat(status).isInstanceOf(RequestStatus.Completed.class);
+    }
+
+    @Test
+    void execute_givesUpRatherThanStoppingAfterTheLastAttempt() {
+        // given - stopping throughout, but the last attempt has nothing left to stop
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(202));
+        conditionHolds(false);
+        stopRequested = phase -> true;
+
+        // when
+        var status = underTest
+                .execute(
+                        definition,
+                        identity(),
+                        OPTIONS,
+                        requestHandler,
+                        bounds("1", "0", null),
+                        coordinates,
+                        runtimeData)
+                .status();
+
+        // then
+        assertThat(status).isInstanceOf(RequestStatus.GaveUp.class);
+    }
+
+    @Test
+    void execute_doesNotAskWhetherToStopWithoutBounds() {
+        // given - whether an unpolled request starts is the walk's decision, not the executor's
+        when(requestHandler.performRequest(any(), any())).thenReturn(response(200));
+        var asked = new AtomicBoolean();
+        stopRequested = phase -> {
+            asked.set(true);
+            return true;
+        };
+
+        // when
+        var status = underTest
+                .execute(definition, identity(), OPTIONS, requestHandler, Optional.empty(), coordinates, runtimeData)
+                .status();
+
+        // then
+        assertThat(status).isInstanceOf(RequestStatus.Completed.class);
+        assertThat(asked).isFalse();
     }
 }
