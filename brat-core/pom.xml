@@ -44,9 +44,17 @@
             <groupId>org.snakeyaml</groupId>
             <artifactId>snakeyaml-engine</artifactId>
         </dependency>
+        <!-- Compile-time only: it generates code and leaves nothing a consumer needs at runtime, so
+             `provided` keeps it out of every consumer's classpath - and out of brat-cli's jar. -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <!-- Used directly (@Slf4j); otherwise it would arrive only through httpclient5. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
         </dependency>
         <dependency>
             <groupId>com.jayway.jsonpath</groupId>

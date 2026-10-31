@@ -1,0 +1,13 @@
+# Runs without a server: skipped with -p skip=yes, and refused at once otherwise, since nothing
+# listens on port 1.
+name: orders
+description: one request, skippable from the command line
+
+requests:
+  - name: read an order
+    skipCondition:
+      a: "${params.skip:-no}"            # -p skip=yes skips it
+      func: isEqualTo
+      b: "yes"
+    requestDefinition:
+      url: "${env.baseUrl}/orders/1"

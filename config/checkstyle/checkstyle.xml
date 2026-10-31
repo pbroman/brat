@@ -31,6 +31,17 @@
         <property name="files" value="[\\/]brat-integration-tests[\\/].*[\\/]integration[\\/]app[\\/]"/>
     </module>
 
+    <!-- brat-cli handles Ctrl-C through sun.misc.Signal (module jdk.unsupported, in every JDK since 9):
+         a shutdown hook runs once, so it cannot tell a first Ctrl-C - stop gracefully - from a second -
+         stop at once. The default ban on sun.* stays live everywhere else; this lifts it for those two
+         imports in the one class built to contain them, so replacing the API later touches nothing
+         else. -->
+    <module name="SuppressionSingleFilter">
+        <property name="checks" value="IllegalImport"/>
+        <property name="files" value="[\\/]brat-cli[\\/].*[\\/]InterruptStopper\.java$"/>
+        <property name="message" value="sun\.misc\.Signal"/>
+    </module>
+
     <module name="LineLength">
         <property name="max" value="120"/>
         <!-- A long URL or a fully-qualified {@link} in Javadoc cannot be wrapped usefully. -->
