@@ -4,7 +4,9 @@
     here. BRAT's own output stays at INFO, since that is the thing under test.
 -->
 <configuration>
+    <!-- stderr, as the brat command logs: CliTest reads stdout as the report and nothing else. -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.err</target>
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n</pattern>
         </encoder>

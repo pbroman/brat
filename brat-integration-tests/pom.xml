@@ -55,6 +55,27 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- The `brat` command, run end to end through its entry point. Its SLF4J binding is left out:
+             this module logs through the server's logback, and two bindings make SLF4J pick one with a
+             warning. -->
+        <dependency>
+            <groupId>dev.pbroman</groupId>
+            <artifactId>brat-cli</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-simple</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- Used directly, to run the command in-process; it also arrives through brat-cli. -->
+        <dependency>
+            <groupId>info.picocli</groupId>
+            <artifactId>picocli</artifactId>
+            <scope>test</scope>
+        </dependency>
         <!-- The server under test, and nothing else. Spring hosts it; Spring never wires BRAT - the
              checkstyle import ban holds everything but dev.pbroman.brat.integration.app to that. -->
         <dependency>
