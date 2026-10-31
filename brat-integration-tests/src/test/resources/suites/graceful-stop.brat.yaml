@@ -1,0 +1,40 @@
+# A suite that cleans up after itself. Stopped once its setup has run, it must still delete the user
+# it created — the teardown is what a graceful stop exists for.
+name: graceful stop
+description: creates a user, would create another, and deletes the first on the way out
+
+requests:
+  - name: create the first user
+    phase: setup
+    requestDefinition:
+      url: "${env.baseUrl}/create"
+      method: POST
+      headers:
+        Content-Type: application/json
+      body:
+        raw: |
+          {"username": "first"}
+    responseActions:
+      setVars:
+        userId: "${response.json.$.id}"
+
+  - name: create the second user
+    requestDefinition:
+      url: "${env.baseUrl}/create"
+      method: POST
+      headers:
+        Content-Type: application/json
+      body:
+        raw: |
+          {"username": "second"}
+
+  - name: delete the first user
+    phase: teardown                       # runs on a stop; a cancel skips it
+    requestDefinition:
+      url: "${env.baseUrl}/delete/${vars.userId}"
+      method: DELETE
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: 204

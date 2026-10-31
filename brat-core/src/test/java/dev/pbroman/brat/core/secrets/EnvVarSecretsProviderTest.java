@@ -57,6 +57,15 @@ class EnvVarSecretsProviderTest {
     }
 
     @Test
+    void getSecret_treatsHyphensAsSeparators() {
+        // when - BRAT_SECRET_DB-PASSWORD could not be exported from a shell
+        var result = underTest.getSecret("db-password");
+
+        // then
+        assertThat(result).contains("fromDbPassword");
+    }
+
+    @Test
     void getSecret_resolvesACamelCaseKeyAndItsFlattenedFormAlike() {
         // when
         var flattened = underTest.getSecret("db.password");

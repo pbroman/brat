@@ -5,6 +5,8 @@ import java.util.Map;
 
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -102,8 +104,84 @@ class LaunchTest {
     @Test
     void constructor_throwsForABlankButNotANullDirectory() {
         // then - null means no directory; blank is a mistake
-        assertThat(new Launch("s.brat.yaml", null, Map.of()).environmentDirectory())
+        assertThat(new Launch("s.brat.yaml", null, null, Map.of()).environmentDirectory())
                 .isNull();
-        assertThatThrownBy(() -> new Launch("s.brat.yaml", " ", Map.of())).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> new Launch("s.brat.yaml", " ", null, Map.of())).isInstanceOf(BratException.class);
+    }
+
+    // ---------- an environment by name ----------
+
+    @Test
+    void constructor_throwsForABlankButNotANullEnvironment() {
+        // then - null means no environment; blank is a mistake
+        assertThat(new Launch("s.brat.yaml", null, null, Map.of()).environment())
+                .isNull();
+        assertThatThrownBy(() -> new Launch("s.brat.yaml", null, " ", Map.of())).isInstanceOf(BratException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"envs/dev", "envs\\dev", ".", ".."})
+    void constructor_rejectsAnEnvironmentThatIsAPath(String path) {
+        // then - a name means a directory beside the suite; anything else is an environment directory
+        assertThatThrownBy(() -> new Launch("s.brat.yaml", null, path, Map.of()))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining(path)
+                .hasMessageContaining("environment directory");
+    }
+
+    @Test
+    void constructor_rejectsAnEnvironmentAndAnEnvironmentDirectoryTogether() {
+        // then
+        assertThatThrownBy(() -> new Launch("s.brat.yaml", "envs/dev", "dev", Map.of()))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("envs/dev")
+                .hasMessageContaining("'dev'");
+    }
+
+    @Test
+    void withEnvironment_namesTheEnvironmentInPlaceOfADirectory() {
+        // given
+        var launch = Launch.of("orders-api").withEnvironmentDirectory("elsewhere/dev");
+
+        // when
+        var result = launch.withEnvironment("dev");
+
+        // then
+        assertThat(result.environment()).isEqualTo("dev");
+        assertThat(result.environmentDirectory()).isNull();
+        assertThat(result.suite()).isEqualTo("orders-api");
+    }
+
+    @Test
+    void withEnvironmentDirectory_replacesAnEnvironmentName() {
+        // given
+        var launch = Launch.of("orders-api").withEnvironment("dev");
+
+        // when
+        var result = launch.withEnvironmentDirectory("elsewhere/dev");
+
+        // then
+        assertThat(result.environmentDirectory()).isEqualTo("elsewhere/dev");
+        assertThat(result.environment()).isNull();
+    }
+
+    @Test
+    void withEnvironment_rejectsABlankNameOrAPath() {
+        // given
+        var launch = Launch.of("orders-api");
+
+        // then
+        assertThatThrownBy(() -> launch.withEnvironment(null)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> launch.withEnvironment(" ")).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> launch.withEnvironment("envs/dev")).isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void withParams_keepsTheEnvironment() {
+        // when
+        var result = Launch.of("orders-api").withEnvironment("dev").withParams(Map.of("a", "1"));
+
+        // then
+        assertThat(result.environment()).isEqualTo("dev");
     }
 }

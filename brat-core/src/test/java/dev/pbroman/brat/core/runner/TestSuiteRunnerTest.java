@@ -45,7 +45,7 @@ class TestSuiteRunnerTest {
     /** Events and errors together, in the order the walk handed them on. */
     private final List<Object> journal = new ArrayList<>();
 
-    private final FlagRunControl runControl = new FlagRunControl();
+    private final RunControl runControl = RunControl.create();
     /** What the entry evaluator answers, by suite name; a suite not in it is walked into. */
     private final Map<String, SuiteStatus> entryVerdicts = new java.util.HashMap<>();
 
@@ -63,6 +63,12 @@ class TestSuiteRunnerTest {
     /** Cancels the run when an event matching it is emitted, the way a listener would. */
     private Predicate<RunEvent> cancelOn = event -> false;
 
+    /** Stops the run gracefully when an event matching it is emitted, the way a listener would. */
+    private Predicate<RunEvent> stopOn = event -> false;
+
+    /** Stops the run gracefully while the named suite's entry is being evaluated. */
+    private Predicate<String> stopWhileEntering = name -> false;
+
     private TestSuiteRunner underTest;
 
     @SuppressWarnings("unchecked")
@@ -73,8 +79,13 @@ class TestSuiteRunnerTest {
         entryEvaluator = mock(SuiteEntryEvaluator.class);
         handler = mock(RequestHandler.class);
         when(protocolRegistry.resolve(any(), any())).thenReturn(handler);
-        when(entryEvaluator.enter(any(), any()))
-                .thenAnswer(call -> Optional.ofNullable(entryVerdicts.get(((TestSuite) call.getArgument(0)).name())));
+        when(entryEvaluator.enter(any(), any())).thenAnswer(call -> {
+            var name = ((TestSuite) call.getArgument(0)).name();
+            if (stopWhileEntering.test(name)) {
+                runControl.stop();
+            }
+            return Optional.ofNullable(entryVerdicts.get(name));
+        });
         when(processor.process(any(), any(), any(), any(), any())).thenAnswer(call -> {
             var request = (Request) call.getArgument(0);
             RequestStatus status = failing.test(request.name())
@@ -98,6 +109,9 @@ class TestSuiteRunnerTest {
                     journal.add(event);
                     if (cancelOn.test(event)) {
                         runControl.cancel();
+                    }
+                    if (stopOn.test(event)) {
+                        runControl.stop();
                     }
                 },
                 results::add,
@@ -840,6 +854,358 @@ class TestSuiteRunnerTest {
                         "exit s Cancelled");
     }
 
+    // ---------- graceful stop ----------
+
+    @Test
+    void walk_emitsNothingWhenStartedOnAStoppingRun() {
+        // given
+        runControl.stop();
+
+        // when
+        underTest.walk(
+                suite("s", List.of(request("r", Phase.MAIN), request("t", Phase.TEARDOWN)), List.of()), runtimeData);
+
+        // then
+        assertThat(events).isEmpty();
+    }
+
+    @Test
+    void walk_runsTheTeardownOfASuiteStoppedDuringItsMainRequests() {
+        // given
+        stopOn = event -> event instanceof RunEvent.RequestStarted started
+                && started.coordinates().name().equals("a");
+        var suite = suite(
+                "s",
+                List.of(request("a", Phase.MAIN), request("b", Phase.MAIN), request("t", Phase.TEARDOWN)),
+                List.of(suite("later", List.of(), List.of())));
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then - "b" and "later" never start; the teardown does
+        assertThat(trace())
+                .containsExactly("enter s", "start s/a", "finish s/a", "start s/t", "finish s/t", "exit s Cancelled");
+    }
+
+    @Test
+    void walk_runsTheTeardownOfASuiteStoppedDuringItsSetup() {
+        // given
+        stopOn = event -> event instanceof RunEvent.RequestStarted started
+                && started.coordinates().name().equals("login");
+        var suite = suite(
+                "s",
+                List.of(
+                        request("login", Phase.SETUP),
+                        request("csrf", Phase.SETUP),
+                        request("work", Phase.MAIN),
+                        request("logout", Phase.TEARDOWN)),
+                List.of());
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then
+        assertThat(nodeOrder()).containsExactly("s", "s/login", "s/logout");
+        assertThat(trace()).endsWith("exit s Cancelled");
+    }
+
+    @Test
+    void walk_runsEveryTeardownRequestOfAStoppedSuite() {
+        // given
+        stopOn = event -> event instanceof RunEvent.RequestFinished;
+        var suite = suite(
+                "s",
+                List.of(request("work", Phase.MAIN), request("t1", Phase.TEARDOWN), request("t2", Phase.TEARDOWN)),
+                List.of());
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then
+        assertThat(nodeOrder()).containsExactly("s", "s/work", "s/t1", "s/t2");
+    }
+
+    @Test
+    void walk_unwindsEveryOpenSuiteInnermostFirstOnAStop() {
+        // given - stopped as the innermost suite's first request finishes
+        stopOn = event -> event instanceof RunEvent.RequestFinished finished
+                && finished.result().coordinates().name().equals("a");
+        var inner = suite(
+                "inner",
+                List.of(request("a", Phase.MAIN), request("b", Phase.MAIN), request("innerT", Phase.TEARDOWN)),
+                List.of());
+        var mid = suite(
+                "mid",
+                List.of(request("midT", Phase.TEARDOWN)),
+                List.of(inner, suite("innerSibling", List.of(), List.of())));
+        var suite = suite(
+                "s",
+                List.of(request("outerT", Phase.TEARDOWN)),
+                List.of(mid, suite("midSibling", List.of(), List.of())));
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then - no sibling is entered, and each open suite unwinds before its parent
+        assertThat(trace())
+                .containsExactly(
+                        "enter s",
+                        "enter s/mid",
+                        "enter s/mid/inner",
+                        "start s/mid/inner/a",
+                        "finish s/mid/inner/a",
+                        "start s/mid/inner/innerT",
+                        "finish s/mid/inner/innerT",
+                        "exit s/mid/inner Cancelled",
+                        "start s/mid/midT",
+                        "finish s/mid/midT",
+                        "exit s/mid Cancelled",
+                        "start s/outerT",
+                        "finish s/outerT",
+                        "exit s Cancelled");
+    }
+
+    @Test
+    void walk_runsNoTeardownOfAStoppedSuiteInWhichNothingStarted() {
+        // given - the stop lands while the child's entry is evaluated, before any of its requests
+        stopWhileEntering = name -> name.equals("child");
+        var child = suite("child", List.of(request("work", Phase.MAIN), request("childT", Phase.TEARDOWN)), List.of());
+        var suite =
+                suite("s", List.of(request("first", Phase.MAIN), request("outerT", Phase.TEARDOWN)), List.of(child));
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then - the child undoes nothing, since nothing in it acted; its parent did act, and unwinds
+        assertThat(trace())
+                .containsExactly(
+                        "enter s",
+                        "start s/first",
+                        "finish s/first",
+                        "enter s/child",
+                        "exit s/child Cancelled",
+                        "start s/outerT",
+                        "finish s/outerT",
+                        "exit s Cancelled");
+    }
+
+    @Test
+    void walk_countsARequestBeneathASuiteAsSomethingThatActed() {
+        // given - the parent has no request of its own before the stop, only its child does; the
+        // sibling is what the stop keeps the parent from entering
+        stopOn = event -> event instanceof RunEvent.RequestFinished;
+        var child = suite("child", List.of(request("work", Phase.MAIN)), List.of());
+        var suite = suite(
+                "s",
+                List.of(request("outerT", Phase.TEARDOWN)),
+                List.of(child, suite("sibling", List.of(), List.of())));
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then - the parent's teardown may be what cleans up after its children
+        assertThat(nodeOrder()).containsExactly("s", "s/child", "s/child/work", "s/outerT");
+        assertThat(trace()).endsWith("exit s Cancelled");
+    }
+
+    @Test
+    void walk_finishesATeardownAStopArrivesDuring() {
+        // given - a stop never interrupts a teardown
+        stopOn = event -> event instanceof RunEvent.RequestStarted started
+                && started.coordinates().name().equals("t1");
+        var suite = suite("s", List.of(request("t1", Phase.TEARDOWN), request("t2", Phase.TEARDOWN)), List.of());
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then - every step ran, so the suite completed
+        assertThat(trace())
+                .containsExactly(
+                        "enter s", "start s/t1", "finish s/t1", "start s/t2", "finish s/t2", "exit s Completed");
+    }
+
+    @Test
+    void walk_cutsAStoppedSuitesTeardownShortOnACancel() {
+        // given - stopped, then cancelled while the first teardown request runs
+        stopOn = event -> event instanceof RunEvent.RequestFinished finished
+                && finished.result().coordinates().name().equals("work");
+        cancelOn = event -> event instanceof RunEvent.RequestStarted started
+                && started.coordinates().name().equals("t1");
+        var inner = suite(
+                "inner",
+                List.of(request("work", Phase.MAIN), request("t1", Phase.TEARDOWN), request("t2", Phase.TEARDOWN)),
+                List.of());
+        var suite = suite("s", List.of(request("outerT", Phase.TEARDOWN)), List.of(inner));
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then - the request under way finishes; nothing after it starts, the parent's teardown included
+        assertThat(nodeOrder()).containsExactly("s", "s/inner", "s/inner/work", "s/inner/t1");
+        assertThat(exits())
+                .extracting(RunEvent.SuiteExited::path, exit -> exit.status().getClass())
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("s/inner", SuiteStatus.Cancelled.class),
+                        org.assertj.core.groups.Tuple.tuple("s", SuiteStatus.Cancelled.class));
+    }
+
+    @Test
+    void walk_cancelsRatherThanAbortsASuiteWhoseSetupRequestFailedOnceStopping() {
+        // given - the setup request fails because the stop ended it, as a stopped poll does
+        failing = name -> name.equals("login");
+        stopOn = event -> event instanceof RunEvent.RequestStarted started
+                && started.coordinates().name().equals("login");
+        var suite = suite(
+                "s",
+                List.of(request("login", Phase.SETUP), request("work", Phase.MAIN), request("t", Phase.TEARDOWN)),
+                List.of());
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then - no setup failure is blamed, and the teardown still unwinds the login
+        assertThat(trace())
+                .containsExactly(
+                        "enter s", "start s/login", "finish s/login", "start s/t", "finish s/t", "exit s Cancelled");
+        assertThat(errors).isEmpty();
+    }
+
+    @Test
+    void walk_finishesTheTeardownOfAnAbortedSuiteOnAStop() {
+        // given - a failed setup is unwinding when the stop arrives
+        failing = name -> name.equals("login");
+        stopOn = event -> event instanceof RunEvent.RequestStarted started
+                && started.coordinates().name().equals("t1");
+        var suite = suite(
+                "s",
+                List.of(request("login", Phase.SETUP), request("t1", Phase.TEARDOWN), request("t2", Phase.TEARDOWN)),
+                List.of());
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then
+        assertThat(nodeOrder()).containsExactly("s", "s/login", "s/t1", "s/t2");
+        assertThat(trace()).endsWith("exit s Aborted");
+    }
+
+    @Test
+    void walk_endsAMainRequestsPauseOnAStopAndThenUnwinds() throws InterruptedException {
+        // given - a stop pressed ten seconds before the pause would end
+        pauses.put("a", 10_000L);
+        var stopper = new Thread(() -> {
+            try {
+                Thread.sleep(150);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            runControl.stop();
+        });
+        var started = System.nanoTime();
+        stopper.start();
+
+        // when
+        underTest.walk(
+                suite(
+                        "s",
+                        List.of(request("a", Phase.MAIN), request("b", Phase.MAIN), request("t", Phase.TEARDOWN)),
+                        List.of()),
+                runtimeData);
+        stopper.join();
+
+        // then
+        assertThat((System.nanoTime() - started) / 1_000_000).isLessThan(2_000L);
+        assertThat(nodeOrder()).containsExactly("s", "s/a", "s/t");
+    }
+
+    @Test
+    void walk_keepsATeardownRequestsPauseOnAStop() {
+        // given - stopped as the first teardown request starts; its pause is the teardown's own pacing
+        pauses.put("t1", 300L);
+        var startedAt = new java.util.HashMap<String, Long>();
+        stopOn = event -> {
+            if (event instanceof RunEvent.RequestStarted started) {
+                startedAt.put(started.coordinates().name(), System.nanoTime());
+                return started.coordinates().name().equals("t1");
+            }
+            return false;
+        };
+        var suite = suite("s", List.of(request("t1", Phase.TEARDOWN), request("t2", Phase.TEARDOWN)), List.of());
+
+        // when
+        underTest.walk(suite, runtimeData);
+
+        // then
+        assertThat((startedAt.get("t2") - startedAt.get("t1")) / 1_000_000).isGreaterThanOrEqualTo(300L);
+    }
+
+    @Test
+    void walk_endsATeardownRequestsPauseOnACancel() throws InterruptedException {
+        // given - a cancel pressed ten seconds before a teardown pause would end
+        pauses.put("t1", 10_000L);
+        var canceller = new Thread(() -> {
+            try {
+                Thread.sleep(150);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            runControl.cancel();
+        });
+        var started = System.nanoTime();
+        canceller.start();
+
+        // when
+        underTest.walk(
+                suite("s", List.of(request("t1", Phase.TEARDOWN), request("t2", Phase.TEARDOWN)), List.of()),
+                runtimeData);
+        canceller.join();
+
+        // then
+        assertThat((System.nanoTime() - started) / 1_000_000).isLessThan(2_000L);
+        assertThat(nodeOrder()).containsExactly("s", "s/t1");
+    }
+
+    // ---------- the stop rule ----------
+
+    @Test
+    void stopRequested_stopsSetupAndMainWorkOnAStop() {
+        // given
+        var rule = TestSuiteRunner.stopRequested(runControl);
+
+        // when
+        runControl.stop();
+
+        // then
+        assertThat(rule.test(Phase.SETUP)).isTrue();
+        assertThat(rule.test(Phase.MAIN)).isTrue();
+        assertThat(rule.test(Phase.TEARDOWN)).isFalse();
+    }
+
+    @Test
+    void stopRequested_stopsEveryPhaseOnACancel() {
+        // given
+        var rule = TestSuiteRunner.stopRequested(runControl);
+
+        // when
+        runControl.cancel();
+
+        // then
+        assertThat(rule.test(Phase.SETUP)).isTrue();
+        assertThat(rule.test(Phase.MAIN)).isTrue();
+        assertThat(rule.test(Phase.TEARDOWN)).isTrue();
+    }
+
+    @Test
+    void stopRequested_stopsNothingOnARunLeftAlone() {
+        // when
+        var rule = TestSuiteRunner.stopRequested(runControl);
+
+        // then
+        assertThat(rule.test(Phase.SETUP)).isFalse();
+        assertThat(rule.test(Phase.MAIN)).isFalse();
+        assertThat(rule.test(Phase.TEARDOWN)).isFalse();
+    }
+
     // ---------- pacing ----------
 
     @Test
@@ -1012,21 +1378,5 @@ class TestSuiteRunnerTest {
                 .filter(RunEvent.SuiteExited.class::isInstance)
                 .map(RunEvent.SuiteExited.class::cast)
                 .toList();
-    }
-
-    /** A run control a test can flip, as a listener or the caller would. */
-    private static final class FlagRunControl implements RunControl {
-
-        private volatile boolean cancelled;
-
-        @Override
-        public void cancel() {
-            cancelled = true;
-        }
-
-        @Override
-        public boolean isCancelled() {
-            return cancelled;
-        }
     }
 }

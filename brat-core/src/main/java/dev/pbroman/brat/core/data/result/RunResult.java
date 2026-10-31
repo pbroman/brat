@@ -27,8 +27,9 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  * @param elapsedMs the whole run's wall-clock duration in milliseconds, measured by the runner rather
  *        than derived from event timestamps — event delivery is serialized, so a derived figure
  *        measures delivery instead of work
- * @param cancelled whether the run stopped because it was cancelled rather than because it finished.
- *        A cancelled run still carries the results of every request that completed before the stop
+ * @param cancelled whether the run was asked to stop — gracefully or at once — rather than left to
+ *        finish. A cancelled run still carries the results of every request that completed before the
+ *        stop, and those of the teardown requests a graceful stop ran
  * @param error what ended the run early when a structural failure did — a handler this wiring lacks,
  *        a secrets source that cannot be built — or {@code null} for a run that ended on its own or by
  *        cancellation. The run's caller receives the failure itself as an exception; this is the record

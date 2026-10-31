@@ -5,10 +5,10 @@ import java.util.List;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.listener.AttemptFinished;
+import dev.pbroman.brat.core.api.listener.RunControl;
 import dev.pbroman.brat.core.api.listener.RunEvent;
 import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.integration.support.EndToEndTestBase;
-import dev.pbroman.brat.integration.support.TestRunControl;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,7 +35,7 @@ class PollingTest extends EndToEndTestBase {
                 suite,
                 environment(Map.of("jobId", job.get("id").asString(), "maxAttempts", "5")),
                 List.of(events::add),
-                new TestRunControl());
+                RunControl.create());
 
         // then — one request, three attempts, and the assertion sees the final response
         assertPassed(result, suite);
@@ -85,7 +85,7 @@ class PollingTest extends EndToEndTestBase {
                 suite("suites/status-code.brat.yaml"),
                 environment(Map.of("code", "200")),
                 List.of(events::add),
-                new TestRunControl());
+                RunControl.create());
 
         // then — a synthetic attempt would have to invent a condition nothing evaluated
         assertThat(events).noneMatch(AttemptFinished.class::isInstance);

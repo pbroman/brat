@@ -1,10 +1,9 @@
 package dev.pbroman.brat.core.runner;
 
-import java.time.Duration;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import dev.pbroman.brat.core.api.listener.RunControl;
 import dev.pbroman.brat.core.api.listener.RunEvent;
@@ -39,9 +38,6 @@ import static dev.pbroman.brat.core.util.Constants.PATH_DELIMITER;
  */
 final class TestSuiteRunner {
 
-    /** How long the walk sleeps between cancellation checks during a pause. */
-    private static final Duration PAUSE_SLICE = Duration.ofMillis(100);
-
     private final RequestProcessor processor;
     private final ProtocolRegistry protocolRegistry;
     private final SuiteEntryEvaluator entryEvaluator;
@@ -49,6 +45,7 @@ final class TestSuiteRunner {
     private final Consumer<RequestResult> resultConsumer;
     private final Consumer<SuiteError> errorConsumer;
     private final RunControl runControl;
+    private final Predicate<Phase> stopRequested;
 
     /**
      * Constructs a runner for one run.
@@ -59,7 +56,7 @@ final class TestSuiteRunner {
      * @param eventConsumer receives every suite and request event, in the order they happen
      * @param resultConsumer receives one result per request that ran, in execution order
      * @param errorConsumer receives one error per suite that was aborted, in the order they are left
-     * @param runControl the cancellation channel, checked before every node
+     * @param runControl the stopping channel, checked before every node and during every pause
      */
     TestSuiteRunner(
             RequestProcessor processor,
@@ -76,6 +73,20 @@ final class TestSuiteRunner {
         this.resultConsumer = resultConsumer;
         this.errorConsumer = errorConsumer;
         this.runControl = runControl;
+        this.stopRequested = stopRequested(runControl);
+    }
+
+    /**
+     * The rule deciding whether the work of a phase stops now: a teardown request is stopped by a cancel
+     * alone, any other work by a stop or a cancel.
+     *
+     * @param runControl the run's control, consulted on every call of the result; must not be
+     *        {@code null}
+     * @return whether work of the given phase should stop, given the run's state at the moment it is
+     *         asked
+     */
+    static Predicate<Phase> stopRequested(RunControl runControl) {
+        return phase -> phase == TEARDOWN ? runControl.isCancelled() : runControl.isStopping();
     }
 
     /**
@@ -103,7 +114,9 @@ final class TestSuiteRunner {
      * requests and its subSuites are then not run, its <strong>teardown requests still run</strong> — an
      * earlier setup request may have acted — and it exits {@code Aborted}, the reason naming the setup
      * request that failed. A failure anywhere else is the request's own and aborts nothing, and an
-     * aborted suite never aborts its parent.
+     * aborted suite never aborts its parent. <strong>A setup request that fails once the run is
+     * stopping does not abort</strong>: the suite is stopped instead (see <em>Stopping</em>) and exits
+     * {@code Cancelled} with no {@link SuiteError}, its teardown running as for any stopped suite.
      * <p>
      * <strong>Every abort is reported twice, from one value</strong>: a {@link SuiteError} with the
      * suite's path and the abort reason is handed to the error consumer, and then
@@ -113,9 +126,11 @@ final class TestSuiteRunner {
      * emitted, the request is processed with its {@link RequestOptions}, the result is handed to the
      * results consumer, and {@code RequestFinished} is emitted. Then the walk <strong>pauses</strong> for the result's
      * {@link RequestResult#waitAfterMs() waitAfterMs} before starting anything else — the next request,
-     * a subSuite, or leaving the suite — so a suite's elapsed time includes its pacing. A pause is not
-     * begun when the run is already cancelled, and one under way ends within a fraction of a second
-     * of a cancellation; either way nothing further starts.
+     * a subSuite, or leaving the suite — so a suite's elapsed time includes its pacing. A pause ends —
+     * or is not begun — on the same check that would stop the next request of its phase from starting
+     * (see <em>Stopping</em>): after a setup or main request on a stop or a cancel, after a teardown
+     * request on a cancel only, so a graceful stop keeps the teardown's own pacing. It ends within a
+     * fraction of a second of that check holding.
      * <p>
      * <strong>Inheritance.</strong> What a suite declares for its requests reaches every request
      * beneath it, at any depth, and nothing outside it — not its parent, not its siblings:
@@ -138,16 +153,27 @@ final class TestSuiteRunner {
      * two. {@code SuiteExited} carries the milliseconds from entering the suite to leaving it and a
      * status: {@code Completed} when every step ran — whatever the requests in them did —
      * {@code Skipped} or {@code Aborted} as above, and {@code Cancelled} when the walk stopped inside it
-     * for a cancellation. A suite that is skipped, aborted or cancelled leaves its siblings unaffected;
-     * only a cancellation stops them too, by stopping the walk.
+     * for a stop. A suite that is skipped, aborted or cancelled leaves its siblings unaffected; only a
+     * stop ends them too, by ending the walk.
      * <p>
-     * <strong>Cancellation</strong> is checked before entering each suite and before running each
-     * request — teardown steps included. A request already running finishes. Once a check finds the
-     * run cancelled, nothing further starts, and every suite still open emits
-     * {@code SuiteExited(Cancelled)}, innermost first. A suite whose last child finished before the
-     * cancellation was observed exits {@code Completed}, and one already aborted stays {@code Aborted}
-     * when a cancellation cuts its teardown short. A walk started on a cancelled run emits nothing at
-     * all.
+     * <strong>Stopping</strong> is checked before entering each suite and before starting each request,
+     * and a request already running finishes. What a check asks depends on what would start next:
+     * <ul>
+     *   <li>entering a suite, or starting a setup or main request: whether the run is
+     *       {@linkplain RunControl#isStopping() stopping} — a stop or a cancel;</li>
+     *   <li>starting a teardown request: whether it is {@linkplain RunControl#isCancelled() cancelled}.</li>
+     * </ul>
+     * Once a check stops a suite, nothing more of its setup, main requests or subSuites starts. Then
+     * <strong>it unwinds</strong>: if any request in it or beneath it has started since it was entered,
+     * its teardown requests run, each still checked for a cancel; if none has, nothing in it acted and
+     * none run. Then it exits {@code Cancelled}, and its parent is stopped the same way at its next
+     * check — so the open suites unwind innermost first. After a cancel no teardown request starts, so
+     * every open suite exits {@code Cancelled} at once, innermost first.
+     * <p>
+     * A suite whose every step had already run when the stop was observed exits {@code Completed} —
+     * including one whose teardown was under way, since a stop never interrupts a teardown. One already
+     * aborted stays {@code Aborted}, whether its teardown is completed or cut short by a cancel. A walk
+     * started on a stopping run emits nothing at all.
      *
      * @param suite the root of the tree to walk; must not be {@code null}
      * @param runtimeData the run's namespaces, passed to every request; must not be {@code null}
@@ -161,14 +187,14 @@ final class TestSuiteRunner {
     }
 
     /**
-     * Walks one suite and everything beneath it, unless the run is already cancelled.
+     * Walks one suite and everything beneath it, unless the run is already stopping.
      *
      * @param suite the suite to walk
      * @param runtimeData the run's namespaces
      * @param path the suite's own path
      * @param inherited what the enclosing suites declared, not yet including this one
      * @param requestNo the walk's request counter, shared by every node of this walk
-     * @return {@code false} if a cancellation stopped the walk here or beneath it — including the check
+     * @return {@code false} if a stop or a cancel ended the walk here or beneath it — including the check
      *         before entering it, in which case nothing was emitted — and {@code true} otherwise, however
      *         the suite itself ended
      */
@@ -178,9 +204,10 @@ final class TestSuiteRunner {
             String path,
             InheritedDefaults inherited,
             AtomicInteger requestNo) {
-        if (runControl.isCancelled()) {
+        if (runControl.isStopping()) {
             return false;
         }
+        var requestsAtEntry = requestNo.get();
         var startTime = System.currentTimeMillis();
         eventConsumer.accept(new RunEvent.SuiteEntered(path, suite.name()));
         runtimeData.setCurrentPath(path);
@@ -191,47 +218,51 @@ final class TestSuiteRunner {
             return true;
         }
 
-        var status = runSteps(suite, runtimeData, path, inherited.with(suite), requestNo);
+        var status = runSteps(suite, runtimeData, path, inherited.with(suite), requestNo, requestsAtEntry);
         exitSuite(path, startTime, status);
         return !(status instanceof SuiteStatus.Cancelled);
     }
 
     /**
-     * Runs a suite's four steps in order, stopping at the first that does not complete.
+     * Runs a suite's four steps in order, and unwinds through its teardown when one of the first three
+     * does not complete.
      *
      * @param suite the suite being walked
      * @param runtimeData the run's namespaces
      * @param path the suite's path
      * @param defaults what the suite and its ancestors declared
      * @param requestNo the walk's request counter
+     * @param requestsAtEntry the counter's value when the suite was entered
      * @return how the suite ended: {@code Completed} if every step ran, {@code Aborted} if a setup
-     *         request failed (its teardown having run), {@code Cancelled} if a cancellation stopped it
+     *         request failed, {@code Cancelled} if a stop or a cancel ended it — in the last two cases
+     *         after its teardown, where anything in it acted and no cancel cut that short
      */
     private SuiteStatus runSteps(
             TestSuite suite,
             RuntimeData runtimeData,
             String path,
             InheritedDefaults defaults,
-            AtomicInteger requestNo) {
+            AtomicInteger requestNo,
+            int requestsAtEntry) {
         var stopped = runRequests(suite, runtimeData, SETUP, path, defaults, requestNo);
-        if (stopped.isPresent()) {
-            if (stopped.get() instanceof SuiteStatus.Aborted) {
-                // An earlier setup request may have acted, so the teardown still unwinds it. A
-                // cancellation cutting it short does not change why the suite ended.
-                runRequests(suite, runtimeData, TEARDOWN, path, defaults, requestNo);
-            }
-            return stopped.get();
+        if (stopped.isEmpty()) {
+            stopped = runRequests(suite, runtimeData, MAIN, path, defaults, requestNo);
         }
-        stopped = runRequests(suite, runtimeData, MAIN, path, defaults, requestNo);
-        if (stopped.isPresent()) {
-            return stopped.get();
+        if (stopped.isEmpty()) {
+            stopped = walkSubSuites(suite, runtimeData, path, defaults, requestNo);
         }
-        stopped = walkSubSuites(suite, runtimeData, path, defaults, requestNo);
-        if (stopped.isPresent()) {
-            return stopped.get();
+        if (stopped.isEmpty()) {
+            return runRequests(suite, runtimeData, TEARDOWN, path, defaults, requestNo)
+                    .orElse(new SuiteStatus.Completed());
         }
-        return runRequests(suite, runtimeData, TEARDOWN, path, defaults, requestNo)
-                .orElse(new SuiteStatus.Completed());
+        // Unwind only what acted: a request started in or beneath this suite since it was entered.
+        // An abort always qualifies, its failed setup request having started. Each teardown request
+        // is still checked for a cancel, and one cutting the teardown short does not change why the
+        // suite ended.
+        if (requestNo.get() > requestsAtEntry) {
+            runRequests(suite, runtimeData, TEARDOWN, path, defaults, requestNo);
+        }
+        return stopped.get();
     }
 
     /**
@@ -256,7 +287,7 @@ final class TestSuiteRunner {
      * @param path the parent's path
      * @param defaults what the parent and its ancestors declared
      * @param requestNo the walk's request counter
-     * @return {@link SuiteStatus.Cancelled} as soon as a cancellation stops the walk, leaving the rest
+     * @return {@link SuiteStatus.Cancelled} as soon as a stop or a cancel ends the walk, leaving the rest
      *         unentered; empty otherwise, whatever the subSuites themselves ended as
      */
     private Optional<SuiteStatus> walkSubSuites(
@@ -286,9 +317,10 @@ final class TestSuiteRunner {
      * @param path the suite's path
      * @param defaults what the suite and its ancestors declared
      * @param requestNo the walk's request counter, advanced once per request started
-     * @return empty if every one of them ran; {@link SuiteStatus.Cancelled} if the cancellation check
-     *         before one stopped the walk; {@link SuiteStatus.Aborted} if {@code phase} is
-     *         {@code SETUP} and one of them failed. Either way the rest are left unstarted
+     * @return empty if every one of them ran; {@link SuiteStatus.Cancelled} if the stop check for
+     *         {@code phase} before one held, or a setup request failed once the run was stopping;
+     *         {@link SuiteStatus.Aborted} if {@code phase} is {@code SETUP} and one of them failed
+     *         otherwise. Either way the rest are left unstarted
      */
     private Optional<SuiteStatus> runRequests(
             TestSuite suite,
@@ -301,7 +333,7 @@ final class TestSuiteRunner {
             if (request.phase() != phase) {
                 continue;
             }
-            if (runControl.isCancelled()) {
+            if (stopRequested.test(phase)) {
                 return Optional.of(new SuiteStatus.Cancelled());
             }
             var coordinates = new RequestCoordinates(
@@ -318,33 +350,27 @@ final class TestSuiteRunner {
             var result = processor.process(request, defaults.options(request), coordinates, runtimeData, handler);
             resultConsumer.accept(result);
             eventConsumer.accept(new RunEvent.RequestFinished(result));
-            pause(result.waitAfterMs());
+            pause(result.waitAfterMs(), phase);
             if (phase == SETUP && result.failed()) {
-                return Optional.of(new SuiteStatus.Aborted("The setup request '" + request.name() + "' failed"));
+                // A stop can be what failed it - a poll ended while waiting - and then it says nothing
+                // about the setup, so the suite is stopped rather than aborted.
+                return Optional.of(
+                        stopRequested.test(SETUP)
+                                ? new SuiteStatus.Cancelled()
+                                : new SuiteStatus.Aborted("The setup request '" + request.name() + "' failed"));
             }
         }
         return Optional.empty();
     }
 
     /**
-     * Pauses the walk after a request, ending early when the run is cancelled.
+     * Pauses the walk after a request, ending early when work of the request's phase is to stop.
      *
      * @param millis how long to pause; {@code 0} or less pauses not at all
+     * @param phase the phase of the request just finished
      * @throws BratException if the thread is interrupted while pausing; the interrupt flag is restored
      */
-    private void pause(long millis) {
-        var deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(millis);
-        while (!runControl.isCancelled()) {
-            var remaining = deadline - System.nanoTime();
-            if (remaining <= 0) {
-                return;
-            }
-            try {
-                Thread.sleep(Duration.ofNanos(Math.min(remaining, PAUSE_SLICE.toNanos())));
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new BratException("Interrupted while pausing after a request", e);
-            }
-        }
+    private void pause(long millis, Phase phase) {
+        PauseUtils.pause(millis, () -> stopRequested.test(phase), "Interrupted while pausing after a request");
     }
 }

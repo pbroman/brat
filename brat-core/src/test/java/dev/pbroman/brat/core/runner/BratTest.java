@@ -32,6 +32,7 @@ import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.FlowControl;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
+import dev.pbroman.brat.core.data.Phase;
 import dev.pbroman.brat.core.data.RepeatUntil;
 import dev.pbroman.brat.core.data.Request;
 import dev.pbroman.brat.core.data.RequestOptions;
@@ -777,7 +778,7 @@ class BratTest {
         var events = new ArrayList<RunEvent>();
 
         // when
-        var result = brat().run(outer, environment, List.of(events::add), new StubRunControl());
+        var result = brat().run(outer, environment, List.of(events::add), RunControl.create());
 
         // then
         assertThat(result.requestResults())
@@ -888,11 +889,11 @@ class BratTest {
     @Test
     void run_throwsForANullArgumentWithListeners() {
         // when / then
-        assertThatThrownBy(() -> brat().run(null, environment, List.of(), new StubRunControl()))
+        assertThatThrownBy(() -> brat().run(null, environment, List.of(), RunControl.create()))
                 .isInstanceOf(BratException.class);
-        assertThatThrownBy(() -> brat().run(suite(), null, List.of(), new StubRunControl()))
+        assertThatThrownBy(() -> brat().run(suite(), null, List.of(), RunControl.create()))
                 .isInstanceOf(BratException.class);
-        assertThatThrownBy(() -> brat().run(suite(), environment, null, new StubRunControl()))
+        assertThatThrownBy(() -> brat().run(suite(), environment, null, RunControl.create()))
                 .isInstanceOf(BratException.class);
         assertThatThrownBy(() -> brat().run(suite(), environment, List.of(), null))
                 .isInstanceOf(BratException.class);
@@ -940,7 +941,7 @@ class BratTest {
         var events = new ArrayList<RunEvent>();
 
         // when
-        brat().run(suite(request("r", "${env.baseUrl}/a")), environment, List.of(events::add), new StubRunControl());
+        brat().run(suite(request("r", "${env.baseUrl}/a")), environment, List.of(events::add), RunControl.create());
 
         // then — the guarantee a file-writing listener depends on
         assertThat(events.getFirst()).isInstanceOf(RunEvent.RunStarted.class);
@@ -954,7 +955,7 @@ class BratTest {
         var events = new ArrayList<RunEvent>();
 
         // when
-        brat().run(suite(request("r", "${env.baseUrl}/a")), environment, List.of(events::add), new StubRunControl());
+        brat().run(suite(request("r", "${env.baseUrl}/a")), environment, List.of(events::add), RunControl.create());
 
         // then
         assertThat(events).filteredOn(RunEvent.RequestStarted.class::isInstance).hasSize(1);
@@ -984,17 +985,17 @@ class BratTest {
                                 new Condition("isEqualTo", "${response.statusCode}", "500"), "2", null, null, null)));
 
         // when
-        brat().run(suite(polling), environment, List.of(events::add), new StubRunControl());
+        brat().run(suite(polling), environment, List.of(events::add), RunControl.create());
 
         // then — reported as they happen, which is the whole reason a poll emits anything
         assertThat(events).filteredOn(AttemptFinished.class::isInstance).hasSize(2);
     }
 
     @Test
-    void run_deliversRunFinishedWithCancelledSetWhenStopped() {
+    void run_deliversRunFinishedWithCancelledSetWhenCancelled() {
         // given — cancelled before the first check
         var events = new ArrayList<RunEvent>();
-        var control = new StubRunControl();
+        var control = RunControl.create();
         control.cancel();
 
         // when
@@ -1010,7 +1011,7 @@ class BratTest {
     @Test
     void run_stopsBetweenRequestsRatherThanMidRequest() {
         // given — a listener that cancels as soon as the first request finishes
-        var control = new StubRunControl();
+        var control = RunControl.create();
         RunListener canceller = event -> {
             if (event instanceof RunEvent.RequestFinished) {
                 control.cancel();
@@ -1031,6 +1032,42 @@ class BratTest {
     }
 
     @Test
+    void run_runsTheTeardownAndReportsCancelledWhenStoppedGracefully() {
+        // given — a listener that stops as soon as the first request finishes
+        var control = RunControl.create();
+        RunListener stopper = event -> {
+            if (event instanceof RunEvent.RequestFinished) {
+                control.stop();
+            }
+        };
+        var teardown = new Request(
+                "cleanUp",
+                null,
+                null,
+                null,
+                null,
+                null,
+                Phase.TEARDOWN,
+                null,
+                new HttpRequestDefinition("${env.baseUrl}/c", "GET", null, null),
+                null,
+                null);
+
+        // when
+        var result = brat().run(
+                        suite(request("first", "${env.baseUrl}/a"), request("second", "${env.baseUrl}/b"), teardown),
+                        environment,
+                        List.of(stopper),
+                        control);
+
+        // then — the second request never started, the teardown did, and the run says it was stopped
+        assertThat(result.requestResults())
+                .extracting(requestResult -> requestResult.coordinates().name())
+                .containsExactly("first", "cleanUp");
+        assertThat(result.cancelled()).isTrue();
+    }
+
+    @Test
     void run_continuesWhenAListenerThrows() {
         // given — a reporting bug must not turn a green suite red
         var events = new ArrayList<RunEvent>();
@@ -1043,7 +1080,7 @@ class BratTest {
                         suite(request("r", "${env.baseUrl}/a")),
                         environment,
                         List.of(throwing, events::add),
-                        new StubRunControl());
+                        RunControl.create());
 
         // then
         assertThat(result.requestResults()).hasSize(1);
@@ -1061,8 +1098,8 @@ class BratTest {
                 new SecretsProviderConfig(Map.of(), List.of(new SecretsSource("nosuch", Map.of()))));
 
         // when / then — the exception reaches the caller
-        var thrown = catchThrowable(() -> brat().run(
-                        suite(request("r", "${env.baseUrl}/a")), broken, List.of(events::add), new StubRunControl()));
+        var thrown = catchThrowable(() ->
+                brat().run(suite(request("r", "${env.baseUrl}/a")), broken, List.of(events::add), RunControl.create()));
         assertThat(thrown).isInstanceOf(BratException.class);
 
         // and the terminal event still arrived, which is what a file-writing listener depends on
@@ -1080,8 +1117,18 @@ class BratTest {
         var events = new ArrayList<RunEvent>();
         var broken = new RunControl() {
             @Override
+            public void stop() {
+                // never called
+            }
+
+            @Override
             public void cancel() {
                 // never called
+            }
+
+            @Override
+            public boolean isStopping() {
+                throw new IllegalStateException("boom");
             }
 
             @Override
@@ -1105,8 +1152,18 @@ class BratTest {
         var events = new ArrayList<RunEvent>();
         var broken = new RunControl() {
             @Override
+            public void stop() {
+                // never called
+            }
+
+            @Override
             public void cancel() {
                 // never called
+            }
+
+            @Override
+            public boolean isStopping() {
+                throw new IllegalStateException("boom");
             }
 
             @Override
@@ -1132,8 +1189,18 @@ class BratTest {
         var events = new ArrayList<RunEvent>();
         var broken = new RunControl() {
             @Override
+            public void stop() {
+                // never called
+            }
+
+            @Override
             public void cancel() {
                 // never called
+            }
+
+            @Override
+            public boolean isStopping() {
+                throw new AssertionError("broken double");
             }
 
             @Override
@@ -1170,21 +1237,6 @@ class BratTest {
         @Override
         public Optional<Boolean> resolve(Condition condition) {
             return "isAlwaysTrue".equals(condition.getFunc()) ? Optional.of(true) : Optional.empty();
-        }
-    }
-
-    private static final class StubRunControl implements RunControl {
-
-        private final AtomicBoolean cancelled = new AtomicBoolean();
-
-        @Override
-        public void cancel() {
-            cancelled.set(true);
-        }
-
-        @Override
-        public boolean isCancelled() {
-            return cancelled.get();
         }
     }
 
@@ -1289,7 +1341,7 @@ class BratTest {
         var launch = Launch.of(dir.resolve("missing.brat.yaml").toString());
 
         // then
-        assertThatThrownBy(() -> brat().run(launch, List.of(events::add), new StubRunControl()))
+        assertThatThrownBy(() -> brat().run(launch, List.of(events::add), RunControl.create()))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("missing.brat.yaml");
         assertThat(events).isEmpty();
@@ -1311,7 +1363,7 @@ class BratTest {
         var events = new ArrayList<RunEvent>();
 
         // then
-        assertThatThrownBy(() -> brat().run(Launch.of(suite.toString()), List.of(events::add), new StubRunControl()))
+        assertThatThrownBy(() -> brat().run(Launch.of(suite.toString()), List.of(events::add), RunControl.create()))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("absent.json");
         assertThat(events).isEmpty();
@@ -1330,7 +1382,7 @@ class BratTest {
         var events = new ArrayList<RunEvent>();
 
         // when
-        var result = brat().run(Launch.of(suite.toString()), List.of(events::add), new StubRunControl());
+        var result = brat().run(Launch.of(suite.toString()), List.of(events::add), RunControl.create());
 
         // then
         assertThat(events).first().isInstanceOf(RunEvent.RunStarted.class);
@@ -1341,7 +1393,7 @@ class BratTest {
     void runLaunch_throwsForANullArgument() {
         // given
         var launch = Launch.of("orders.brat.yaml");
-        var control = new StubRunControl();
+        var control = RunControl.create();
 
         // then
         assertThatThrownBy(() -> brat().run((Launch) null)).isInstanceOf(BratException.class);

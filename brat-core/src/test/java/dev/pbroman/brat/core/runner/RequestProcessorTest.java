@@ -90,7 +90,7 @@ class RequestProcessorTest {
                 responseHandler,
                 flowControlInterpolator,
                 new RequestOptionsInterpolator(),
-                new RequestExecutor(conditionEvaluator, attempt -> {}),
+                new RequestExecutor(conditionEvaluator, attempt -> {}, phase -> false),
                 AUTH_HANDLERS);
 
         runtimeData = new RuntimeData(Map.of(), Map.of());
@@ -511,7 +511,7 @@ class RequestProcessorTest {
                 responseHandler,
                 flowControlInterpolator,
                 new RequestOptionsInterpolator(),
-                new RequestExecutor(realEvaluator, attempt -> {}),
+                new RequestExecutor(realEvaluator, attempt -> {}, phase -> false),
                 AUTH_HANDLERS);
 
         // when

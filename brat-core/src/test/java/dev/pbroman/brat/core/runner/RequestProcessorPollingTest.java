@@ -96,7 +96,7 @@ class RequestProcessorPollingTest {
                 responseHandler,
                 flowControlInterpolator,
                 new RequestOptionsInterpolator(),
-                new RequestExecutor(conditionEvaluator, attempts::add),
+                new RequestExecutor(conditionEvaluator, attempts::add, phase -> false),
                 new AuthHandlerRegistry(List.of(new NoneAuthHandler(), new BearerAuthHandler(), countingAuthHandler)));
 
         runtimeData = new RuntimeData(Map.of(), Map.of());

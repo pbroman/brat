@@ -38,16 +38,48 @@ class EnvironmentReaderTest {
     // ---------- the directory itself ----------
 
     @Test
-    void read_returnsAnEmptyEnvironmentForAnEmptyDirectory() {
+    void read_rejectsADirectoryHoldingNoEnvironmentFileNamingIt() throws IOException {
+        // given - a mistyped path, or bodies/ named as an environment, would otherwise run against nothing
+        write("README.md", "# not an environment\n");
+        write("notes.yaml", "a: b\n");
+
+        // then
+        assertThatThrownBy(() -> reader.read(dir.toString(), Map.of()))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining(dir.toString())
+                .hasMessageContaining("env.yaml");
+    }
+
+    @Test
+    void read_rejectsAnEmptyDirectory() {
+        // then
+        assertThatThrownBy(() -> reader.read(dir.toString(), Map.of())).isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void read_acceptsADirectoryHoldingOnlyASecretsFile() throws IOException {
+        // given - CI may need secrets and nothing else
+        write("secrets.yaml", "apiKey: k\n");
+
         // when
         var result = reader.read(dir.toString(), Map.of());
 
         // then
         assertThat(result.env()).isEmpty();
-        assertThat(result.params()).isEmpty();
-        assertThat(result.secretsConfig().providerArgs()).isEmpty();
-        assertThat(result.secretsConfig().sources()).isEmpty();
+        assertThat(result.secretsConfig().sources()).hasSize(1);
         assertThat(result.suiteLocation()).isNull();
+    }
+
+    @Test
+    void read_acceptsADirectoryHoldingOnlyAProvidersFile() throws IOException {
+        // given
+        write("providers.yaml", "providers:\n  sysenv:\n    prefix: CI_\n");
+
+        // when
+        var result = reader.read(dir.toString(), Map.of());
+
+        // then
+        assertThat(result.secretsConfig().argsFor("sysenv")).containsEntry("prefix", "CI_");
     }
 
     @Test
@@ -63,7 +95,10 @@ class EnvironmentReaderTest {
     }
 
     @Test
-    void read_carriesTheParamsItWasGiven() {
+    void read_carriesTheParamsItWasGiven() throws IOException {
+        // given
+        write("env.yaml", "k: v\n");
+
         // when
         var result = reader.read(dir.toString(), Map.of("timeout", "20000", "env.baseUrl", "http://x"));
 
@@ -72,8 +107,9 @@ class EnvironmentReaderTest {
     }
 
     @Test
-    void read_doesNotModifyTheParams() {
+    void read_doesNotModifyTheParams() throws IOException {
         // given
+        write("env.yaml", "k: v\n");
         var params = new HashMap<>(Map.of("timeout", "20000"));
 
         // when
@@ -223,7 +259,10 @@ class EnvironmentReaderTest {
     }
 
     @Test
-    void read_rejectsATokenInAParam() {
+    void read_rejectsATokenInAParam() throws IOException {
+        // given
+        write("env.yaml", "k: v\n");
+
         // then
         assertThatThrownBy(() -> reader.read(dir.toString(), Map.of("wait", "${env.x}")))
                 .isInstanceOf(BratException.class)
@@ -597,11 +636,13 @@ class EnvironmentReaderTest {
             write(name, "k: v\n");
         }
 
+        write("env.yaml", "marker: m\n");
+
         // when
         var result = reader.read(dir.toString(), Map.of());
 
         // then
-        assertThat(result.env()).isEmpty();
+        assertThat(result.env()).containsOnlyKeys("marker");
         assertThat(result.secretsConfig().sources()).isEmpty();
     }
 
@@ -612,11 +653,13 @@ class EnvironmentReaderTest {
         write(".gitignore", "secrets.yaml\n");
         write("env.json", "{\"a\": \"b\"}\n");
 
+        write("env.yaml", "marker: m\n");
+
         // when
         var result = reader.read(dir.toString(), Map.of());
 
         // then
-        assertThat(result.env()).isEmpty();
+        assertThat(result.env()).containsOnlyKeys("marker");
         assertThat(result.secretsConfig().sources()).isEmpty();
     }
 
@@ -627,11 +670,13 @@ class EnvironmentReaderTest {
         Files.createDirectory(dir.resolve("nested"));
         Files.writeString(dir.resolve("nested/env.yaml"), "baseUrl: http://nested\n");
 
+        write("env.yaml", "marker: m\n");
+
         // when
         var result = reader.read(dir.toString(), Map.of());
 
         // then
-        assertThat(result.env()).isEmpty();
+        assertThat(result.env()).containsOnlyKeys("marker");
         assertThat(result.secretsConfig().sources()).isEmpty();
     }
 
@@ -641,11 +686,13 @@ class EnvironmentReaderTest {
         write("notes.yaml", "a: b\n");
         write("notes.yml", "a: c\n");
 
+        write("env.yaml", "marker: m\n");
+
         // when
         var result = reader.read(dir.toString(), Map.of());
 
         // then
-        assertThat(result.env()).isEmpty();
+        assertThat(result.env()).containsOnlyKeys("marker");
         assertThat(result.secretsConfig().sources()).isEmpty();
     }
 

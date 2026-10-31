@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
+import dev.pbroman.brat.core.api.listener.RunControl;
 import dev.pbroman.brat.core.api.listener.RunEvent;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.handler.ApacheHttpRequestHandler;
@@ -16,7 +17,6 @@ import dev.pbroman.brat.core.secrets.SecretsProviderConfig;
 import dev.pbroman.brat.core.secrets.SecretsSource;
 import dev.pbroman.brat.integration.stub.StubRunReporter;
 import dev.pbroman.brat.integration.support.EndToEndTestBase;
-import dev.pbroman.brat.integration.support.TestRunControl;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,7 +35,7 @@ class RunReportersTest extends EndToEndTestBase {
 
         // when
         var result = BRAT.run(
-                suite("suites/two-creates.brat.yaml"), environment(Map.of()), List.of(listener), new TestRunControl());
+                suite("suites/two-creates.brat.yaml"), environment(Map.of()), List.of(listener), RunControl.create());
 
         // then - its arguments arrived, and so did the whole run
         assertThat(listener.label()).isEqualTo("it");
