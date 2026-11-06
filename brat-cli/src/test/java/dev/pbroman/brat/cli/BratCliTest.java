@@ -72,4 +72,63 @@ class BratCliTest {
         // then
         assertThat(out.toString()).contains("run", "Runs a suite and reports it.");
     }
+
+    @Test
+    void execute_listsEveryOptionOfRunInItsUsage() {
+        // when
+        underTest.execute("--help");
+
+        // then
+        assertThat(out.toString())
+                .contains("<suite-or-directory>", "-e, --environment", "--env-dir", "-p, --param", "--verbose");
+    }
+
+    @Test
+    void execute_listsTheExitCodesOfRunInItsUsage() {
+        // when
+        underTest.execute("--help");
+
+        // then
+        assertThat(out.toString()).contains("Exit codes:", "the run passed", "the run failed", "it could not run");
+    }
+
+    @Test
+    void execute_showsThePlaceholderSyntaxInTheParamDescription() {
+        // when
+        underTest.execute("--help");
+
+        // then - picocli would otherwise resolve ${params.key} as its own variable, to null
+        assertThat(out.toString()).contains("${params.key}").doesNotContain("null");
+    }
+
+    @Test
+    void execute_printsTheUsageOfRunForRunHelp() {
+        // when
+        var exitCode = underTest.execute("run", "--help");
+
+        // then - the suite argument is not required with --help
+        assertThat(exitCode).isZero();
+        assertThat(out.toString()).startsWith("Usage: brat run").contains("--env-dir", "Exit codes:");
+        assertThat(err.toString()).isEmpty();
+    }
+
+    @Test
+    void execute_printsTheUsageOfACommandForHelpCommand() {
+        // when
+        var exitCode = underTest.execute("help", "run");
+
+        // then
+        assertThat(exitCode).isZero();
+        assertThat(out.toString()).startsWith("Usage: brat run").contains("--env-dir");
+        assertThat(err.toString()).isEmpty();
+    }
+
+    @Test
+    void execute_listsTheHelpCommandWithoutItsFullUsage() {
+        // when
+        underTest.execute("--help");
+
+        // then
+        assertThat(out.toString()).contains("help  Display help").doesNotContain("Usage: brat help");
+    }
 }
