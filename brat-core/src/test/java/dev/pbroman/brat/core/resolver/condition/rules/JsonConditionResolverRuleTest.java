@@ -393,6 +393,66 @@ class JsonConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
         assertThat(resolver.resolve(condition("!contains", List.of("a"), "b"))).contains(true);
     }
 
+    // --- emptiness ---
+
+    @Test
+    void resolve_isEmptyHoldsForAnEmptySequenceOrMapping() {
+        // when / then
+        assertThat(resolver.resolve(condition("isEmpty", List.of(), null))).contains(true);
+        assertThat(resolver.resolve(condition("isEmpty", Map.of(), null))).contains(true);
+    }
+
+    @Test
+    void resolve_isEmptyIsFalseForAStructureWithContent() {
+        // when / then
+        assertThat(resolver.resolve(condition("isEmpty", List.of("a"), null))).contains(false);
+        assertThat(resolver.resolve(condition("isEmpty", Map.of("a", 1), null))).contains(false);
+    }
+
+    @Test
+    void resolve_isEmptyCountsANullElementAsAnElement() {
+        // given — a JSON array holding one null is not empty
+        var oneNull = java.util.Arrays.asList((Object) null);
+
+        // when / then
+        assertThat(resolver.resolve(condition("isEmpty", oneNull, null))).contains(false);
+    }
+
+    @Test
+    void resolve_isNotEmptyIsTheNegation() {
+        // when / then
+        assertThat(resolver.resolve(condition("isNotEmpty", List.of(), null))).contains(false);
+        assertThat(resolver.resolve(condition("isNotEmpty", List.of("a"), null)))
+                .contains(true);
+        assertThat(resolver.resolve(condition("!isEmpty", Map.of("a", 1), null)))
+                .contains(true);
+    }
+
+    @Test
+    void resolve_isEmptyIgnoresAGivenB() {
+        // when / then
+        assertThat(resolver.resolve(condition("isEmpty", List.of(), "anything")))
+                .contains(true);
+    }
+
+    @Test
+    void resolve_isEmptyRejectsAnyArgument() {
+        // given
+        var condition = withArgs("isEmpty", List.of(), null, Map.of("ignore", "id"));
+
+        // when / then
+        assertThatThrownBy(() -> resolver.resolve(condition))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("ignore");
+    }
+
+    @Test
+    void resolve_isEmptyDeclinesText() {
+        // when / then — emptiness of a string is the string rule's
+        assertThat(resolver.resolve(condition("isEmpty", "", null))).isEmpty();
+        assertThat(resolver.resolve(condition("isEmpty", "[]", null))).isEmpty();
+    }
+
     // --- size ---
 
     @Test

@@ -25,6 +25,7 @@ import static dev.pbroman.brat.core.util.Constants.CONTAINS_EXACTLY_IN_ANY_ORDER
 import static dev.pbroman.brat.core.util.Constants.CONTAINS_KEY;
 import static dev.pbroman.brat.core.util.Constants.CONTAINS_ONLY;
 import static dev.pbroman.brat.core.util.Constants.DOES_NOT_HAVE_DUPLICATES;
+import static dev.pbroman.brat.core.util.Constants.EMPTY;
 import static dev.pbroman.brat.core.util.Constants.EQUAL_TO;
 import static dev.pbroman.brat.core.util.Constants.HAS_SIZE;
 import static dev.pbroman.brat.core.util.Constants.HAS_SIZE_BETWEEN;
@@ -65,6 +66,10 @@ import static java.util.stream.Collectors.toSet;
  * value against each element, never element by element. It takes no {@code args}, and a failure is
  * reported with the func the author wrote, so {@code isOneOf} never reads as a collection check on
  * {@code a}. {@code isNotOneOf} is its negation.
+ * <p>
+ * <strong>{@code isEmpty}</strong> holds when {@code a} is a sequence with no elements or a mapping
+ * with no entries; {@code isNotEmpty} is its negation. It needs no {@code b} and ignores one given, and
+ * it takes no {@code args}. For text this rule declines, and the string rule answers.
  */
 public final class JsonConditionResolverRule extends AbstractConditionResolverRule {
 
@@ -103,6 +108,10 @@ public final class JsonConditionResolverRule extends AbstractConditionResolverRu
         predicates.put(DOES_NOT_HAVE_DUPLICATES, (a, b, args) -> {
             var elements = elements(a);
             return new HashSet<>(elements).size() == elements.size();
+        });
+        predicates.put(EMPTY, (a, b, args) -> {
+            rejectUnknownArgs(args, JSON_CONDITION, EMPTY);
+            return sizeOf(a) == 0;
         });
         predicates.put(SORTED, (a, b, args) -> isOrdered(asList(a), true));
         predicates.put(SORTED_DESCENDING, (a, b, args) -> isOrdered(asList(a), false));
@@ -345,6 +354,6 @@ public final class JsonConditionResolverRule extends AbstractConditionResolverRu
      */
     @Override
     protected List<String> ignoreBNullCheck() {
-        return List.of(HAS_SIZE_BETWEEN, DOES_NOT_HAVE_DUPLICATES, SORTED, SORTED_DESCENDING);
+        return List.of(EMPTY, HAS_SIZE_BETWEEN, DOES_NOT_HAVE_DUPLICATES, SORTED, SORTED_DESCENDING);
     }
 }

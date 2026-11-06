@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.resolver.ConditionPredicate;
+import dev.pbroman.brat.core.exception.BratException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 
@@ -24,7 +25,19 @@ import static dev.pbroman.brat.core.util.Constants.STARTS_WITH;
 import static dev.pbroman.brat.core.util.Constants.STRING_CONDITION;
 
 /**
- * Core resolver for string conditions.
+ * Core resolver for string conditions: it compares the text of its operands.
+ * <p>
+ * <strong>It answers only for a scalar {@code a}.</strong> For an {@code a} that is a {@link List} or a
+ * {@link Map}, every func here throws a {@link BratException} naming the func and whether {@code a}
+ * was a sequence or a mapping, never its content. The structural funcs that share a
+ * name with a string func ({@code isEqualTo}, {@code contains}, {@code isEmpty}) are answered for a
+ * structure by the JSON rule, which is offered a condition first; what reaches this rule with a
+ * structure is a func only text has.
+ * <p>
+ * {@code isNull} is the one exception: a structure is never null, so it answers {@code false}, and
+ * {@code isNotNull} {@code true}.
+ * <p>
+ * {@code b} is not checked: it is read as text whatever it is.
  */
 public final class StringConditionResolverRule extends AbstractConditionResolverRule {
 
@@ -52,7 +65,41 @@ public final class StringConditionResolverRule extends AbstractConditionResolver
         predicates.put(STARTS_WITH, (a, b, args) -> parse(a).startsWith(parse(b)));
         predicates.put(ENDS_WITH, (a, b, args) -> parse(a).endsWith(parse(b)));
         predicates.put(MATCHES, (a, b, args) -> parse(a).matches(parse(b)));
+
+        predicates.replaceAll(
+                (function, predicate) -> NULL.equals(function) ? predicate : textOnly(function, predicate));
         return predicates;
+    }
+
+    /**
+     * Wraps a predicate so that it refuses a structured {@code a} before reading it as text.
+     *
+     * @param function the normalised func, named in the error
+     * @param predicate the predicate to guard
+     * @return the guarded predicate
+     */
+    private static ConditionPredicate textOnly(String function, ConditionPredicate predicate) {
+        return (a, b, args) -> {
+            requireText(a, function);
+            return predicate.test(a, b, args);
+        };
+    }
+
+    /**
+     * Throws if {@code a} is a sequence or a mapping, naming {@code function} and which of the two it
+     * was — never its content, which may hold a secret.
+     *
+     * @param a the subject of the condition
+     * @param function the normalised func
+     * @throws BratException if {@code a} is a {@link List} or a {@link Map}
+     */
+    private static void requireText(Object a, String function) {
+        if (a instanceof List || a instanceof Map) {
+            var kind = a instanceof List ? "a sequence" : "a mapping";
+            throw new BratException(
+                    StringUtils.capitalize(subject(STRING_CONDITION, function)) + " needs text, but a was " + kind
+                            + "; a JSON array or object is checked with the structural funcs");
+        }
     }
 
     private static String parse(Object value) {
