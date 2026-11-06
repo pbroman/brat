@@ -174,4 +174,33 @@ class ConditionResolverIntegrationTest {
                 .hasMessageContaining("***")
                 .hasMessageNotContaining("s3cr3t");
     }
+
+    @Test
+    void resolve_isEmptyOnAStructureIsAnsweredByTheJsonRule() {
+        // when / then — the string rule would have read the text "[]" and answered false
+        assertThat(ruleDispatcher.resolve(new Condition("isEmpty", List.of(), null)))
+                .isTrue();
+        assertThat(ruleDispatcher.resolve(new Condition("isNotEmpty", List.of(), null)))
+                .isFalse();
+        assertThat(ruleDispatcher.resolve(new Condition("isEmpty", Map.of(), null)))
+                .isTrue();
+    }
+
+    @Test
+    void resolve_isEmptyOnTextIsStillTheStringRules() {
+        // when / then
+        assertThat(ruleDispatcher.resolve(new Condition("isEmpty", "", null))).isTrue();
+        assertThat(ruleDispatcher.resolve(new Condition("isEmpty", "[]", null))).isFalse();
+    }
+
+    @Test
+    void resolve_aTextOnlyFuncOnAStructureFailsLoudly() {
+        // given — no structural func is called startsWith, so the string rule receives it
+        var condition = new Condition("startsWith", List.of("a"), "[a");
+
+        // when / then
+        assertThatThrownBy(() -> ruleDispatcher.resolve(condition))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("sequence");
+    }
 }

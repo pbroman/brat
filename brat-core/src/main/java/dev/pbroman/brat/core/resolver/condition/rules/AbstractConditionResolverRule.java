@@ -154,7 +154,7 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
      * @param func the func being resolved
      * @return the subject, for example {@code the Number func 'isBetween'}
      */
-    private static String subject(String category, String func) {
+    protected static String subject(String category, String func) {
         return "the " + category + " func '" + func + "'";
     }
 
