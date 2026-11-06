@@ -63,6 +63,10 @@ import picocli.CommandLine.Spec;
  *       other failure — any exception, or an {@link Error} — exits {@code 2} the same way, its message
  *       naming its type.</li>
  * </ul>
+ * <strong>{@code -h}/{@code --help}</strong> prints this command's usage — every argument and option,
+ * the exit codes and how Ctrl-C stops a run — to stdout and exits with {@code 0}, without running
+ * anything; the suite argument is not required with it.
+ * <p>
  * <strong>Ctrl-C</strong> stops the run gracefully the first time — open suites run their teardown —
  * immediately the second time, and exits at once the third; see {@link InterruptStopper}.
  * <p>
@@ -72,7 +76,16 @@ import picocli.CommandLine.Spec;
  * with {@code --verbose} — and {@code org.slf4j.simpleLogger.showThreadName} is {@code false}. A
  * property already set, by {@code -D} on the {@code java} command line, is left as it is.
  */
-@Command(name = "run", description = "Runs a suite and reports it.")
+@Command(
+        name = "run",
+        description = "Runs a suite and reports it.",
+        exitCodeListHeading = "%nExit codes:%n",
+        exitCodeList = {
+            "0:the run passed",
+            "1:the run failed: a request or assertion failed, a suite was aborted, or the run was stopped",
+            "2:it could not run: bad arguments, no suite, a missing environment, a suite that does not load"
+        },
+        footer = {"", "Ctrl-C stops gracefully: open suites still run their teardown. A second Ctrl-C stops at once."})
 final class RunCommand implements Callable<Integer> {
 
     private static final int PASSED = 0;
@@ -102,11 +115,17 @@ final class RunCommand implements Callable<Integer> {
     @Option(
             names = {"-p", "--param"},
             paramLabel = "key=value",
-            description = "A launch parameter, ${params.key}, or a namespace override such as env.baseUrl=….")
+            description = "A launch parameter, read as $${params.key}, or a namespace override such as env.baseUrl=….")
     private Map<String, String> params = new LinkedHashMap<>();
 
     @Option(names = "--verbose", description = "Log at DEBUG, and print the stack trace of an error.")
     private boolean verbose;
+
+    @Option(
+            names = {"-h", "--help"},
+            usageHelp = true,
+            description = "Show this help message and exit.")
+    private boolean help;
 
     /** Constructs the command picocli runs, stopped through a new control per run. */
     RunCommand() {
