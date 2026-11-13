@@ -28,6 +28,9 @@ class CliTest extends EndToEndTestBase {
     /** What {@code dev/secrets.yaml} holds, and what no output may show. */
     private static final String TOKEN = "dev-token-from-the-directory";
 
+    /** The token the server's {@code /oauth/token} issues to {@code reader}. */
+    private static final String ISSUED_TOKEN = "reader-token";
+
     @Test
     void run_runsAProjectDirectoryWithANamedEnvironmentAndExitsWith0() throws URISyntaxException {
         // given
@@ -53,6 +56,69 @@ class CliTest extends EndToEndTestBase {
         // and - the token reached the wire without reaching either stream
         assertThat(result.out()).doesNotContain(TOKEN);
         assertThat(result.err()).doesNotContain(TOKEN);
+    }
+
+    @Test
+    void run_showsTheResponseOfAFailedRequestWithItsTokenMasked() throws URISyntaxException {
+        // when
+        var result = brat("run", project("tokens"), "-p", "env.baseUrl=" + baseUrl());
+
+        // then - the check failed, and the response says why: the token type is Bearer
+        assertThat(result.exitCode()).isEqualTo(1);
+        assertThat(result.out())
+                .contains("response: 200")
+                .contains("\"token_type\" : \"Bearer\"")
+                .contains("\"access_token\" : \"***\"")
+                .doesNotContain(ISSUED_TOKEN);
+    }
+
+    @Test
+    void run_showsATokenFromTheResponseWithShowSecrets() throws URISyntaxException {
+        // when
+        var result = brat("run", project("tokens"), "-p", "env.baseUrl=" + baseUrl(), "--show-secrets");
+
+        // then
+        assertThat(result.out()).contains("\"access_token\" : \"" + ISSUED_TOKEN + "\"");
+    }
+
+    @Test
+    void run_masksASecretTheServerEchoesEvenWithShowSecrets() throws URISyntaxException {
+        // when - the users suite sends a secret to an endpoint that echoes it back
+        var result = brat(
+                "run",
+                project("users"),
+                "-e",
+                "dev",
+                "-p",
+                "env.baseUrl=" + baseUrl(),
+                "--show-response",
+                "all",
+                "--show-request",
+                "all",
+                "--show-secrets");
+
+        // then - every response is shown, and the echoed secret in none of them
+        assertThat(result.exitCode()).isZero();
+        assertThat(result.out()).contains("response: 200").contains("request:").doesNotContain(TOKEN);
+    }
+
+    @Test
+    void run_exitsWith2ForAScopeTheReporterRejectsBeforePrintingAnything() throws URISyntaxException {
+        // when
+        var result = brat("run", project("tokens"), "-p", "env.baseUrl=" + baseUrl(), "--show-assertions", "none");
+
+        // then
+        assertThat(result.exitCode()).isEqualTo(2);
+        assertThat(result.out()).isEmpty();
+        assertThat(result.err()).contains("none");
+    }
+
+    private String project(String name) throws URISyntaxException {
+        return Path.of(getClass()
+                        .getClassLoader()
+                        .getResource("projects/" + name)
+                        .toURI())
+                .toString();
     }
 
     /** Runs the command in-process with stdout and stderr captured, as {@code BratCli.main} would. */

@@ -9,6 +9,7 @@ import dev.pbroman.brat.core.api.interpolation.InterpolationRule;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 
+import static dev.pbroman.brat.core.util.Constants.MASK;
 import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
@@ -87,7 +88,7 @@ public final class InterpolationRuleDispatcher implements Interpolation {
         if (resolved.equals(input)) {
             return new InterpolationOutcome(outcome.value(), resolved, outcome.containsSecret());
         }
-        var displayValue = outcome.containsSecret() ? "***" : resolved;
+        var displayValue = outcome.containsSecret() ? MASK : resolved;
         return new InterpolationOutcome(outcome.value(), input + " → " + displayValue, outcome.containsSecret());
     }
 }

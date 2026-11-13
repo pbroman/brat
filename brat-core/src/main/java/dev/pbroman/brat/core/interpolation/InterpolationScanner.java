@@ -7,6 +7,7 @@ import dev.pbroman.brat.core.exception.BratException;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
 import static dev.pbroman.brat.core.interpolation.InterpolationPatterns.FUNCTION_CALL_PREFIX;
+import static dev.pbroman.brat.core.util.Constants.MASK;
 import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
@@ -99,7 +100,7 @@ public final class InterpolationScanner implements Interpolation {
             var tokenOutcome = resolveToken(token.text(), runtimeData);
             containsSecret |= tokenOutcome.containsSecret();
             value.append(tokenOutcome.asString());
-            maskedFinal.append(tokenOutcome.containsSecret() ? "***" : tokenOutcome.asString());
+            maskedFinal.append(tokenOutcome.containsSecret() ? MASK : tokenOutcome.asString());
             cursor = token.end();
         }
         value.append(input, cursor, input.length());

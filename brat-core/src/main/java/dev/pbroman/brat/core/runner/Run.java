@@ -11,6 +11,7 @@ import dev.pbroman.brat.core.api.listener.AttemptFinished;
 import dev.pbroman.brat.core.api.listener.RunControl;
 import dev.pbroman.brat.core.api.listener.RunEvent;
 import dev.pbroman.brat.core.api.listener.RunListener;
+import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.data.TestSuite;
 import dev.pbroman.brat.core.data.result.RequestResult;
@@ -24,8 +25,10 @@ import dev.pbroman.brat.core.interpolation.InterpolationScanner;
 import dev.pbroman.brat.core.interpolation.configdata.RequestOptionsInterpolator;
 import dev.pbroman.brat.core.interpolation.rules.SecretsInterpolationRule;
 import dev.pbroman.brat.core.launch.Environment;
+import dev.pbroman.brat.core.reporting.SensitiveValues;
 import dev.pbroman.brat.core.resolver.assertion.AssertionChainResolver;
 import dev.pbroman.brat.core.secrets.MapSecretsProvider;
+import dev.pbroman.brat.core.secrets.RecordingSecretsProvider;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -45,6 +48,7 @@ final class Run {
     private final RunControl runControl;
     private final List<RequestResult> results = new ArrayList<>();
     private final List<SuiteError> errors = new ArrayList<>();
+    private final ValueMask mask = new ValueMask();
 
     /**
      * Prepares one run.
@@ -68,7 +72,7 @@ final class Run {
      */
     RunResult execute(TestSuite suite, Environment environment) {
         var startedAt = System.currentTimeMillis();
-        emit(new RunEvent.RunStarted(Instant.now()));
+        emit(new RunEvent.RunStarted(Instant.now(), mask));
         RunResult result = null;
         String error = null;
         try {
@@ -179,7 +183,8 @@ final class Run {
      */
     private void walk(TestSuite suite, RuntimeData runtimeData, SecretsProvider secretsProvider) {
         var rules = new ArrayList<>(collaborators.coreInterpolationRules());
-        rules.add(new SecretsInterpolationRule(secretsProvider));
+        // Every value the chain returns is recorded, so a report masks it wherever it turns up again.
+        rules.add(new SecretsInterpolationRule(new RecordingSecretsProvider(secretsProvider, mask)));
         rules.addAll(collaborators.extraInterpolationRules());
         var interpolation =
                 new InterpolationScanner(new InterpolationRuleDispatcher(rules), collaborators.functionEvaluator());
@@ -199,7 +204,8 @@ final class Run {
                 collaborators.flowControlInterpolator(),
                 new RequestOptionsInterpolator(),
                 new RequestExecutor(conditionEvaluator, attemptListener, TestSuiteRunner.stopRequested(runControl)),
-                collaborators.authHandlerRegistry());
+                collaborators.authHandlerRegistry(),
+                mask);
 
         new TestSuiteRunner(
                         processor,
@@ -213,11 +219,34 @@ final class Run {
     }
 
     /**
+     * Adds what looks sensitive in a finished request to the run's mask.
+     * <p>
+     * A failure here is a reporting failure, so it is logged at WARN and the run continues, exactly as
+     * for a listener that throws.
+     *
+     * @param result the finished request
+     */
+    private void addSensitiveValues(RequestResult result) {
+        try {
+            SensitiveValues.addTo(mask, result);
+        } catch (RuntimeException e) {
+            log.warn(
+                    "Finding the sensitive values of '{}' failed; they are not masked. The run continues",
+                    result.coordinates().path(),
+                    e);
+        }
+    }
+
+    /**
      * Delivers one event to every listener, one at a time.
      *
      * @param event the event to deliver
      */
     private void emit(RunEvent event) {
+        // Before any listener renders the request, so what it revealed is already masked.
+        if (event instanceof RunEvent.RequestFinished finished) {
+            addSensitiveValues(finished.result());
+        }
         for (var listener : listeners) {
             try {
                 listener.on(event);

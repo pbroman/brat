@@ -17,6 +17,7 @@ import dev.pbroman.brat.core.api.rendering.OutcomeRenderer;
 import dev.pbroman.brat.core.api.rendering.OutcomeRendererRule;
 import dev.pbroman.brat.core.api.reporting.ReporterContext;
 import dev.pbroman.brat.core.api.reporting.RunReporter;
+import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.api.secrets.SecretsProviderFactory;
 import dev.pbroman.brat.core.auth.ApiKeyAuthHandler;
@@ -61,6 +62,7 @@ import dev.pbroman.brat.core.rendering.rules.UnittestOutcomeRendererRule;
 import dev.pbroman.brat.core.rendering.rules.VerboseCliOutcomeRendererRule;
 import dev.pbroman.brat.core.reporting.ConsoleRunReporter;
 import dev.pbroman.brat.core.reporting.RunReporterRegistry;
+import dev.pbroman.brat.core.reporting.SensitiveValues;
 import dev.pbroman.brat.core.resolver.condition.ConditionResolverRuleDispatcher;
 import dev.pbroman.brat.core.resolver.condition.rules.BooleanConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.DateConditionResolverRule;
@@ -398,7 +400,7 @@ public final class Brat implements AutoCloseable {
      * {@link #run(TestSuite, Environment, List, RunControl)}.
      *
      * <pre>{@code
-     * brat.run(suite, environment, List.of(brat.reporter("console", Map.of("detail", "all"))), control);
+     * brat.run(suite, environment, List.of(brat.reporter("console", Map.of("response", "all"))), control);
      * }</pre>
      *
      * Every call creates a fresh listener. It belongs to one run: handing the same listener to a
@@ -430,9 +432,16 @@ public final class Brat implements AutoCloseable {
      * listener holding a file handle always has a point at which to flush and close; when a structural
      * failure ended the run, its {@link RunResult#error()} says what it was. A run that fails
      * at launch, before {@code RunStarted}, delivers no event at all. A listener that throws is logged
-     * at WARN and the run continues; a reporting bug must not turn a green suite red.
+     * at WARN and the run continues, and so does a failure to add a request's sensitive values to the
+     * mask; a reporting bug must not turn a green suite red.
      * <p>
      * Exactly {@code listeners} are called: the default reporters are not added.
+     * <p>
+     * <strong>{@code RunStarted} carries the run's {@link ValueMask mask}</strong>, filled as the run
+     * goes: every value a secrets provider returns is added as a secret when it is returned, and before
+     * a {@code RequestFinished} is delivered, what looks sensitive in that request and its response is
+     * added as described by {@link SensitiveValues}. So a listener rendering a request on
+     * {@code RequestFinished} masks with everything that request revealed.
      * <p>
      * Stopping is checked <strong>before every suite and every request</strong>, so an in-flight request
      * finishes. After a {@link RunControl#stop() stop} no setup or main request starts and no suite is

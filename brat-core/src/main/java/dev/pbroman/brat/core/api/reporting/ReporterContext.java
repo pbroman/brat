@@ -12,7 +12,7 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
 /**
  * What a {@link RunReporter} is given to create the listener for one run.
  *
- * @param args this reporter's arguments for the run, such as {@code detail=all}; never {@code null},
+ * @param args this reporter's arguments for the run, such as {@code response=all}; never {@code null},
  *        empty when none were given, unmodifiable
  * @param renderer renders interpolation outcomes with secrets masked; never {@code null}
  */

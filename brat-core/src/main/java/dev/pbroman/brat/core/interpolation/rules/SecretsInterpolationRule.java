@@ -12,6 +12,7 @@ import dev.pbroman.brat.core.interpolation.TokenScanner;
 import dev.pbroman.brat.core.secrets.CompositeSecretsProvider;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
+import static dev.pbroman.brat.core.util.Constants.MASK;
 import static dev.pbroman.brat.core.util.Constants.SECRETS;
 import static dev.pbroman.brat.core.util.Constants.VARIABLE_GROUP_NAME;
 import static dev.pbroman.brat.core.util.Require.nonNull;
@@ -89,6 +90,6 @@ public final class SecretsInterpolationRule implements InterpolationRule {
         if (optionalValue.isEmpty()) {
             throw new BratException(String.format("No value for ${secrets.%s} found.", key));
         }
-        return Optional.of(new InterpolationOutcome(optionalValue.get(), input + " → ***", true));
+        return Optional.of(new InterpolationOutcome(optionalValue.get(), input + " → " + MASK, true));
     }
 }

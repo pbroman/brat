@@ -5,11 +5,14 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 
+import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.listener.AttemptFinished;
 import dev.pbroman.brat.core.api.listener.RunEvent;
 import dev.pbroman.brat.core.api.listener.RunListener;
 import dev.pbroman.brat.core.api.rendering.OutcomeRenderer;
 import dev.pbroman.brat.core.api.rendering.RenderTarget;
+import dev.pbroman.brat.core.api.reporting.ReportDetail;
+import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.data.AssertionSeverity;
 import dev.pbroman.brat.core.data.ConfigData;
 import dev.pbroman.brat.core.data.Phase;
@@ -18,6 +21,8 @@ import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.data.result.RunResult;
 import dev.pbroman.brat.core.data.result.SuiteStatus;
+import dev.pbroman.brat.core.rendering.ReportText;
+import dev.pbroman.brat.core.rendering.ResponseRenderer;
 
 /**
  * Prints one run for {@link ConsoleRunReporter}, whose Javadoc describes the output.
@@ -44,7 +49,9 @@ final class ConsoleRunListener implements RunListener {
 
     private final PrintStream out;
     private final OutcomeRenderer renderer;
-    private final boolean detailAll;
+    private final ReportDetail detail;
+    /** The run's mask, from {@code RunStarted}; one that masks nothing until it arrives. */
+    private ValueMask mask = new ValueMask();
 
     private int requests;
     private int requestsPassed;
@@ -65,20 +72,19 @@ final class ConsoleRunListener implements RunListener {
      *
      * @param out the stream to print to
      * @param renderer renders interpolation outcomes
-     * @param detailAll whether to show every assertion and every sent request, not only failures
+     * @param detail what to show under each request
      */
-    ConsoleRunListener(PrintStream out, OutcomeRenderer renderer, boolean detailAll) {
+    ConsoleRunListener(PrintStream out, OutcomeRenderer renderer, ReportDetail detail) {
         this.out = out;
         this.renderer = renderer;
-        this.detailAll = detailAll;
+        this.detail = detail;
     }
 
     @Override
     public void on(RunEvent event) {
         switch (event) {
-            case RunEvent.RunStarted started -> {
-                // the first suite header is the start
-            }
+            // the first suite header is the start, so nothing prints
+            case RunEvent.RunStarted started -> mask = started.mask();
             case RunEvent.SuiteEntered entered -> out.println(indent(depth(entered.path())) + entered.name());
             case RunEvent.RequestStarted started -> {
                 // a request prints once, when it has finished
@@ -95,7 +101,7 @@ final class ConsoleRunListener implements RunListener {
         var coordinates = attempt.coordinates();
         String outcome;
         if (attempt.error() != null) {
-            outcome = attempt.error();
+            outcome = shown(attempt.error());
         } else {
             outcome = attempt.conditionMet() ? "condition met" : "condition not met";
         }
@@ -125,24 +131,40 @@ final class ConsoleRunListener implements RunListener {
         }
         var reason = reason(status);
         if (reason != null) {
-            line.append(DASH).append(reason);
+            line.append(DASH).append(shown(reason));
         }
         out.println(line);
 
-        var detailIndent = indent(depth(coordinates.path())) + DETAIL_INDENT;
         for (var assertion : result.responseActionsResult().assertionResults()) {
             count(assertion);
-            if (detailAll || !assertion.passed()) {
+        }
+        capturesFailed += result.responseActionsResult().captureFailures().size();
+        printDetail(result, indent(depth(coordinates.path())) + DETAIL_INDENT);
+    }
+
+    /**
+     * Prints the detail under a request: the assertions {@code detail} shows, every capture failure, then
+     * the request as sent and the response where {@code detail} shows them.
+     *
+     * @param result the request's result
+     * @param detailIndent the indent the detail is printed at
+     */
+    private void printDetail(RequestResult result, String detailIndent) {
+        for (var assertion : result.responseActionsResult().assertionResults()) {
+            if (detail.showsAssertion(assertion)) {
                 printAssertion(assertion, detailIndent);
             }
         }
         for (var capture : result.responseActionsResult().captureFailures()) {
-            capturesFailed++;
-            out.println(detailIndent + "CAPTURE " + capture.name() + DASH + capture.message());
+            out.println(detailIndent + "CAPTURE " + capture.name() + DASH + shown(capture.message()));
         }
-        var showSent = detailAll || verdict == Verdict.FAIL || verdict == Verdict.ERROR;
-        if (showSent && verdict != Verdict.SKIP) {
+        if (detail.showsRequest(result)) {
             printSent(result, detailIndent);
+        }
+        if (detail.showsResponse(result)) {
+            for (var line : ResponseRenderer.lines(result, mask, detail.showSecrets())) {
+                out.println(detailIndent + line);
+            }
         }
     }
 
@@ -177,7 +199,7 @@ final class ConsoleRunListener implements RunListener {
         }
         var condition = assertion.condition();
         var header = detailIndent + String.format("%-6s", mark) + condition.getFunc();
-        out.println(assertion.message() == null ? header : header + DASH + assertion.message());
+        out.println(assertion.message() == null ? header : header + DASH + shown(assertion.message()));
         if (condition.isInterpolated()) {
             var outcomes = new LinkedHashMap<>(condition.getOutcomes());
             outcomes.remove("message");
@@ -188,14 +210,42 @@ final class ConsoleRunListener implements RunListener {
     private void printSent(RequestResult result, String detailIndent) {
         if (result.requestDefinition() instanceof ConfigData sent) {
             RenderTarget.of(sent).ifPresent(target -> {
-                out.println(detailIndent + target.label() + ":");
+                out.println(detailIndent + "request:");
                 printRendered(new RenderTarget(target.outcomes()), detailIndent + INDENT);
             });
         }
     }
 
+    /**
+     * Renders {@code target} with every outcome's reporting string shown through {@link ReportText}, so it
+     * is masked and cut before the renderer lays it out.
+     *
+     * @param target the outcomes to print
+     * @param indent the indent of every line
+     */
     private void printRendered(RenderTarget target, String indent) {
-        renderer.render(RENDER_KIND, target).lines().map(line -> indent + line).forEach(out::println);
+        var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
+        for (var entry : target.outcomes().entrySet()) {
+            var outcome = entry.getValue();
+            outcomes.put(
+                    entry.getKey(),
+                    new InterpolationOutcome(
+                            outcome.value(), shown(outcome.reportingString()), outcome.containsSecret()));
+        }
+        renderer.render(RENDER_KIND, new RenderTarget(target.label(), outcomes))
+                .lines()
+                .map(line -> indent + line)
+                .forEach(out::println);
+    }
+
+    /**
+     * {@code text} as the report prints it: masked with the run's mask, then cut.
+     *
+     * @param text a value from the run's data
+     * @return the text to print
+     */
+    private String shown(String text) {
+        return ReportText.shown(text, mask, detail.showSecrets());
     }
 
     private void suiteExited(RunEvent.SuiteExited exited) {
@@ -208,11 +258,11 @@ final class ConsoleRunListener implements RunListener {
             }
             case SuiteStatus.Skipped skipped -> {
                 suitesSkipped++;
-                out.println(indent + "SKIPPED " + name + DASH + skipped.reason());
+                out.println(indent + "SKIPPED " + name + DASH + shown(skipped.reason()));
             }
             case SuiteStatus.Aborted aborted -> {
                 suitesAborted++;
-                out.println(indent + "ABORTED " + name + DASH + aborted.reason());
+                out.println(indent + "ABORTED " + name + DASH + shown(aborted.reason()));
             }
             case SuiteStatus.Cancelled cancelled -> {
                 suitesCancelled++;
@@ -250,7 +300,7 @@ final class ConsoleRunListener implements RunListener {
         }
         String verdict;
         if (result.error() != null) {
-            verdict = "ABORTED" + DASH + result.error();
+            verdict = "ABORTED" + DASH + shown(result.error());
         } else if (result.cancelled()) {
             verdict = "CANCELLED";
         } else {

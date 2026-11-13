@@ -5,6 +5,7 @@ import java.util.Map;
 
 import dev.pbroman.brat.core.api.auth.AuthHandler;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.exception.BratException;
@@ -12,6 +13,7 @@ import dev.pbroman.brat.core.util.HttpHeaderUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import static dev.pbroman.brat.core.util.Constants.AUTHORIZATION;
+import static dev.pbroman.brat.core.util.Constants.MASK;
 
 /**
  * Applies one request's credentials: asks its auth handler for the headers to add, checks what came
@@ -20,34 +22,44 @@ import static dev.pbroman.brat.core.util.Constants.AUTHORIZATION;
 public final class RequestAuthenticator {
 
     private static final String PROXY_AUTHORIZATION = "Proxy-Authorization";
-    private static final String MASK = "***";
 
     private RequestAuthenticator() {
         // static helpers only
     }
 
     /**
-     * Returns {@code request} with the headers {@code handler} computes for {@code auth} added.
+     * Returns {@code request} with the headers {@code handler} computes for {@code auth} added, and adds
+     * their credentials to {@code mask}.
      * <p>
      * <strong>The request as sent.</strong> The copy has the url, method, body and args of
      * {@code request}, its headers followed by the added ones, and is interpolated. Its outcomes are
      * every outcome of {@code request} plus one per added header, keyed {@code header.<name>} with the
-     * name as the handler returned it:
+     * name as the handler returned it, whose {@code value} is the header's real value. The rest depends
+     * on whether {@code auth} was built from a secret — whether any of its outcomes
+     * {@code containsSecret}, so an {@code auth} holding no outcomes was not:
      * <ul>
-     *   <li>{@code value} is the header's real value;</li>
-     *   <li>{@code reportingString} is {@code auth <type> → <masked>}, where {@code <masked>} keeps the
-     *       scheme word of an {@code Authorization} or {@code Proxy-Authorization} header (the name
-     *       matched ignoring case) whose value holds a space — {@code Basic ***} — and is {@code ***}
-     *       for every other header;</li>
-     *   <li>{@code containsSecret} is {@code true}.</li>
+     *   <li><strong>From a secret:</strong> {@code reportingString} is {@code auth <type> → <masked>},
+     *       where {@code <masked>} keeps the scheme word of an {@code Authorization} or
+     *       {@code Proxy-Authorization} header (the name matched ignoring case) whose value holds a space
+     *       — {@code Basic ***} — and is {@code ***} for every other header; {@code containsSecret} is
+     *       {@code true}; and each header's credential is added to {@code mask} as a secret.</li>
+     *   <li><strong>Otherwise</strong> — credentials typed into the suite, or captured from a response:
+     *       {@code reportingString} is {@code auth <type> → <value>}, in clear; {@code containsSecret} is
+     *       {@code false}; and each header's credential is added to {@code mask} as a guessed value, so a
+     *       report masks it unless it is asked to show it.</li>
      * </ul>
-     * <strong>No headers to add</strong> returns {@code request} itself.
+     * A header's credential is what follows the first space of an {@code Authorization} or
+     * {@code Proxy-Authorization} value holding one, and the whole value otherwise.
+     * <p>
+     * <strong>No headers to add</strong> returns {@code request} itself, and adds nothing to
+     * {@code mask}.
      * <p>
      * {@code request} is never modified, and {@code handler} is called exactly once.
      *
      * @param auth the request's credentials, interpolated; must not be {@code null}
      * @param handler the handler registered for {@code auth}'s type; must not be {@code null}
      * @param request the interpolated request about to be sent; must not be {@code null}
+     * @param mask the run's mask, which the added credentials are recorded in; must not be {@code null}
      * @return the request to send; never {@code null}
      * @throws BratException if the handler returns {@code null}; if a returned header name or value is
      *         {@code null} or blank; if a returned header is one {@code request} already carries,
@@ -56,7 +68,8 @@ public final class RequestAuthenticator {
      *         names differ only in case. Every message names the auth type and none quotes a header value.
      *         Whatever {@code handler} itself throws propagates unchanged
      */
-    public static HttpRequestDefinition authenticated(Auth auth, AuthHandler handler, HttpRequestDefinition request) {
+    public static HttpRequestDefinition authenticated(
+            Auth auth, AuthHandler handler, HttpRequestDefinition request, ValueMask mask) {
         var type = auth.getType();
         var added = handler.apply(auth, request);
         if (added == null) {
@@ -67,16 +80,24 @@ public final class RequestAuthenticator {
         }
         checkReturned(type, added, request.getHeaders());
 
+        var fromSecret = auth.isInterpolated()
+                && auth.getOutcomes().values().stream().anyMatch(InterpolationOutcome::containsSecret);
         var headers = new LinkedHashMap<String, String>();
         if (request.getHeaders() != null) {
             headers.putAll(request.getHeaders());
         }
         var outcomes = new LinkedHashMap<>(request.getOutcomes());
         for (var header : added.entrySet()) {
-            headers.put(header.getKey(), header.getValue());
-            var reportingString = "auth " + type + " → " + masked(header.getKey(), header.getValue());
-            outcomes.put(
-                    "header." + header.getKey(), new InterpolationOutcome(header.getValue(), reportingString, true));
+            var name = header.getKey();
+            var value = header.getValue();
+            headers.put(name, value);
+            var shown = fromSecret ? masked(name, value) : value;
+            outcomes.put("header." + name, new InterpolationOutcome(value, "auth " + type + " → " + shown, fromSecret));
+            if (fromSecret) {
+                mask.addSecret(credential(name, value));
+            } else {
+                mask.addGuessed(credential(name, value));
+            }
         }
         return new HttpRequestDefinition(
                 request.getUrl(), request.getMethod(), request.getBody(), headers, request.getArgs(), outcomes);
@@ -119,6 +140,23 @@ public final class RequestAuthenticator {
     }
 
     /**
+     * The credential in an added header: what follows the first space of an {@code Authorization} or
+     * {@code Proxy-Authorization} value holding one, the whole value otherwise.
+     *
+     * @param name the header name
+     * @param value the header value, not blank
+     * @return the credential
+     */
+    private static String credential(String name, String value) {
+        int space = value.indexOf(' ');
+        return carriesScheme(name) && space > 0 ? value.substring(space + 1) : value;
+    }
+
+    private static boolean carriesScheme(String name) {
+        return AUTHORIZATION.equalsIgnoreCase(name) || PROXY_AUTHORIZATION.equalsIgnoreCase(name);
+    }
+
+    /**
      * How an added header reads in a report: the scheme word of an {@code Authorization} or
      * {@code Proxy-Authorization} value kept, everything else masked.
      *
@@ -127,8 +165,7 @@ public final class RequestAuthenticator {
      * @return the masked value
      */
     private static String masked(String name, String value) {
-        boolean carriesScheme = AUTHORIZATION.equalsIgnoreCase(name) || PROXY_AUTHORIZATION.equalsIgnoreCase(name);
         int space = value.indexOf(' ');
-        return carriesScheme && space > 0 ? value.substring(0, space) + " " + MASK : MASK;
+        return carriesScheme(name) && space > 0 ? value.substring(0, space) + " " + MASK : MASK;
     }
 }

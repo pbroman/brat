@@ -12,6 +12,7 @@ import dev.pbroman.brat.core.util.Require;
 
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateArgs;
+import static dev.pbroman.brat.core.util.Constants.MASK;
 
 /**
  * Interpolates an {@link Auth}: its {@code type} and every value in its {@code args}.
@@ -19,7 +20,6 @@ import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.i
 public final class AuthInterpolator implements ConfigDataInterpolator<Auth> {
 
     /** What an {@code args} value reads as in every report. */
-    static final String MASK = "***";
 
     /**
      * Interpolates the auth block's {@code type} and each of its {@code args}.

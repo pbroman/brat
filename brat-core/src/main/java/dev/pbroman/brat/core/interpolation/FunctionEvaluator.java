@@ -12,6 +12,7 @@ import dev.pbroman.brat.core.util.Constants;
 
 import static dev.pbroman.brat.core.interpolation.InterpolationChecks.requireNamespaces;
 import static dev.pbroman.brat.core.interpolation.InterpolationPatterns.FUNCTION_CALL_PREFIX;
+import static dev.pbroman.brat.core.util.Constants.MASK;
 import static dev.pbroman.brat.core.util.Constants.TOKEN_SUFFIX;
 import static dev.pbroman.brat.core.util.Require.nonBlank;
 import static dev.pbroman.brat.core.util.Require.nonNull;
@@ -121,7 +122,7 @@ public final class FunctionEvaluator {
 
         var result = registry.get(name).apply(List.copyOf(values));
         nonNull(result, "The function '" + name + "' returned null; a function with no answer must throw");
-        return new InterpolationOutcome(result, call + " → " + (containsSecret ? "***" : result), containsSecret);
+        return new InterpolationOutcome(result, call + " → " + (containsSecret ? MASK : result), containsSecret);
     }
 
     /**

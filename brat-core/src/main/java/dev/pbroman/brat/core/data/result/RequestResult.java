@@ -1,5 +1,8 @@
 package dev.pbroman.brat.core.data.result;
 
+import java.util.Map;
+import java.util.Optional;
+
 import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.data.AssertionSeverity;
 import dev.pbroman.brat.core.data.ConfigData;
@@ -72,5 +75,27 @@ public record RequestResult(
                 || status instanceof RequestStatus.GaveUp
                 || !responseActionsResult().captureFailures().isEmpty()
                 || assertionFailed;
+    }
+
+    /**
+     * The response this request received, in the namespace form its handler flattened it into — the
+     * same view {@code ${response.*}} reads.
+     * <p>
+     * For a {@link RequestStatus.Completed} request it is that status's {@code responseVars}; for a
+     * {@link RequestStatus.GaveUp} poll, its last attempt's, which always received one. An
+     * {@link RequestStatus.Errored} or {@link RequestStatus.Skipped} request carries none: every way a
+     * request errors happens before or instead of a response.
+     *
+     * @return the response, or {@link Optional#empty()} for an errored or skipped request; never
+     *         {@code null}
+     */
+    public Optional<Map<String, Object>> responseVars() {
+        if (status instanceof RequestStatus.Completed completed) {
+            return Optional.of(completed.responseVars());
+        }
+        if (status instanceof RequestStatus.GaveUp gaveUp) {
+            return Optional.of(gaveUp.lastAttempt().responseVars());
+        }
+        return Optional.empty();
     }
 }

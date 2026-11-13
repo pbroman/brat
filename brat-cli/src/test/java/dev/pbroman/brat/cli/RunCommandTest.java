@@ -134,6 +134,59 @@ class RunCommandTest {
     }
 
     @Test
+    void run_exitsWith2ForAnUnknownScopeBeforePrintingAnything() {
+        // when
+        var result = brat("run", ORDERS, "-e", "dev", "--show-response", "some");
+
+        // then
+        assertThat(result.exitCode()).isEqualTo(2);
+        assertThat(result.out()).isEmpty();
+        assertThat(result.err()).startsWith("brat: ").contains("some");
+    }
+
+    @Test
+    void run_exitsWith2ForShowAssertionsNone() {
+        // when
+        var result = brat("run", ORDERS, "-e", "dev", "--show-assertions", "none");
+
+        // then
+        assertThat(result.exitCode()).isEqualTo(2);
+        assertThat(result.out()).isEmpty();
+    }
+
+    @Test
+    void run_passesEveryShowOptionToTheReport() {
+        // when - nothing listens on the environment's port, so the request errors and shows what it sent
+        var result = brat("run", ORDERS, "-e", "dev", "--show-request", "none", "--show-response", "all");
+
+        // then - the request as sent is hidden although the request errored
+        assertThat(result.exitCode()).isEqualTo(1);
+        assertThat(result.out()).contains("ERROR").doesNotContain("request:");
+    }
+
+    @Test
+    void run_acceptsShowSecretsWithoutAValue() {
+        // when
+        var result = brat("run", ORDERS, "-e", "dev", "-p", "skip=yes", "--show-secrets");
+
+        // then
+        assertThat(result.exitCode()).isZero();
+    }
+
+    @Test
+    void help_listsTheShowOptions() {
+        // when
+        var result = brat("run", "--help");
+
+        // then
+        assertThat(result.out())
+                .contains("--show-response")
+                .contains("--show-request")
+                .contains("--show-assertions")
+                .contains("--show-secrets");
+    }
+
+    @Test
     void run_exitsWith2AndNamesTheTypeOfAnUnexpectedException() {
         // given - a defect rather than a BratException
         Supplier<RunControl> broken = () -> new RunControl() {

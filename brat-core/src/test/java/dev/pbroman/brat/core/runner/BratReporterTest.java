@@ -213,10 +213,10 @@ class BratReporterTest {
         var brat = builder().runReporter(recording).build();
 
         // when
-        brat.reporter("rec", Map.of("detail", "all"));
+        brat.reporter("rec", Map.of("response", "all"));
 
         // then
-        assertThat(recording.contexts.getLast().args()).containsExactly(Map.entry("detail", "all"));
+        assertThat(recording.contexts.getLast().args()).containsExactly(Map.entry("response", "all"));
     }
 
     @Test

@@ -25,6 +25,7 @@ import dev.pbroman.brat.core.api.listener.AttemptFinished;
 import dev.pbroman.brat.core.api.listener.RunControl;
 import dev.pbroman.brat.core.api.listener.RunEvent;
 import dev.pbroman.brat.core.api.listener.RunListener;
+import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
 import dev.pbroman.brat.core.api.secrets.SecretsProvider;
 import dev.pbroman.brat.core.api.secrets.SecretsProviderFactory;
@@ -931,6 +932,75 @@ class BratTest {
 
         // then — it does not outlive the run that built it
         assertThat(factory.closed).isTrue();
+    }
+
+    @Test
+    void run_addsEverySecretTheChainReturnsToTheMaskOnRunStarted() {
+        // given
+        var brat = Brat.builder()
+                .requestHandler(handler)
+                .secretsProviderFactory(new FixedSecretsProviderFactory())
+                .build();
+        var masks = new ArrayList<ValueMask>();
+        RunListener listener = event -> {
+            if (event instanceof RunEvent.RunStarted started) {
+                masks.add(started.mask());
+            }
+        };
+
+        // when
+        brat.run(
+                suite(request("r", "${env.baseUrl}/${secrets.token}")),
+                withFixedSecrets(),
+                List.of(listener),
+                RunControl.create());
+
+        // then - a secret, so masked even where guessed values are shown
+        assertThat(masks)
+                .singleElement()
+                .satisfies(mask -> assertThat(mask.mask("echo s3cr3t", true)).isEqualTo("echo ***"));
+    }
+
+    @Test
+    void run_addsWhatLooksSensitiveToTheMaskBeforeDeliveringRequestFinished() {
+        // given - a login whose response holds a token
+        HttpRequestHandler login = new HttpRequestHandler() {
+            @Override
+            public String name() {
+                return "test";
+            }
+
+            @Override
+            public HttpResponse performRequest(HttpRequestDefinition definition, RequestOptions options) {
+                return new HttpResponse(
+                        200, Map.of("Content-Type", List.of("application/json")), "{\"access_token\":\"tok-12345\"}");
+            }
+        };
+        var seen = new ArrayList<String>();
+        var masks = new ArrayList<ValueMask>();
+        RunListener listener = event -> {
+            switch (event) {
+                case RunEvent.RunStarted started -> masks.add(started.mask());
+                case RunEvent.RequestFinished finished ->
+                    seen.add(masks.getFirst().mask("tok-12345", false));
+                default -> {
+                    // not relevant here
+                }
+            }
+        };
+
+        // when
+        Brat.builder()
+                .requestHandler(login)
+                .build()
+                .run(
+                        suite(request("login", "${env.baseUrl}/login")),
+                        environment,
+                        List.of(listener),
+                        RunControl.create());
+
+        // then - already masked when the listener renders the request that revealed it
+        assertThat(seen).containsExactly("***");
     }
 
     // --- events ---
