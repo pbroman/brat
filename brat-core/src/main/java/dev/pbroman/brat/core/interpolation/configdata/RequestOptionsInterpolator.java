@@ -30,18 +30,22 @@ public final class RequestOptionsInterpolator implements ConfigDataInterpolator<
     private final AuthInterpolator authInterpolator = new AuthInterpolator();
 
     /**
-     * Interpolates {@code timeout} and {@code auth}, and validates the timeout.
+     * Interpolates {@code timeout}, {@code followRedirects} and {@code auth}, and validates the first two.
      * <p>
-     * Outcome keys are {@code timeout}, unprefixed and recorded only when a timeout was declared, then
+     * Outcome keys are {@code timeout} and {@code followRedirects}, unprefixed and each recorded only
+     * when it was declared, then
      * the auth block's own outcomes prefixed with {@code auth.} ({@code auth.type},
      * {@code auth.args.<name>}), recorded only when an {@code auth} is present — see
      * {@link AuthInterpolator#interpolated} for those, every argument among them masked.
-     * The copy is validated with {@link RequestOptions#timeoutMs()} before it is returned, so
-     * {@link RequestOptions#timeoutMs()} never throws on a copy this method produced.
+     * The copy is validated with {@link RequestOptions#timeoutMs()} and
+     * {@link RequestOptions#followRedirects()} before it is returned, so neither throws on a copy this
+     * method produced.
      * <p>
      * A declared {@code timeout} that resolves to blank is accepted and reads as the default, and a
      * WARN names the authored value: blank is as often an empty variable as a decision, and
-     * {@value RequestOptions#DEFAULT_TIMEOUT_KEYWORD} is the way to ask for the default on purpose.
+     * {@value RequestOptions#DEFAULT_TIMEOUT_KEYWORD} is the way to ask for the default on purpose. A
+     * declared {@code followRedirects} that resolves to blank is treated the same way: it reads as
+     * {@code false}, and a WARN names the authored value.
      *
      * @param target the options to interpolate
      * @param interpolation the interpolation implementation
@@ -54,6 +58,8 @@ public final class RequestOptionsInterpolator implements ConfigDataInterpolator<
      * @throws BratException if {@code target} is {@code null} or is already an interpolated copy
      * @throws BratException if {@code timeout} interpolates to something other than blank,
      *         {@value RequestOptions#DEFAULT_TIMEOUT_KEYWORD} or a positive whole number of milliseconds
+     * @throws BratException if {@code followRedirects} interpolates to something other than blank,
+     *         {@code true} or {@code false}, in any case
      * @throws BratException if {@code auth} cannot be interpolated, under the conditions of
      *         {@link AuthInterpolator#interpolated}
      */
@@ -62,6 +68,8 @@ public final class RequestOptionsInterpolator implements ConfigDataInterpolator<
         checkNotInterpolated(target);
         var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
         var timeoutOutcome = interpolateIfPresent(interpolation, runtimeData, outcomes, "timeout", target.getTimeout());
+        var followOutcome = interpolateIfPresent(
+                interpolation, runtimeData, outcomes, "followRedirects", target.getFollowRedirects());
         var auth = target.getAuth() == null
                 ? null
                 : authInterpolator.interpolated(target.getAuth(), interpolation, runtimeData);
@@ -70,7 +78,8 @@ public final class RequestOptionsInterpolator implements ConfigDataInterpolator<
                 outcomes.put(AUTH_PREFIX + authOutcome.getKey(), authOutcome.getValue());
             }
         }
-        var interpolated = new RequestOptions(asStringOrNull(timeoutOutcome), auth, outcomes);
+        var interpolated =
+                new RequestOptions(asStringOrNull(timeoutOutcome), asStringOrNull(followOutcome), auth, outcomes);
         if (timeoutOutcome != null && StringUtils.isBlank(interpolated.getTimeout())) {
             log.warn(
                     "The timeout '{}' resolved to blank, so the default applies; write '{}' to ask for the default"
@@ -78,8 +87,15 @@ public final class RequestOptionsInterpolator implements ConfigDataInterpolator<
                     target.getTimeout(),
                     RequestOptions.DEFAULT_TIMEOUT_KEYWORD);
         }
+        if (followOutcome != null && StringUtils.isBlank(interpolated.getFollowRedirects())) {
+            log.warn(
+                    "The followRedirects value '{}' resolved to blank, so redirects are not followed; write 'false'"
+                            + " to say so on purpose",
+                    target.getFollowRedirects());
+        }
         // validates the interpolation
         interpolated.timeoutMs();
+        interpolated.followRedirects();
         return interpolated;
     }
 }

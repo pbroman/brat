@@ -976,4 +976,25 @@ class ConsoleRunReporterTest {
         // then
         assertThat(flushed.toString(StandardCharsets.UTF_8)).contains("root");
     }
+
+    // --- a refused redirect ---
+
+    @Test
+    void on_printsARefusedRedirectUnderTheRequestLineWhateverTheScopes() {
+        // given - a passing request, every item hidden
+        var status = new RequestStatus.Completed(
+                Map.of("statusCode", 302, "headers", Map.of(), "redirectNotFollowed", "https://other.example/x"),
+                1,
+                10);
+
+        // when
+        listener(Map.of("response", "none", "request", "none"))
+                .on(finished(result("orders/read", status, 12, passing())));
+
+        // then
+        assertThat(lines()).hasSize(2);
+        assertThat(lines().get(1).strip())
+                .isEqualTo("REDIRECT https://other.example/x not followed — another origin, and the request carries"
+                        + " credentials");
+    }
 }

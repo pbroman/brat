@@ -28,6 +28,7 @@ final class StubHttpServer implements AutoCloseable {
     private final AtomicReference<Consumer<HttpExchange>> behaviour = new AtomicReference<>();
     private final AtomicReference<ReceivedRequest> received = new AtomicReference<>();
     private final AtomicInteger requestCount = new AtomicInteger();
+    private final Map<String, String[]> redirects = new java.util.concurrent.ConcurrentHashMap<>();
 
     /** What the stub saw, so a test can assert on what was actually sent. */
     record ReceivedRequest(String method, String path, Map<String, List<String>> headers, String body) {}
@@ -73,6 +74,18 @@ final class StubHttpServer implements AutoCloseable {
     }
 
     /**
+     * Answers a request for {@code path} with {@code status} and a {@code Location}; every other path
+     * as {@link #respond} set it.
+     *
+     * @param path the request path to redirect, such as {@code /old}
+     * @param status the redirect status, such as {@code 302}
+     * @param location the {@code Location} to send
+     */
+    void redirect(String path, int status, String location) {
+        redirects.put(path, new String[] {String.valueOf(status), location});
+    }
+
+    /**
      * Makes the stub sleep before responding, for timeout tests.
      *
      * @param millis how long to sleep
@@ -108,6 +121,13 @@ final class StubHttpServer implements AutoCloseable {
         requestCount.incrementAndGet();
         received.set(new ReceivedRequest(
                 exchange.getRequestMethod(), exchange.getRequestURI().getPath(), headers, body));
+        var redirect = redirects.get(exchange.getRequestURI().getPath());
+        if (redirect != null) {
+            exchange.getResponseHeaders().add("Location", redirect[1]);
+            exchange.sendResponseHeaders(Integer.parseInt(redirect[0]), -1);
+            exchange.close();
+            return;
+        }
         var current = behaviour.get();
         if (current == null) {
             exchange.sendResponseHeaders(200, -1);

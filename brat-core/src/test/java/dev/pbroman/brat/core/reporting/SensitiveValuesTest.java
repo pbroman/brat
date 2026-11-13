@@ -395,4 +395,26 @@ class SensitiveValuesTest {
         // then
         assertThat(masked("value-1234")).isFalse();
     }
+
+    // --- isSensitiveName ---
+
+    @ParameterizedTest
+    @ValueSource(strings = {"access_token", "accessToken", "Client-Secret", "PASSWORD", "id_token", "refresh_token"})
+    void isSensitiveName_matchesIgnoringCaseUnderscoreAndHyphen(String name) {
+        // when / then
+        assertThat(SensitiveValues.isSensitiveName(name)).isTrue();
+    }
+
+    @Test
+    void isSensitiveName_isFalseForAnyOtherName() {
+        // when / then
+        assertThat(SensitiveValues.isSensitiveName("client_id")).isFalse();
+        assertThat(SensitiveValues.isSensitiveName("token_type")).isFalse();
+    }
+
+    @Test
+    void isSensitiveName_throwsForNull() {
+        // when / then
+        assertThatThrownBy(() -> SensitiveValues.isSensitiveName(null)).isInstanceOf(BratException.class);
+    }
 }

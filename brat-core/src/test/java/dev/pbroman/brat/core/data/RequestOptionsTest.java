@@ -130,4 +130,43 @@ class RequestOptionsTest {
         assertThat(options.isInterpolated()).isTrue();
         assertThat(options.getOutcomes()).containsOnlyKeys("timeout");
     }
+
+    // --- followRedirects ---
+
+    @Test
+    void followRedirects_isFalseWhenNothingWasDeclaredOrItIsBlank() {
+        // when / then
+        assertThat(new RequestOptions(null).followRedirects()).isFalse();
+        assertThat(new RequestOptions(null, "  ", null, null).followRedirects()).isFalse();
+    }
+
+    @Test
+    void followRedirects_readsTrueAndFalseInAnyCaseIgnoringWhitespace() {
+        // when / then
+        assertThat(new RequestOptions(null, "true", null, null).followRedirects())
+                .isTrue();
+        assertThat(new RequestOptions(null, " TRUE ", null, null).followRedirects())
+                .isTrue();
+        assertThat(new RequestOptions(null, "False", null, null).followRedirects())
+                .isFalse();
+    }
+
+    @Test
+    void followRedirects_throwsForAnythingElseQuotingIt() {
+        // when / then
+        assertThatThrownBy(() -> new RequestOptions(null, "yes", null, null).followRedirects())
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("'yes'");
+        assertThatThrownBy(() -> new RequestOptions(null, "${env.follow}", null, null).followRedirects())
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("${env.follow}");
+    }
+
+    @Test
+    void constructor_defaultsFollowRedirectsToNullInTheShorterForms() {
+        // when / then
+        assertThat(new RequestOptions("1000").getFollowRedirects()).isNull();
+        assertThat(new RequestOptions("1000", null, (Map<String, InterpolationOutcome>) null).getFollowRedirects())
+                .isNull();
+    }
 }

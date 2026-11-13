@@ -85,13 +85,14 @@ class BratTest {
                 null,
                 null,
                 null,
+                null,
                 new HttpRequestDefinition(url, "GET", null, null),
                 null,
                 null);
     }
 
     private static TestSuite suite(Request... requests) {
-        return new TestSuite("suite", null, null, null, null, null, null, null, List.of(requests), null);
+        return new TestSuite("suite", null, null, null, null, null, null, null, null, List.of(requests), null);
     }
 
     /** An environment whose chain is the one {@link FixedSecretsProviderFactory} builds. */
@@ -136,6 +137,7 @@ class BratTest {
     private static Request requestWithHandlers(Map<String, String> requestHandlers) {
         return new Request(
                 "r",
+                null,
                 null,
                 null,
                 null,
@@ -414,6 +416,7 @@ class BratTest {
                 null,
                 null,
                 null,
+                null,
                 new HttpRequestDefinition("http://localhost:8080/x", "GET", null, null),
                 null,
                 null);
@@ -437,7 +440,9 @@ class BratTest {
         var request = requestWithHandlers(Map.of("http", "mtls"));
 
         // when
-        brat.run(new TestSuite("s", null, null, null, null, null, null, null, List.of(request), null), environment);
+        brat.run(
+                new TestSuite("s", null, null, null, null, null, null, null, null, List.of(request), null),
+                environment);
 
         // then
         assertThat(named.calls).isEqualTo(1);
@@ -454,6 +459,7 @@ class BratTest {
                 .build();
         var suite = new TestSuite(
                 "s",
+                null,
                 null,
                 null,
                 null,
@@ -490,6 +496,7 @@ class BratTest {
                 null,
                 null,
                 null,
+                null,
                 Map.of("http", "mtls", "ftp", "vsftpd"),
                 List.of(requestWithHandlers(Map.of("http", "proxy"))),
                 null);
@@ -510,7 +517,7 @@ class BratTest {
 
         // when / then - structural, so it is not an errored result
         assertThatThrownBy(() -> brat.run(
-                        new TestSuite("s", null, null, null, null, null, null, null, List.of(request), null),
+                        new TestSuite("s", null, null, null, null, null, null, null, null, List.of(request), null),
                         environment))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("mtls");
@@ -568,7 +575,8 @@ class BratTest {
 
         // when
         var result = brat.run(
-                new TestSuite("s", null, null, null, null, null, null, null, List.of(request), null), environment);
+                new TestSuite("s", null, null, null, null, null, null, null, null, List.of(request), null),
+                environment);
 
         // then - a jar on the classpath is a registration, which is what path 3 exists for
         assertThat(result.requestResults().getFirst().status()).isInstanceOf(RequestStatus.Completed.class);
@@ -722,6 +730,7 @@ class BratTest {
                 null,
                 null,
                 null,
+                null,
                 new Condition("isAlwaysTrue", "a", null),
                 null,
                 null,
@@ -763,10 +772,12 @@ class BratTest {
                 null,
                 null,
                 null,
+                null,
                 List.of(request("nested", "${env.baseUrl}/b")),
                 null);
         var outer = new TestSuite(
                 "outer",
+                null,
                 null,
                 null,
                 null,
@@ -803,9 +814,10 @@ class BratTest {
                 null,
                 null,
                 null,
+                null,
                 List.of(request("me", "${env.baseUrl}/me")),
                 null);
-        var root = new TestSuite("root", null, null, null, null, null, null, null, null, List.of(admin));
+        var root = new TestSuite("root", null, null, null, null, null, null, null, null, null, List.of(admin));
 
         // when
         var result = brat().run(root, environment);
@@ -823,7 +835,7 @@ class BratTest {
     void run_aSiblingReadingAVarItsSiblingFailedToSetFailsNamingTheCause() {
         // given - "admin" cannot compute the token; "reader" reads it anyway
         var admin = new TestSuite(
-                "admin", null, null, Map.of("token", "${env.adminToken}"), null, null, null, null, null, null);
+                "admin", null, null, Map.of("token", "${env.adminToken}"), null, null, null, null, null, null, null);
         var reader = new TestSuite(
                 "reader",
                 null,
@@ -833,9 +845,10 @@ class BratTest {
                 null,
                 null,
                 null,
+                null,
                 List.of(request("me", "${env.baseUrl}/me?t=${vars.token}")),
                 null);
-        var root = new TestSuite("root", null, null, null, null, null, null, null, null, List.of(admin, reader));
+        var root = new TestSuite("root", null, null, null, null, null, null, null, null, null, List.of(admin, reader));
 
         // when
         var result = brat().run(root, environment);
@@ -856,6 +869,7 @@ class BratTest {
         // given
         var request = new Request(
                 "r",
+                null,
                 null,
                 null,
                 null,
@@ -1047,6 +1061,7 @@ class BratTest {
                 null,
                 null,
                 null,
+                null,
                 new HttpRequestDefinition("${env.baseUrl}/a", "GET", null, null),
                 null,
                 new FlowControl(
@@ -1112,6 +1127,7 @@ class BratTest {
         };
         var teardown = new Request(
                 "cleanUp",
+                null,
                 null,
                 null,
                 null,
@@ -1341,7 +1357,7 @@ class BratTest {
         // given - a token-free path is knowable before anything runs
         var definition =
                 new HttpRequestDefinition("http://url", "POST", HttpBody.file("file:/no/such/body.json"), null);
-        var request = new Request("create", null, null, null, null, null, null, null, definition, null, null);
+        var request = new Request("create", null, null, null, null, null, null, null, null, definition, null, null);
 
         // then - and it throws rather than reporting, because no run ever started
         assertThatThrownBy(() -> brat().run(suite(request), environment))

@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import dev.pbroman.brat.core.api.handler.HttpRequestHandler;
 import dev.pbroman.brat.core.api.util.ArgsUtils;
@@ -96,6 +97,11 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
     /** The pool's per-host connection ceiling when none is given. */
     public static final int DEFAULT_MAX_PER_ROUTE = 50;
 
+    /** The statuses a redirect strategy follows; one still standing at the end was refused. */
+    private static final Set<Integer> REDIRECT_STATUSES = Set.of(301, 302, 303, 307, 308);
+
+    private static final String LOCATION = "Location";
+
     private final CloseableHttpClient client;
 
     /**
@@ -140,6 +146,9 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
                 // creates per client - so a session would outlive the run that established it. See
                 // the class Javadoc for what a suite does instead.
                 .disableCookieManagement()
+                // Ours rather than the default: the default refuses a cross-host redirect only for
+                // Authorization and Cookie, and compares host names but not ports.
+                .setRedirectStrategy(new CredentialAwareRedirectStrategy())
                 .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
                         .setMaxConnTotal(maxTotal)
                         .setMaxConnPerRoute(maxPerRoute)
@@ -186,6 +195,17 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
      *       that long to reach an unreachable host. Left rather than worked around because the
      *       library's own default is three minutes, which is worse, and because connecting is
      *       arguably a property of the pooled route rather than of one request</li>
+     *   <li><strong>redirects</strong> — not followed unless {@code options}'
+     *       {@link RequestOptions#followRedirects()} says so; then the response is wherever the chain
+     *       ends. A 301 or 302 answering a {@code POST}, and a 303 answering anything but {@code HEAD},
+     *       is re-sent as a {@code GET} without its body; 307 and 308 keep method and body; every hop
+     *       re-sends the request's headers. <strong>A redirect to another origin is refused when the
+     *       request carries credentials</strong> — an {@code Authorization} or {@code Cookie} header,
+     *       an {@code auth} other than {@code none}, any value built from a secret (url, header or
+     *       body, since a 307 or 308 re-sends the body), or a form entry with a sensitive name; another
+     *       origin is
+     *       another scheme, host name or port. The 3xx is returned, with its {@code Location} as the response's
+     *       {@code redirectNotFollowed}</li>
      * </ul>
      *
      * @param requestDefinition the interpolated request to perform
@@ -195,8 +215,8 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
      * @throws BratException if {@code requestDefinition} or {@code options} is {@code null}; if
      *         {@code url} is absent or not a valid URI; if a {@code file} body was never read, which only
      *         a definition that was never interpolated can carry; or if the request cannot be
-     *         completed at all — connection refused, unknown host, failed TLS handshake, or the
-     *         timeout elapsing
+     *         completed at all — connection refused, unknown host, failed TLS handshake, the
+     *         timeout elapsing, or, when following redirects, more than 50 of them or a loop
      */
     @Override
     public HttpResponse performRequest(HttpRequestDefinition requestDefinition, RequestOptions options) {
@@ -225,8 +245,14 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
 
         var context = HttpClientContext.create();
         context.setRequestConfig(configOf(options));
+        var following = options.followRedirects();
+        if (following) {
+            context.setAttribute(
+                    CredentialAwareRedirectStrategy.CARRIES_CREDENTIALS,
+                    CredentialAwareRedirectStrategy.carriesCredentials(requestDefinition, options));
+        }
         try {
-            return client.execute(builder.build(), context, ApacheHttpRequestHandler::toResponse);
+            return client.execute(builder.build(), context, response -> toResponse(response, following));
         } catch (IOException e) {
             throw new BratException("Could not perform the request to " + requestDefinition.getUrl(), e);
         }
@@ -236,10 +262,12 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
      * Reads what came back, entirely, before the connection is released.
      *
      * @param response the live response
+     * @param following whether the request followed redirects, which makes a final redirect one that
+     *        was refused
      * @return the captured response
      * @throws IOException if the body could not be read
      */
-    private static HttpResponse toResponse(ClassicHttpResponse response) throws IOException {
+    private static HttpResponse toResponse(ClassicHttpResponse response, boolean following) throws IOException {
         var headers = new LinkedHashMap<String, List<String>>();
         for (var header : response.getHeaders()) {
             headers.computeIfAbsent(header.getName(), name -> new ArrayList<>()).add(header.getValue());
@@ -252,7 +280,22 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
                 throw new BratException("Could not read the response body", e);
             }
         }
-        return new HttpResponse(response.getCode(), headers, body);
+        return new HttpResponse(response.getCode(), headers, body, following ? refusedRedirect(response) : null);
+    }
+
+    /**
+     * The {@code Location} of a redirect the client did not follow, on a request that follows them.
+     * <p>
+     * Every other way a redirect chain stops — too many, a loop, an invalid {@code Location} — throws,
+     * so a response that is still a 301, 302, 303, 307 or 308 with a {@code Location} is one the
+     * redirect strategy refused.
+     *
+     * @param response the final response of a request that follows redirects
+     * @return its {@code Location} as received, if it is a refused redirect; otherwise {@code null}
+     */
+    private static String refusedRedirect(ClassicHttpResponse response) {
+        var location = response.getFirstHeader(LOCATION);
+        return REDIRECT_STATUSES.contains(response.getCode()) && location != null ? location.getValue() : null;
     }
 
     /**
@@ -324,6 +367,7 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
         // No connect timeout here: HttpClient5 moved it to ConnectionConfig, which is per connection
         // manager, so the constructor sets it once for the handler. See the note on performRequest.
         return RequestConfig.custom()
+                .setRedirectsEnabled(options.followRedirects())
                 .setResponseTimeout(timeout)
                 .setConnectionRequestTimeout(timeout)
                 .build();

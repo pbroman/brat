@@ -295,4 +295,59 @@ class ResponseRendererTest {
         // then
         assertThat(lines).containsExactly("response:", "  code: 226", "  reply: 226 Transfer complete");
     }
+
+    // --- redirectNotice ---
+
+    @Test
+    void redirectNotice_namesARefusedRedirect() {
+        // given
+        var vars = response(302, Map.of(), null);
+        vars.put("redirectNotFollowed", "https://login.other.example/x");
+
+        // when
+        var notice = ResponseRenderer.redirectNotice(result(HTTP, vars), mask, false);
+
+        // then
+        assertThat(notice)
+                .contains("REDIRECT https://login.other.example/x not followed — another origin, and the request"
+                        + " carries credentials");
+    }
+
+    @Test
+    void redirectNotice_masksTheLocation() {
+        // given
+        mask.addGuessed("tok-12345");
+        var vars = response(302, Map.of(), null);
+        vars.put("redirectNotFollowed", "https://other.example/x?token=tok-12345");
+
+        // when
+        var notice = ResponseRenderer.redirectNotice(result(HTTP, vars), mask, false);
+
+        // then
+        assertThat(notice)
+                .hasValueSatisfying(
+                        line -> assertThat(line).contains("token=***").doesNotContain("tok-12345"));
+    }
+
+    @Test
+    void redirectNotice_isEmptyWhenNothingWasRefusedOrThereIsNoResponse() {
+        // given
+        var errored = new RequestResult(
+                COORDINATES, HTTP, null, new RequestStatus.Errored("connection refused"), 10, 0, null);
+
+        // when / then
+        assertThat(ResponseRenderer.redirectNotice(result(HTTP, response(302, Map.of(), null)), mask, false))
+                .isEmpty();
+        assertThat(ResponseRenderer.redirectNotice(errored, mask, false)).isEmpty();
+    }
+
+    @Test
+    void redirectNotice_throwsForANullResultOrMask() {
+        // when / then
+        assertThatThrownBy(() -> ResponseRenderer.redirectNotice(null, mask, false))
+                .isInstanceOf(BratException.class);
+        assertThatThrownBy(() ->
+                        ResponseRenderer.redirectNotice(result(HTTP, response(200, Map.of(), null)), null, false))
+                .isInstanceOf(BratException.class);
+    }
 }

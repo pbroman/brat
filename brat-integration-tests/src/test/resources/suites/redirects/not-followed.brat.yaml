@@ -1,0 +1,14 @@
+# By default a redirect is not followed: the response is the 3xx, which is what a test checks.
+name: not followed
+requests:
+  - name: the old address moved
+    requestDefinition:
+      url: "${env.baseUrl}/redirect?to=/status/200"
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: 302
+        - a: "${response.headers.Location}"
+          func: endsWith
+          b: /status/200

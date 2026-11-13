@@ -1,0 +1,25 @@
+# One switch for the run: the environment (or -p followRedirects=true) turns following on.
+name: followed
+followRedirects: "${params.followRedirects:-env.followRedirects:-false}"
+requests:
+  - name: ends where the redirect points
+    requestDefinition:
+      url: "${env.baseUrl}/redirect?to=/status/200"
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: 200
+        - a: "${response.json.$.requested}"
+          func: isEqualTo
+          b: 200
+
+  - name: still checks the redirect itself
+    followRedirects: "false"   # pins the 3xx, whatever the run says
+    requestDefinition:
+      url: "${env.baseUrl}/redirect?to=/status/200"
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: 302

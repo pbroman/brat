@@ -63,8 +63,10 @@ class BratReporterTest {
             null,
             null,
             null,
+            null,
             List.of(new Request(
                     "r",
+                    null,
                     null,
                     null,
                     null,
@@ -574,8 +576,8 @@ class BratReporterTest {
         // given - a missing body file fails before RunStarted
         var definition =
                 new HttpRequestDefinition("http://url", "POST", HttpBody.file("file:/no/such/body.json"), null);
-        var request = new Request("create", null, null, null, null, null, null, null, definition, null, null);
-        var failing = new TestSuite("suite", null, null, null, null, null, null, null, List.of(request), null);
+        var request = new Request("create", null, null, null, null, null, null, null, null, definition, null, null);
+        var failing = new TestSuite("suite", null, null, null, null, null, null, null, null, List.of(request), null);
         var mine = new RecordingListener();
 
         // when

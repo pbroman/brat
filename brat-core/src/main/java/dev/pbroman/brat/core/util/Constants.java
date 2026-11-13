@@ -22,6 +22,9 @@ public final class Constants {
     /** What a report shows in place of a secret or a masked value. */
     public static final String MASK = "***";
 
+    /** The response namespace key holding the location of a redirect that was not followed. */
+    public static final String REDIRECT_NOT_FOLLOWED = "redirectNotFollowed";
+
     public static final String CONSTANTS = "constants";
     public static final String HEADERS = "headers";
     public static final String ENV = "env";

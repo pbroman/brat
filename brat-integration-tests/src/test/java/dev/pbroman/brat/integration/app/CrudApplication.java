@@ -220,6 +220,18 @@ public class CrudApplication {
         return "a plain text body";
     }
 
+    /**
+     * Redirects to wherever it is told, with the status it is told.
+     *
+     * @param to the {@code Location} to send
+     * @param status the redirect status, {@code 302} unless given
+     * @return the redirect
+     */
+    @GetMapping(path = "/redirect")
+    public ResponseEntity<Void> redirect(@RequestParam String to, @RequestParam(defaultValue = "302") int status) {
+        return ResponseEntity.status(status).header("Location", to).build();
+    }
+
     /** Answers with the status code asked for, since every status a server sends is a response. */
     @GetMapping(path = "/status/{code}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> status(@PathVariable int code) {

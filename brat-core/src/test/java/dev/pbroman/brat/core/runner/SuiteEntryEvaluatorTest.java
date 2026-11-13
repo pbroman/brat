@@ -248,6 +248,6 @@ class SuiteEntryEvaluatorTest {
     }
 
     private static TestSuite suite(Map<String, String> setVars, Condition skipCondition) {
-        return new TestSuite("admin", null, null, setVars, null, null, skipCondition, null, List.of(), null);
+        return new TestSuite("admin", null, null, setVars, null, null, null, skipCondition, null, List.of(), null);
     }
 }

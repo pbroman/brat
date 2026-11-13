@@ -16,6 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -208,5 +209,61 @@ class RequestOptionsInterpolatorTest {
         // when / then
         assertThatThrownBy(() -> interpolator.interpolated(copy, interpolation, runtimeData))
                 .isInstanceOf(BratException.class);
+    }
+
+    // --- followRedirects ---
+
+    private void resolving(String input, String value) {
+        when(interpolation.outcome(eq(input), any()))
+                .thenReturn(new InterpolationOutcome(value, input + " → " + value));
+    }
+
+    @Test
+    void interpolated_interpolatesFollowRedirectsUnderABareKey() {
+        // given
+        resolving("${env.follow}", "TRUE");
+        var options = new RequestOptions(null, "${env.follow}", null, null);
+
+        // when
+        var result = interpolator.interpolated(options, interpolation, runtimeData);
+
+        // then
+        assertThat(result.followRedirects()).isTrue();
+        assertThat(result.getOutcomes()).containsKey("followRedirects");
+    }
+
+    @Test
+    void interpolated_recordsNoFollowRedirectsOutcomeWhenNoneWasDeclared() {
+        // when
+        var result = interpolator.interpolated(new RequestOptions(null), interpolation, runtimeData);
+
+        // then
+        assertThat(result.getOutcomes()).doesNotContainKey("followRedirects");
+        assertThat(result.followRedirects()).isFalse();
+    }
+
+    @Test
+    void interpolated_readsAFollowRedirectsResolvedToBlankAsFalse() {
+        // given - an empty variable
+        resolving("${env.follow}", "");
+        var options = new RequestOptions(null, "${env.follow}", null, null);
+
+        // when
+        var result = interpolator.interpolated(options, interpolation, runtimeData);
+
+        // then
+        assertThat(result.followRedirects()).isFalse();
+    }
+
+    @Test
+    void interpolated_throwsForAFollowRedirectsThatIsNotTrueOrFalse() {
+        // given
+        resolving("${env.follow}", "sometimes");
+        var options = new RequestOptions(null, "${env.follow}", null, null);
+
+        // when / then
+        assertThatThrownBy(() -> interpolator.interpolated(options, interpolation, runtimeData))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("sometimes");
     }
 }

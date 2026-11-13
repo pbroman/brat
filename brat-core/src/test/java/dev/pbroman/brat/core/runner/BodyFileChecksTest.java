@@ -23,11 +23,11 @@ class BodyFileChecksTest {
 
     private static Request requestWithBody(String name, HttpBody body) {
         var definition = new HttpRequestDefinition("http://url", "GET", body, null);
-        return new Request(name, null, null, null, null, null, null, null, definition, null, null);
+        return new Request(name, null, null, null, null, null, null, null, null, definition, null, null);
     }
 
     private static TestSuite suite(List<Request> requests, List<TestSuite> subSuites) {
-        return new TestSuite("suite", null, null, null, null, null, null, null, requests, subSuites);
+        return new TestSuite("suite", null, null, null, null, null, null, null, null, requests, subSuites);
     }
 
     @Test
@@ -97,7 +97,7 @@ class BodyFileChecksTest {
                 List.of(
                         requestWithBody("raw", HttpBody.raw("{}")),
                         requestWithBody("none", null),
-                        new Request("no definition", null, null, null, null, null, null, null, null, null, null)),
+                        new Request("no definition", null, null, null, null, null, null, null, null, null, null, null)),
                 null);
 
         // when / then

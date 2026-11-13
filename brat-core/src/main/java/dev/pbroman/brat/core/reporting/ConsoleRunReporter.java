@@ -64,7 +64,9 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  *       the reason or message of a skipped, errored or given-up request. The verdict is {@code ERROR}
  *       for a request that could not be performed, {@code SKIP} for a skipped one, {@code FAIL} for any
  *       other that {@linkplain RequestResult#failed() failed} — a poll
- *       that gave up included — and {@code PASS} otherwise. Beneath it, the detail (below).</li>
+ *       that gave up included — and {@code PASS} otherwise. Beneath it, whatever the arguments, the
+ *       line {@link ResponseRenderer#redirectNotice} gives for a redirect that was refused; then the
+ *       detail (below).</li>
  *   <li>{@code SuiteExited} — nothing for a completed suite; otherwise {@code SKIPPED},
  *       {@code ABORTED} or {@code CANCELLED}, the suite's name, and the reason where there is one.</li>
  *   <li>{@code RunFinished} — the summary.</li>

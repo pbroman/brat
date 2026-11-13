@@ -3,6 +3,7 @@ package dev.pbroman.brat.core.rendering;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -18,6 +19,7 @@ import tools.jackson.databind.json.JsonMapper;
 import static dev.pbroman.brat.core.util.Constants.BODY;
 import static dev.pbroman.brat.core.util.Constants.HEADERS;
 import static dev.pbroman.brat.core.util.Constants.JSON;
+import static dev.pbroman.brat.core.util.Constants.REDIRECT_NOT_FOLLOWED;
 import static dev.pbroman.brat.core.util.Constants.STATUS_CODE;
 import static dev.pbroman.brat.core.util.Require.nonNull;
 
@@ -90,6 +92,29 @@ public final class ResponseRenderer {
         return result.requestDefinition() instanceof HttpRequestDefinition
                 ? http(responseVars.get(), mask, showSecrets)
                 : generic(responseVars.get(), mask, showSecrets);
+    }
+
+    /**
+     * The line saying that a redirect was not followed, for a request whose response records one.
+     * <p>
+     * {@code REDIRECT <location> not followed — another origin, and the request carries credentials},
+     * the location passed through {@link ReportText#shown}. Only an HTTP response records a refused
+     * redirect.
+     *
+     * @param result the finished request; must not be {@code null}
+     * @param mask the run's mask; must not be {@code null}
+     * @param showSecrets whether values the mask only guessed are shown
+     * @return the line, or {@link Optional#empty()} when the request carries no response or its
+     *         response refused no redirect
+     * @throws BratException if {@code result} or {@code mask} is {@code null}
+     */
+    public static Optional<String> redirectNotice(RequestResult result, ValueMask mask, boolean showSecrets) {
+        nonNull(result, "The result to read a refused redirect from must not be null");
+        nonNull(mask, "The mask must not be null");
+        return result.responseVars()
+                .map(responseVars -> responseVars.get(REDIRECT_NOT_FOLLOWED))
+                .map(location -> "REDIRECT " + ReportText.shown(location.toString(), mask, showSecrets)
+                        + " not followed — another origin, and the request carries credentials");
     }
 
     private static List<String> http(Map<String, Object> responseVars, ValueMask mask, boolean showSecrets) {

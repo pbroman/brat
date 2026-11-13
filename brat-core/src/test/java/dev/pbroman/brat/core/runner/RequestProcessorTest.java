@@ -112,6 +112,7 @@ class RequestProcessorTest {
                 "create-order",
                 null,
                 null,
+                null,
                 skipCondition,
                 null,
                 null,
@@ -609,7 +610,7 @@ class RequestProcessorTest {
         // given - this class no longer knows what HTTP is: the caller selected a handler, and a
         // definition of any protocol with an interpolator for it runs like any other
         RequestDefinition ftp = () -> "ftp";
-        var request = new Request("fetch the order", null, null, null, null, null, null, null, ftp, null, null);
+        var request = new Request("fetch the order", null, null, null, null, null, null, null, null, ftp, null, null);
         when(requestDefinitionInterpolator.interpolated(any(), any(), any())).thenReturn(ftp);
 
         // when
@@ -626,6 +627,7 @@ class RequestProcessorTest {
                 "create an order",
                 null,
                 "create-order",
+                null,
                 null,
                 null,
                 skipCondition,
@@ -807,6 +809,7 @@ class RequestProcessorTest {
                 null,
                 null,
                 null,
+                null,
                 authored,
                 null,
                 new FlowControl("${vars.wait}", null));
@@ -867,7 +870,7 @@ class RequestProcessorTest {
     @Test
     void process_throwsWhenTheRequestDeclaresNoDefinition() {
         // given
-        var request = new Request("create an order", null, null, null, null, null, null, null, null, null, null);
+        var request = new Request("create an order", null, null, null, null, null, null, null, null, null, null, null);
 
         // when / then
         assertThatThrownBy(() -> underTest.process(request, OPTIONS, coordinates, runtimeData, requestHandler))
@@ -943,7 +946,7 @@ class RequestProcessorTest {
     void process_erroresOnAuthOnANonHttpRequest() {
         // given
         RequestDefinition ftp = () -> "ftp";
-        var request = new Request("fetch the order", null, null, null, null, null, null, null, ftp, null, null);
+        var request = new Request("fetch the order", null, null, null, null, null, null, null, null, ftp, null, null);
         when(requestDefinitionInterpolator.interpolated(any(), any(), any())).thenReturn(ftp);
 
         // when
@@ -958,7 +961,8 @@ class RequestProcessorTest {
     void process_erroresOnAuthOnANonHttpDefinitionClaimingHttp() {
         // given - a plugin's own definition naming the http protocol is still not an HTTP definition
         RequestDefinition impostor = () -> "http";
-        var request = new Request("fetch the order", null, null, null, null, null, null, null, impostor, null, null);
+        var request =
+                new Request("fetch the order", null, null, null, null, null, null, null, null, impostor, null, null);
         when(requestDefinitionInterpolator.interpolated(any(), any(), any())).thenReturn(impostor);
 
         // when
@@ -973,7 +977,7 @@ class RequestProcessorTest {
     void process_runsANonHttpRequestWhoseAuthIsNone() {
         // given - a suite-level login over a tree that also holds a non-HTTP request cancels it there
         RequestDefinition ftp = () -> "ftp";
-        var request = new Request("fetch the order", null, null, null, null, null, null, null, ftp, null, null);
+        var request = new Request("fetch the order", null, null, null, null, null, null, null, null, ftp, null, null);
         when(requestDefinitionInterpolator.interpolated(any(), any(), any())).thenReturn(ftp);
 
         // when

@@ -1009,4 +1009,43 @@ class SuiteLoaderTest {
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("order-api.yaml");
     }
+
+    // ---------- followRedirects ----------
+
+    @Test
+    void load_bindsFollowRedirectsOnASuiteAndARequestQuotedOrNot() {
+        // given
+        var yaml = """
+                name: s
+                followRedirects: true
+                requests:
+                  - name: r
+                    followRedirects: "${params.follow:-false}"
+                """;
+
+        // when
+        var suite = underTest.load(yaml);
+
+        // then - an unquoted YAML boolean binds as its text
+        assertThat(suite.followRedirects()).isEqualTo("true");
+        assertThat(suite.requests().getFirst().followRedirects()).isEqualTo("${params.follow:-false}");
+    }
+
+    @Test
+    void load_rejectsFollowRedirectsInsideTheRequestDefinition() {
+        // given - it says what the run does, not what is sent
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      url: http://x
+                      followRedirects: true
+                """;
+
+        // when / then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("followRedirects");
+    }
 }

@@ -28,7 +28,7 @@ class InheritedDefaultsTest {
     @Test
     void constructor_defaultsANullHandlerMapToEmpty() {
         // when
-        var defaults = new InheritedDefaults(null, null, null);
+        var defaults = new InheritedDefaults(null, null, null, null);
 
         // then
         assertThat(defaults.requestHandlers()).isNotNull().isEmpty();
@@ -41,7 +41,7 @@ class InheritedDefaultsTest {
         names.put("http", "plain");
 
         // when
-        var defaults = new InheritedDefaults(null, null, names);
+        var defaults = new InheritedDefaults(null, null, null, names);
         names.put("ftp", "passive");
 
         // then
@@ -55,7 +55,7 @@ class InheritedDefaultsTest {
     @Test
     void with_takesTheSuitesTimeout() {
         // when
-        var folded = new InheritedDefaults("1000", null, Map.of()).with(suite("2000", Map.of()));
+        var folded = new InheritedDefaults("1000", null, null, Map.of()).with(suite("2000", Map.of()));
 
         // then
         assertThat(folded.timeout()).isEqualTo("2000");
@@ -64,7 +64,7 @@ class InheritedDefaultsTest {
     @Test
     void with_keepsTheInheritedTimeoutWhenTheSuiteDeclaresNone() {
         // when
-        var folded = new InheritedDefaults("1000", null, Map.of()).with(suite(null, Map.of()));
+        var folded = new InheritedDefaults("1000", null, null, Map.of()).with(suite(null, Map.of()));
 
         // then
         assertThat(folded.timeout()).isEqualTo("1000");
@@ -73,7 +73,7 @@ class InheritedDefaultsTest {
     @Test
     void with_letsASuiteOptBackOutOfAnInheritedTimeoutWithDefault() {
         // given
-        var inherited = new InheritedDefaults("1000", null, Map.of());
+        var inherited = new InheritedDefaults("1000", null, null, Map.of());
 
         // when
         var options = inherited.with(suite("default", Map.of())).options(request(null, Map.of()));
@@ -86,7 +86,7 @@ class InheritedDefaultsTest {
     @Test
     void with_treatsABlankTimeoutAsADeclaration() {
         // given - blank means "the default", which must be able to cancel an inherited timeout
-        var inherited = new InheritedDefaults("1000", null, Map.of());
+        var inherited = new InheritedDefaults("1000", null, null, Map.of());
 
         // when
         var folded = inherited.with(suite("", Map.of()));
@@ -107,7 +107,7 @@ class InheritedDefaultsTest {
     @Test
     void with_laysTheSuitesHandlerNamesOverTheInheritedOnesPerProtocol() {
         // given
-        var inherited = new InheritedDefaults(null, null, Map.of("http", "plain", "ftp", "passive"));
+        var inherited = new InheritedDefaults(null, null, null, Map.of("http", "plain", "ftp", "passive"));
 
         // when
         var folded = inherited.with(suite(null, Map.of("http", "mtls", "grpc", "tls")));
@@ -120,7 +120,7 @@ class InheritedDefaultsTest {
     @Test
     void with_leavesTheReceiverUnchanged() {
         // given
-        var inherited = new InheritedDefaults("1000", null, Map.of("http", "plain"));
+        var inherited = new InheritedDefaults("1000", null, null, Map.of("http", "plain"));
 
         // when
         inherited.with(suite("2000", Map.of("http", "mtls")));
@@ -136,7 +136,7 @@ class InheritedDefaultsTest {
         var suiteAuth = new Auth("bearer", Map.of("token", "${vars.adminToken}"));
 
         // when
-        var folded = new InheritedDefaults(null, BASIC, Map.of()).with(suite(suiteAuth));
+        var folded = new InheritedDefaults(null, null, BASIC, Map.of()).with(suite(suiteAuth));
 
         // then
         assertThat(folded.auth()).isSameAs(suiteAuth);
@@ -145,7 +145,7 @@ class InheritedDefaultsTest {
     @Test
     void with_keepsTheInheritedAuthWhenTheSuiteDeclaresNone() {
         // when
-        var folded = new InheritedDefaults(null, BASIC, Map.of()).with(suite((Auth) null));
+        var folded = new InheritedDefaults(null, null, BASIC, Map.of()).with(suite((Auth) null));
 
         // then
         assertThat(folded.auth()).isSameAs(BASIC);
@@ -157,7 +157,7 @@ class InheritedDefaultsTest {
         var suiteAuth = new Auth("basic", Map.of("username", "reader"));
 
         // when
-        var folded = new InheritedDefaults(null, BASIC, Map.of()).with(suite(suiteAuth));
+        var folded = new InheritedDefaults(null, null, BASIC, Map.of()).with(suite(suiteAuth));
 
         // then
         assertThat(folded.auth().getArgs()).containsExactlyEntriesOf(Map.of("username", "reader"));
@@ -169,7 +169,7 @@ class InheritedDefaultsTest {
         var none = new Auth("none", null);
 
         // when
-        var folded = new InheritedDefaults(null, BASIC, Map.of()).with(suite(none));
+        var folded = new InheritedDefaults(null, null, BASIC, Map.of()).with(suite(none));
 
         // then - a declaration like any other, not a null: it is what the subtree runs with
         assertThat(folded.auth()).isSameAs(none);
@@ -183,7 +183,7 @@ class InheritedDefaultsTest {
         var requestAuth = new Auth("bearer", Map.of("token", "not-a-real-token"));
 
         // when
-        var options = new InheritedDefaults(null, BASIC, Map.of()).options(request(requestAuth));
+        var options = new InheritedDefaults(null, null, BASIC, Map.of()).options(request(requestAuth));
 
         // then
         assertThat(options.getAuth()).isSameAs(requestAuth);
@@ -192,7 +192,7 @@ class InheritedDefaultsTest {
     @Test
     void options_fallsBackToTheInheritedAuth() {
         // when
-        var options = new InheritedDefaults(null, BASIC, Map.of()).options(request((Auth) null));
+        var options = new InheritedDefaults(null, null, BASIC, Map.of()).options(request((Auth) null));
 
         // then
         assertThat(options.getAuth()).isSameAs(BASIC);
@@ -210,7 +210,7 @@ class InheritedDefaultsTest {
     @Test
     void options_prefersTheRequestsOwnTimeout() {
         // when
-        var options = new InheritedDefaults("1000", null, Map.of()).options(request("3000", Map.of()));
+        var options = new InheritedDefaults("1000", null, null, Map.of()).options(request("3000", Map.of()));
 
         // then
         assertThat(options.getTimeout()).isEqualTo("3000");
@@ -219,7 +219,7 @@ class InheritedDefaultsTest {
     @Test
     void options_fallsBackToTheInheritedTimeout() {
         // when
-        var options = new InheritedDefaults("1000", null, Map.of()).options(request(null, Map.of()));
+        var options = new InheritedDefaults("1000", null, null, Map.of()).options(request(null, Map.of()));
 
         // then
         assertThat(options.getTimeout()).isEqualTo("1000");
@@ -228,7 +228,7 @@ class InheritedDefaultsTest {
     @Test
     void options_treatsABlankRequestTimeoutAsADeclaration() {
         // when
-        var options = new InheritedDefaults("1000", null, Map.of()).options(request("", Map.of()));
+        var options = new InheritedDefaults("1000", null, null, Map.of()).options(request("", Map.of()));
 
         // then - declared, so it wins, and reading it gives the default
         assertThat(options.getTimeout()).isEmpty();
@@ -248,7 +248,7 @@ class InheritedDefaultsTest {
     @Test
     void options_isNotYetInterpolated() {
         // when
-        var options = new InheritedDefaults("${vars.t}", null, Map.of()).options(request(null, Map.of()));
+        var options = new InheritedDefaults("${vars.t}", null, null, Map.of()).options(request(null, Map.of()));
 
         // then
         assertThat(options.isInterpolated()).isFalse();
@@ -260,7 +260,7 @@ class InheritedDefaultsTest {
     @Test
     void handlerNames_laysTheRequestsNamesOverTheInheritedOnesPerProtocol() {
         // given
-        var defaults = new InheritedDefaults(null, null, Map.of("http", "plain", "ftp", "passive"));
+        var defaults = new InheritedDefaults(null, null, null, Map.of("http", "plain", "ftp", "passive"));
 
         // when
         var names = defaults.handlerNames(request(null, Map.of("http", "mtls")));
@@ -281,7 +281,7 @@ class InheritedDefaultsTest {
     @Test
     void handlerNames_leavesTheDefaultsUnchanged() {
         // given
-        var defaults = new InheritedDefaults(null, null, Map.of("http", "plain"));
+        var defaults = new InheritedDefaults(null, null, null, Map.of("http", "plain"));
 
         // when
         defaults.handlerNames(request(null, Map.of("http", "mtls", "ftp", "passive")));
@@ -295,7 +295,7 @@ class InheritedDefaultsTest {
     private static final Auth BASIC = new Auth("basic", Map.of("username", "admin", "password", "${secrets.pw}"));
 
     private static TestSuite suite(Auth auth) {
-        return new TestSuite("s", null, null, null, auth, null, null, null, List.of(), null);
+        return new TestSuite("s", null, null, null, auth, null, null, null, null, List.of(), null);
     }
 
     private static Request request(Auth auth) {
@@ -308,13 +308,14 @@ class InheritedDefaultsTest {
                 null,
                 null,
                 null,
+                null,
                 new HttpRequestDefinition("http://localhost/x", "GET", null, null),
                 null,
                 null);
     }
 
     private static TestSuite suite(String timeout, Map<String, String> requestHandlers) {
-        return new TestSuite("s", null, null, null, null, timeout, null, requestHandlers, List.of(), null);
+        return new TestSuite("s", null, null, null, null, timeout, null, null, requestHandlers, List.of(), null);
     }
 
     private static Request request(String timeout, Map<String, String> requestHandlers) {
@@ -326,9 +327,55 @@ class InheritedDefaultsTest {
                 timeout,
                 null,
                 null,
+                null,
                 requestHandlers,
                 new HttpRequestDefinition("http://localhost/x", "GET", null, null),
                 null,
                 null);
+    }
+
+    // ---------- followRedirects ----------
+
+    private static TestSuite suiteFollowing(String followRedirects) {
+        return new TestSuite("s", null, null, null, null, null, followRedirects, null, null, List.of(), null);
+    }
+
+    private static Request requestFollowing(String followRedirects) {
+        return new Request("r", null, null, null, null, followRedirects, null, null, null, null, null, null);
+    }
+
+    @Test
+    void with_takesTheSuitesFollowRedirectsAndKeepsTheInheritedOneOtherwise() {
+        // when
+        var declared = InheritedDefaults.NONE.with(suiteFollowing("true"));
+        var inherited = declared.with(suiteFollowing(null));
+
+        // then
+        assertThat(declared.followRedirects()).isEqualTo("true");
+        assertThat(inherited.followRedirects()).isEqualTo("true");
+    }
+
+    @Test
+    void options_letsARequestsOwnFollowRedirectsWin() {
+        // given
+        var inherited = InheritedDefaults.NONE.with(suiteFollowing("true"));
+
+        // when
+        var own = inherited.options(requestFollowing("false"));
+        var none = inherited.options(requestFollowing(null));
+
+        // then
+        assertThat(own.getFollowRedirects()).isEqualTo("false");
+        assertThat(none.getFollowRedirects()).isEqualTo("true");
+    }
+
+    @Test
+    void options_leavesFollowRedirectsNullWhenNothingDeclaresIt() {
+        // when
+        var options = InheritedDefaults.NONE.with(suiteFollowing(null)).options(requestFollowing(null));
+
+        // then - read as false
+        assertThat(options.getFollowRedirects()).isNull();
+        assertThat(options.followRedirects()).isFalse();
     }
 }

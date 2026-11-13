@@ -40,6 +40,13 @@ public final class RequestOptions extends ConfigData {
     private final String timeout;
 
     /**
+     * Whether an HTTP request follows redirects, in text form: {@code true} or {@code false}, or blank
+     * or {@code null} for {@code false}. Text because it may hold {@code ${...}} tokens until this block
+     * is interpolated; read it through {@link #followRedirects()}.
+     */
+    private final String followRedirects;
+
+    /**
      * The credentials this request is sent with, or {@code null} when nothing above it declared any.
      * Already applied by the time a request handler receives these options: a handler sends the
      * request it is given and never applies this again.
@@ -47,7 +54,27 @@ public final class RequestOptions extends ConfigData {
     private final Auth auth;
 
     /**
-     * Constructs an interpolated copy of a request's options, carrying its named outcomes.
+     * Constructs a request's options, as assembled by the walk or as an interpolated copy carrying its
+     * named outcomes.
+     *
+     * @param timeout the timeout in milliseconds, in text form, or {@code null} for the default
+     * @param followRedirects whether redirects are followed, in text form, or {@code null} for
+     *        {@code false}
+     * @param auth the credentials, or {@code null} for none
+     * @param outcomes the named interpolation outcomes of an interpolated copy, or {@code null} on an
+     *        as-assembled instance
+     */
+    public RequestOptions(
+            String timeout, String followRedirects, Auth auth, Map<String, InterpolationOutcome> outcomes) {
+        super(outcomes);
+        this.timeout = timeout;
+        this.followRedirects = followRedirects;
+        this.auth = auth;
+    }
+
+    /**
+     * Equivalent to {@link #RequestOptions(String, String, Auth, Map)} with {@code followRedirects}
+     * defaulted to {@code null}.
      *
      * @param timeout the resolved timeout in milliseconds, in text form, or {@code null} for the
      *        default
@@ -56,9 +83,7 @@ public final class RequestOptions extends ConfigData {
      *        as-assembled instance
      */
     public RequestOptions(String timeout, Auth auth, Map<String, InterpolationOutcome> outcomes) {
-        super(outcomes);
-        this.timeout = timeout;
-        this.auth = auth;
+        this(timeout, null, auth, outcomes);
     }
 
     /**
@@ -83,6 +108,31 @@ public final class RequestOptions extends ConfigData {
      */
     public RequestOptions(String timeout) {
         this(timeout, null, null);
+    }
+
+    /**
+     * Whether an HTTP request follows redirects.
+     * <p>
+     * {@code true} or {@code false} in any case, surrounding whitespace ignored; {@code null} or blank
+     * is {@code false}. On an interpolated copy this never throws, since interpolation has already
+     * validated the value.
+     *
+     * @return whether redirects are followed
+     * @throws BratException if {@code followRedirects} is anything else — a {@code ${...}} token not yet
+     *         resolved included — quoting the value
+     */
+    public boolean followRedirects() {
+        if (StringUtils.isBlank(followRedirects)) {
+            return false;
+        }
+        var value = followRedirects.trim();
+        if ("true".equalsIgnoreCase(value)) {
+            return true;
+        }
+        if ("false".equalsIgnoreCase(value)) {
+            return false;
+        }
+        throw new BratException(String.format("The followRedirects value '%s' must be true or false", followRedirects));
     }
 
     /**

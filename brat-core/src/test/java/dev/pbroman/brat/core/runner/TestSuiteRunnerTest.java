@@ -326,7 +326,7 @@ class TestSuiteRunnerTest {
     @Test
     void walk_processesARequestWithOptionsBuiltFromItsOwnTimeout() {
         // given
-        var request = new Request("r", null, null, null, "750", null, null, null, definition(), null, null);
+        var request = new Request("r", null, null, null, "750", null, null, null, null, definition(), null, null);
         var suite = suite("s", List.of(request), List.of());
         var options = ArgumentCaptor.forClass(RequestOptions.class);
 
@@ -342,10 +342,11 @@ class TestSuiteRunnerTest {
     @Test
     void walk_selectsTheHandlerByTheRequestsNamesMergedOverItsSuites() {
         // given
-        var request =
-                new Request("r", null, null, null, null, null, null, Map.of("http", "mtls"), definition(), null, null);
+        var request = new Request(
+                "r", null, null, null, null, null, null, null, Map.of("http", "mtls"), definition(), null, null);
         var suite = new TestSuite(
                 "s",
+                null,
                 null,
                 null,
                 null,
@@ -377,6 +378,7 @@ class TestSuiteRunnerTest {
                 "2000",
                 null,
                 null,
+                null,
                 List.of(request("inherits", Phase.MAIN), timedRequest("own", "3000")),
                 null);
         var root = new TestSuite(
@@ -386,6 +388,7 @@ class TestSuiteRunnerTest {
                 null,
                 null,
                 "1000",
+                null,
                 null,
                 null,
                 List.of(request("top", Phase.MAIN)),
@@ -405,7 +408,7 @@ class TestSuiteRunnerTest {
         var grandchild = suite("grandchild", List.of(request("r", Phase.MAIN)), List.of());
         var child = suite("child", List.of(), List.of(grandchild));
         var root = new TestSuite(
-                "root", null, null, null, null, null, null, Map.of("http", "plain"), null, List.of(child));
+                "root", null, null, null, null, null, null, null, Map.of("http", "plain"), null, List.of(child));
 
         // when
         underTest.walk(root, runtimeData);
@@ -425,11 +428,13 @@ class TestSuiteRunnerTest {
                 null,
                 null,
                 null,
+                null,
                 Map.of("http", "mtls"),
                 List.of(request("r", Phase.MAIN)),
                 null);
         var root = new TestSuite(
                 "root",
+                null,
                 null,
                 null,
                 null,
@@ -458,6 +463,7 @@ class TestSuiteRunnerTest {
                 null,
                 "111",
                 null,
+                null,
                 Map.of("http", "mtls"),
                 List.of(request("inside", Phase.MAIN)),
                 null);
@@ -469,6 +475,7 @@ class TestSuiteRunnerTest {
                 null,
                 null,
                 "1000",
+                null,
                 null,
                 null,
                 List.of(request("cleanUp", Phase.TEARDOWN)),
@@ -1322,15 +1329,15 @@ class TestSuiteRunnerTest {
     }
 
     private static Request request(String name, Phase phase) {
-        return new Request(name, null, null, null, null, null, phase, null, definition(), null, null);
+        return new Request(name, null, null, null, null, null, null, phase, null, definition(), null, null);
     }
 
     private static TestSuite suite(String name, List<Request> requests, List<TestSuite> subSuites) {
-        return new TestSuite(name, null, null, null, null, null, null, null, requests, subSuites);
+        return new TestSuite(name, null, null, null, null, null, null, null, null, requests, subSuites);
     }
 
     private static Request timedRequest(String name, String timeout) {
-        return new Request(name, null, null, null, timeout, null, null, null, definition(), null, null);
+        return new Request(name, null, null, null, timeout, null, null, null, null, definition(), null, null);
     }
 
     /** Each request's name mapped to the timeout it was processed with. */

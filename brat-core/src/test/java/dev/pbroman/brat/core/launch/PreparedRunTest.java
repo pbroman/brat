@@ -13,7 +13,7 @@ class PreparedRunTest {
     @Test
     void constructor_throwsForANullSuiteOrEnvironment() {
         // given
-        var suite = new TestSuite("s", null, null, null, null, null, null, null, null, null);
+        var suite = new TestSuite("s", null, null, null, null, null, null, null, null, null, null);
         var environment = Environment.of(Map.of(), Map.of());
 
         // then
