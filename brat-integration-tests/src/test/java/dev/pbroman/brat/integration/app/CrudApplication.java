@@ -244,15 +244,37 @@ public class CrudApplication {
     }
 
     /**
-     * Exchanges a username and password for the account's token, shaped like an OAuth2 token response.
+     * Exchanges a username and password, sent as a form, for the account's token — shaped like an
+     * OAuth2 password-grant token response.
      *
-     * @param login the credentials
+     * @param username the account's name
+     * @param password its password
      * @return the token, as {@code access_token}, with its type
      */
-    @PostMapping(path = "/oauth/token", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Map<String, String> oauthToken(@RequestBody Login login) {
-        var token = login(login).get("token");
+    @PostMapping(
+            path = "/oauth/token",
+            consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, String> oauthToken(@RequestParam String username, @RequestParam String password) {
+        var token = login(new Login(username, password)).get("token");
         return Map.of("access_token", token, "token_type", "Bearer");
+    }
+
+    /**
+     * Echoes a form as the server decoded it, with the content type it arrived under, so a suite can
+     * assert that what it wrote is what the server read.
+     *
+     * @param form every field of the form, decoded
+     * @param contentType the request's {@code Content-Type}
+     * @return the fields and the content type
+     */
+    @PostMapping(
+            path = "/form/echo",
+            consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> formEcho(
+            @RequestParam Map<String, String> form, @RequestHeader("Content-Type") String contentType) {
+        return Map.of("form", form, "contentType", contentType);
     }
 
     /** Says which account the request's credentials belong to. */

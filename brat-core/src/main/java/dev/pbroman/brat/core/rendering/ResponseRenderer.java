@@ -2,7 +2,6 @@ package dev.pbroman.brat.core.rendering;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -11,7 +10,7 @@ import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.exception.BratException;
-import org.apache.commons.lang3.StringUtils;
+import dev.pbroman.brat.core.util.HttpHeaderUtils;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
@@ -107,8 +106,8 @@ public final class ResponseRenderer {
             return lines;
         }
         var contentType = firstValue(headers, CONTENT_TYPE);
-        if (contentType != null && !isText(mediaType(contentType))) {
-            lines.add(INDENT + "body: ‹binary body, " + mediaType(contentType) + size(headers) + "›");
+        if (contentType != null && !isText(HttpHeaderUtils.mediaType(contentType))) {
+            lines.add(INDENT + "body: ‹binary body, " + HttpHeaderUtils.mediaType(contentType) + size(headers) + "›");
             return lines;
         }
         lines.add(INDENT + "body:");
@@ -148,11 +147,6 @@ public final class ResponseRenderer {
             }
         }
         return null;
-    }
-
-    /** The content type without its parameters, trimmed and lower case. */
-    private static String mediaType(String contentType) {
-        return StringUtils.substringBefore(contentType, ";").trim().toLowerCase(Locale.ROOT);
     }
 
     private static boolean isText(String mediaType) {

@@ -1,15 +1,11 @@
 package dev.pbroman.brat.core.data;
 
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
 
-import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
-import static dev.pbroman.brat.core.util.Constants.FILE_BODY;
-import static dev.pbroman.brat.core.util.Constants.RAW_BODY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -20,88 +16,94 @@ class HttpRequestDefinitionTest {
     private static final String FORM = "application/x-www-form-urlencoded";
 
     @Test
-    void constructor_derivesBodyStringFromARawBody() {
+    void constructor_keepsTheBodyItWasGiven() {
         // given
-        var body = Map.of(RAW_BODY, "{\"item\": \"widget\"}");
+        var body = HttpBody.raw("{\"item\": \"widget\"}");
 
         // when
         var definition = new HttpRequestDefinition("http://x", "POST", body, Map.of("Content-Type", JSON));
 
         // then
-        assertThat(definition.getBody()).containsEntry(BODY_STRING, "{\"item\": \"widget\"}");
-    }
-
-    @Test
-    void constructor_doesNotThrowForABodyWithoutContentType() {
-        // given — the common case: a JSON body with the content type set at suite level
-        var body = Map.of(RAW_BODY, "{}");
-
-        // then
-        assertThatCode(() -> new HttpRequestDefinition("http://x", "POST", body, Map.of()))
-                .doesNotThrowAnyException();
+        assertThat(definition.getBody()).isSameAs(body);
     }
 
     @Test
     void constructor_doesNotThrowForABodyWithNullHeaders() {
-        // given
-        var body = Map.of(RAW_BODY, "{}");
-
-        // then — the constructor's own Javadoc permits null headers
-        assertThatCode(() -> new HttpRequestDefinition("http://x", "POST", body, null))
+        // when / then — the constructor's own Javadoc permits null headers
+        assertThatCode(() -> new HttpRequestDefinition("http://x", "POST", HttpBody.form(Map.of("a", "1")), null))
                 .doesNotThrowAnyException();
-    }
-
-    @Test
-    void constructor_formEncodesWhenContentTypeIsFormUrlencoded() {
-        // given
-        var body = new LinkedHashMap<String, String>();
-        body.put("a", "1");
-        body.put("b", "2");
-
-        // when
-        var definition = new HttpRequestDefinition("http://x", "POST", body, Map.of("Content-Type", FORM));
-
-        // then
-        assertThat(definition.getBody()).containsEntry(BODY_STRING, "a=1&b=2");
-    }
-
-    @Test
-    void constructor_formEncodesWhateverCaseTheContentTypeHeaderIsWrittenIn() {
-        // given — HTTP header names are case-insensitive; a suite may spell it any way
-        var body = new LinkedHashMap<String, String>();
-        body.put("a", "1");
-
-        // when
-        var definition = new HttpRequestDefinition("http://x", "POST", body, Map.of("content-type", FORM));
-
-        // then
-        assertThat(definition.getBody()).containsEntry(BODY_STRING, "a=1");
     }
 
     @Test
     void constructor_doesNotReadAFileBody() {
         // given — a path that does not exist; the read happens at request time, after interpolation
-        var body = Map.of(FILE_BODY, "bodies/does-not-exist-${vars.stage}.json");
+        var body = HttpBody.file("bodies/does-not-exist-${vars.stage}.json");
 
         // when
         var definition = new HttpRequestDefinition("http://x", "POST", body, Map.of());
 
         // then
-        assertThat(definition.getBody()).containsEntry(FILE_BODY, "bodies/does-not-exist-${vars.stage}.json");
-        assertThat(definition.getBody()).doesNotContainKey(BODY_STRING);
+        assertThat(definition.getBody().getFileContent()).isNull();
+    }
+
+    // --- a form and its Content-Type ---
+
+    @Test
+    void constructor_acceptsAFormWithoutAContentType() {
+        // when
+        var definition = new HttpRequestDefinition("http://x", "POST", HttpBody.form(Map.of("a", "1")), Map.of());
+
+        // then - interpolation adds it, construction does not
+        assertThat(definition.getHeaders()).isEmpty();
     }
 
     @Test
-    void constructor_doesNotMutateTheBodyItWasGiven() {
+    void constructor_acceptsAFormWithTheFormContentTypeInAnyCaseAndWithParameters() {
         // given
-        var body = new HashMap<String, String>();
-        body.put(RAW_BODY, "{}");
+        var body = HttpBody.form(Map.of("a", "1"));
 
-        // when
-        new HttpRequestDefinition("http://x", "POST", body, Map.of("Content-Type", JSON));
+        // when / then
+        assertThatCode(() -> new HttpRequestDefinition("http://x", "POST", body, Map.of("Content-Type", FORM)))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> new HttpRequestDefinition(
+                        "http://x", "POST", body, Map.of("content-type", "Application/X-WWW-Form-Urlencoded")))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> new HttpRequestDefinition(
+                        "http://x", "POST", body, Map.of("Content-Type", FORM + "; charset=UTF-8")))
+                .doesNotThrowAnyException();
+    }
 
-        // then
-        assertThat(body).containsOnlyKeys(RAW_BODY);
+    @Test
+    void constructor_rejectsAFormUnderAnotherContentType() {
+        // given
+        var body = HttpBody.form(Map.of("a", "1"));
+
+        // when / then
+        assertThatThrownBy(() -> new HttpRequestDefinition("http://x", "POST", body, Map.of("Content-Type", JSON)))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining(JSON);
+    }
+
+    @Test
+    void constructor_leavesAContentTypeHoldingATokenForTheInterpolatedCopy() {
+        // given
+        var body = HttpBody.form(Map.of("a", "1"));
+
+        // when / then - it may resolve to the form type, so it cannot be judged yet
+        assertThatCode(() -> new HttpRequestDefinition(
+                        "http://x", "POST", body, Map.of("Content-Type", "${env.contentType}")))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void constructor_acceptsAnyContentTypeForABodyThatIsNotAForm() {
+        // when / then
+        assertThatCode(() -> new HttpRequestDefinition(
+                        "http://x", "POST", HttpBody.raw("a=1"), Map.of("Content-Type", FORM)))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> new HttpRequestDefinition(
+                        "http://x", "POST", HttpBody.file("bodies/order.json"), Map.of("Content-Type", JSON)))
+                .doesNotThrowAnyException();
     }
 
     @Test
@@ -157,60 +159,6 @@ class HttpRequestDefinitionTest {
     }
 
     @Test
-    void constructor_rejectsABodyDeclaringBothRawAndFile() {
-        // given - each names a whole payload, so the two together state two bodies for one request
-        var body = new LinkedHashMap<String, String>();
-        body.put(RAW_BODY, "{\"a\": 1}");
-        body.put(FILE_BODY, "classpath:bodies/order.json");
-
-        // then - rejected at construction rather than resolved by whichever step happens to run last,
-        // and the message quotes neither payload
-        assertThatThrownBy(() -> new HttpRequestDefinition("http://x", "POST", body, null))
-                .isInstanceOf(BratException.class)
-                .hasMessageContaining("'raw'")
-                .hasMessageContaining("'file'")
-                .hasMessageNotContaining("order.json");
-    }
-
-    @Test
-    void constructor_keepsAnAuthoredBodyStringOverFormEncoding() {
-        // given - the author supplied _bodyString themselves
-        var body = new LinkedHashMap<String, String>();
-        body.put(BODY_STRING, "already=encoded");
-        body.put("a", "1");
-
-        // when
-        var definition = new HttpRequestDefinition("http://x", "POST", body, Map.of("Content-Type", FORM));
-
-        // then - "no _bodyString is present yet" means an authored one wins
-        assertThat(definition.getBody()).containsEntry(BODY_STRING, "already=encoded");
-    }
-
-    @Test
-    void constructor_doesNotFormEncodeAFileBody() {
-        // given - a file body with a form content type is still a file body
-        var body = Map.of(FILE_BODY, "bodies/order.json");
-
-        // when
-        var definition = new HttpRequestDefinition("http://x", "POST", body, Map.of("Content-Type", FORM));
-
-        // then - form-encoding it would send the literal path as the payload
-        assertThat(definition.getBody()).containsOnlyKeys(FILE_BODY);
-    }
-
-    @Test
-    void constructor_derivesNoBodyStringFromAnEmptyBody() {
-        // given
-        var body = new LinkedHashMap<String, String>();
-
-        // when
-        var definition = new HttpRequestDefinition("http://x", "POST", body, Map.of("Content-Type", FORM));
-
-        // then
-        assertThat(definition.getBody()).isEmpty();
-    }
-
-    @Test
     void constructor_defaultsSeverityAndDropsNoHeadersWhenBothAreNull() {
         // when
         var definition = new HttpRequestDefinition("http://x", "GET", null, null);
@@ -218,19 +166,6 @@ class HttpRequestDefinitionTest {
         // then
         assertThat(definition.getHeaders()).isNull();
         assertThat(definition.getBody()).isNull();
-    }
-
-    @Test
-    void constructor_leavesAPlainBodyUnchangedForANonFormContentType() {
-        // given - no raw, no file, no _bodyString, and JSON rather than form encoding
-        var body = new LinkedHashMap<String, String>();
-        body.put("a", "1");
-
-        // when
-        var definition = new HttpRequestDefinition("http://x", "POST", body, Map.of("Content-Type", JSON));
-
-        // then - the documented third case: returned unchanged
-        assertThat(definition.getBody()).containsOnlyKeys("a");
     }
 
     @Test

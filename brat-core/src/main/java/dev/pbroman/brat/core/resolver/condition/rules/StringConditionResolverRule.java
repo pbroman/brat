@@ -6,6 +6,7 @@ import java.util.Map;
 
 import dev.pbroman.brat.core.api.resolver.ConditionPredicate;
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.util.HttpHeaderUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 
@@ -61,7 +62,9 @@ public final class StringConditionResolverRule extends AbstractConditionResolver
         predicates.put(EMPTY, (a, b, args) -> parse(a).isEmpty());
         predicates.put(CONTAINS, (a, b, args) -> parse(a).contains(parse(b)));
         predicates.put(CONTAINS_IGNORING_CASE, (a, b, args) -> Strings.CI.contains(parse(a), parse(b)));
-        predicates.put(MEDIA_TYPE, (a, b, args) -> mediaTypeOf(a).equalsIgnoreCase(mediaTypeOf(b)));
+        predicates.put(
+                MEDIA_TYPE,
+                (a, b, args) -> HttpHeaderUtils.mediaType(parse(a)).equals(HttpHeaderUtils.mediaType(parse(b))));
         predicates.put(STARTS_WITH, (a, b, args) -> parse(a).startsWith(parse(b)));
         predicates.put(ENDS_WITH, (a, b, args) -> parse(a).endsWith(parse(b)));
         predicates.put(MATCHES, (a, b, args) -> parse(a).matches(parse(b)));
@@ -104,14 +107,6 @@ public final class StringConditionResolverRule extends AbstractConditionResolver
 
     private static String parse(Object value) {
         return String.valueOf(value);
-    }
-
-    /**
-     * The media type without its parameters, so {@code application/json; charset=utf-8} compares
-     * equal to {@code application/json}. Applied to both operands, so either may carry parameters.
-     */
-    private static String mediaTypeOf(Object value) {
-        return StringUtils.substringBefore(parse(value), ";").trim();
     }
 
     @Override

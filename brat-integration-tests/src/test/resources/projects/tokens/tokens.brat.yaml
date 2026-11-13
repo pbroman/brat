@@ -8,14 +8,10 @@ requests:
     requestDefinition:
       url: "${env.baseUrl}/oauth/token"
       method: POST
-      headers:
-        Content-Type: application/json
       body:
-        raw: |
-          {
-            "username": "reader",
-            "password": "reader-password"
-          }
+        form:                                # sent URL-encoded, its Content-Type set by BRAT
+          username: reader
+          password: reader-password
     responseActions:
       assertions:
         - a: "${response.json.$.token_type}"

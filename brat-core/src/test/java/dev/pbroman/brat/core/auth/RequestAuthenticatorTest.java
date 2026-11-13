@@ -10,6 +10,7 @@ import dev.pbroman.brat.core.api.auth.AuthHandler;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.data.Auth;
+import dev.pbroman.brat.core.data.HttpBody;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
@@ -38,7 +39,7 @@ class RequestAuthenticatorTest {
     private final HttpRequestDefinition request = new HttpRequestDefinition(
             "http://localhost/orders",
             "POST",
-            Map.of("raw", "{\"id\":1}"),
+            HttpBody.raw("{\"id\":1}"),
             Map.of("Accept", "application/json"),
             Map.of("proxy", "on"),
             Map.of("url", new InterpolationOutcome("http://localhost/orders", "${vars.base}/orders → http://…")));

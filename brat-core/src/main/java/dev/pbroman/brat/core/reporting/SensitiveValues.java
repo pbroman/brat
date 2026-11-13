@@ -26,9 +26,11 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  * <p>
  * <strong>From the request as sent</strong>, when its definition is an interpolated
  * {@code HttpRequestDefinition}: the value of each {@code Authorization}, {@code Proxy-Authorization}
- * and {@code Cookie} header, the names matched ignoring case. Each is added as a <em>secret</em> when
- * its outcome {@code containsSecret}, since it was built from one, and as a <em>guessed</em> value
- * otherwise.
+ * and {@code Cookie} header, the names matched ignoring case; and, for a form body, the value of each
+ * entry whose name is one of the sensitive field names below, matched the same way. Each is added as
+ * a <em>secret</em> when its outcome ({@code header.<name>} or {@code body.form.<key>})
+ * {@code containsSecret}, since it was built from one, and as a <em>guessed</em> value otherwise — an
+ * entry with no such outcome included. A form entry's value is added whole.
  * <p>
  * <strong>From the response</strong>, when the request carries one ({@link RequestResult#responseVars()}),
  * every value added as guessed:
@@ -51,6 +53,7 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
 public final class SensitiveValues {
 
     private static final String HEADER_PREFIX = "header.";
+    private static final String FORM_PREFIX = "body.form.";
     private static final String SET_COOKIE = "set-cookie";
     private static final Set<String> SCHEME_HEADERS = Set.of("authorization", "proxy-authorization");
     private static final String COOKIE = "cookie";
@@ -80,6 +83,9 @@ public final class SensitiveValues {
         if (sent.isInterpolated() && sent.getHeaders() != null) {
             addFromRequest(mask, sent);
         }
+        if (sent.isInterpolated() && sent.getBody() != null && sent.getBody().getForm() != null) {
+            addFromForm(mask, sent);
+        }
         result.responseVars().ifPresent(responseVars -> addFromResponse(mask, responseVars));
     }
 
@@ -97,6 +103,27 @@ public final class SensitiveValues {
                 } else {
                     mask.addGuessed(credential);
                 }
+            }
+        }
+    }
+
+    /**
+     * Adds the value of every form entry with a sensitive name, as a secret where its outcome says it
+     * was built from one.
+     *
+     * @param mask the run's mask
+     * @param sent the interpolated request, whose body is a form
+     */
+    private static void addFromForm(ValueMask mask, HttpRequestDefinition sent) {
+        for (var entry : sent.getBody().getForm().entrySet()) {
+            if (!SENSITIVE_FIELDS.contains(normalised(entry.getKey()))) {
+                continue;
+            }
+            var outcome = sent.getOutcomes().get(FORM_PREFIX + entry.getKey());
+            if (outcome != null && outcome.containsSecret()) {
+                mask.addSecret(entry.getValue());
+            } else {
+                mask.addGuessed(entry.getValue());
             }
         }
     }

@@ -132,4 +132,26 @@ class HttpHeaderUtilsTest {
         // then
         assertThatCode(() -> HttpHeaderUtils.requireNoCaseDuplicates(headers)).doesNotThrowAnyException();
     }
+
+    @Test
+    void mediaType_dropsParametersAndCase() {
+        // when / then
+        assertThat(HttpHeaderUtils.mediaType("Application/JSON; charset=UTF-8")).isEqualTo("application/json");
+        assertThat(HttpHeaderUtils.mediaType("  text/plain  ")).isEqualTo("text/plain");
+        assertThat(HttpHeaderUtils.mediaType("application/x-www-form-urlencoded"))
+                .isEqualTo("application/x-www-form-urlencoded");
+    }
+
+    @Test
+    void mediaType_isEmptyForABlankValueOrOneOfParametersOnly() {
+        // when / then
+        assertThat(HttpHeaderUtils.mediaType("  ")).isEmpty();
+        assertThat(HttpHeaderUtils.mediaType("; charset=UTF-8")).isEmpty();
+    }
+
+    @Test
+    void mediaType_throwsForNull() {
+        // when / then
+        assertThatThrownBy(() -> HttpHeaderUtils.mediaType(null)).isInstanceOf(BratException.class);
+    }
 }

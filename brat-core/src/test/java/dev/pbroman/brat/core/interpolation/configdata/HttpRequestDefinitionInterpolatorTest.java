@@ -8,6 +8,7 @@ import java.util.Map;
 
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import dev.pbroman.brat.core.data.HttpBody;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
@@ -30,8 +31,7 @@ class HttpRequestDefinitionInterpolatorTest {
 
     @BeforeEach
     void setUp() {
-        var body = new LinkedHashMap<String, String>();
-        body.put("raw", "{}");
+        var body = HttpBody.raw("{}");
         var headers = new LinkedHashMap<String, String>();
         headers.put(CONTENT_TYPE, "application/json");
         headers.put("Authorization", "Bearer token");
@@ -47,13 +47,7 @@ class HttpRequestDefinitionInterpolatorTest {
         assertThat(interpolated.getUrl()).isEqualTo("http://url-i");
         assertThat(interpolated.getMethod()).isEqualTo("GET-i");
         assertThat(interpolated.getOutcomes().keySet())
-                .containsExactly(
-                        "url",
-                        "method",
-                        "body.raw",
-                        "body._bodyString",
-                        "header." + CONTENT_TYPE,
-                        "header.Authorization");
+                .containsExactly("url", "method", "body.raw", "header." + CONTENT_TYPE, "header.Authorization");
         assertThat(interpolated.getHeaders()).containsKey(CONTENT_TYPE);
     }
 
@@ -96,15 +90,14 @@ class HttpRequestDefinitionInterpolatorTest {
         // given - a handler must receive a payload it never has to read from disk
         var file = bodyDir.resolve("order.json");
         Files.writeString(file, "{\"id\": 1}");
-        var request = new HttpRequestDefinition("http://url", "POST", Map.of("file", "file:" + file), null);
+        var request = new HttpRequestDefinition("http://url", "POST", HttpBody.file("file:" + file), null);
         var data = new RuntimeData(Map.of(), Map.of(), new LinkedHashMap<>(), Map.of(), null);
 
         // when
         var interpolated = underTest.interpolated(request, passthrough, data);
 
         // then
-        assertThat(interpolated.getBody()).containsKey("_bodyString");
-        assertThat(interpolated.getBody().get("_bodyString")).contains("{\"id\": 1}");
+        assertThat(interpolated.getBody().getPayload()).contains("{\"id\": 1}");
     }
 
     @Test
@@ -112,14 +105,14 @@ class HttpRequestDefinitionInterpolatorTest {
         // given
         var file = bodyDir.resolve("secret.json");
         Files.writeString(file, "{\"password\": \"hunter2\"}");
-        var request = new HttpRequestDefinition("http://url", "POST", Map.of("file", "file:" + file), null);
+        var request = new HttpRequestDefinition("http://url", "POST", HttpBody.file("file:" + file), null);
         var data = new RuntimeData(Map.of(), Map.of(), new LinkedHashMap<>(), Map.of(), null);
 
         // when
         var interpolated = underTest.interpolated(request, passthrough, data);
 
         // then - a reporting string travels into logs, and a body file may hold a credential
-        assertThat(interpolated.getOutcomes().get("body._bodyString").reportingString())
+        assertThat(interpolated.getOutcomes().get("body.fileContent").reportingString())
                 .contains("secret.json")
                 .doesNotContain("hunter2");
     }
@@ -129,7 +122,7 @@ class HttpRequestDefinitionInterpolatorTest {
         // given
         var file = bodyDir.resolve("order.json");
         Files.writeString(file, "{}");
-        var request = new HttpRequestDefinition("http://url", "POST", Map.of("file", "order.json"), null);
+        var request = new HttpRequestDefinition("http://url", "POST", HttpBody.file("order.json"), null);
         var data = new RuntimeData(
                 Map.of(), Map.of(), new LinkedHashMap<>(), Map.of(), "file:" + bodyDir.resolve("orders.yaml"));
 
@@ -137,14 +130,14 @@ class HttpRequestDefinitionInterpolatorTest {
         var interpolated = underTest.interpolated(request, passthrough, data);
 
         // then
-        assertThat(interpolated.getBody()).containsKey("_bodyString");
+        assertThat(interpolated.getBody().getFileContent()).isNotNull();
     }
 
     @Test
     void interpolated_throwsWhenAFileBodyCannotBeRead() {
         // given
         var request = new HttpRequestDefinition(
-                "http://url", "POST", Map.of("file", "file:" + bodyDir.resolve("absent.json")), null);
+                "http://url", "POST", HttpBody.file("file:" + bodyDir.resolve("absent.json")), null);
         var data = new RuntimeData(Map.of(), Map.of(), new LinkedHashMap<>(), Map.of(), null);
 
         // then
@@ -159,14 +152,14 @@ class HttpRequestDefinitionInterpolatorTest {
         // that happens after it can find the file at all
         Files.writeString(bodyDir.resolve("payload.json-i"), "{}");
         var request = new HttpRequestDefinition(
-                "http://url", "POST", Map.of("file", "file:" + bodyDir.resolve("payload.json")), null);
+                "http://url", "POST", HttpBody.file("file:" + bodyDir.resolve("payload.json")), null);
         var data = new RuntimeData(Map.of(), Map.of(), new LinkedHashMap<>(), Map.of(), null);
 
         // when
         var interpolated = underTest.interpolated(request, interpolation, data);
 
         // then
-        assertThat(interpolated.getBody()).containsKey("_bodyString");
+        assertThat(interpolated.getBody().getFileContent()).isNotNull();
     }
 
     @Test
@@ -201,5 +194,181 @@ class HttpRequestDefinitionInterpolatorTest {
         // then - empty rather than null, and no stray args.* outcome keys
         assertThat(interpolated.getArgs()).isEmpty();
         assertThat(interpolated.getOutcomes().keySet()).noneMatch(key -> key.startsWith("args."));
+    }
+
+    // --- the body ---
+
+    /** Resolves {@code ${secrets.x}} to a value holding {@code &}, marked secret; anything else as it is. */
+    Interpolation secrets = (input, data) -> "${secrets.x}".equals(input)
+            ? new InterpolationOutcome("a&b=c", input + " → ***", true)
+            : new InterpolationOutcome(input, input);
+
+    private static Map<String, String> form(String... keysAndValues) {
+        var form = new LinkedHashMap<String, String>();
+        for (int i = 0; i < keysAndValues.length; i += 2) {
+            form.put(keysAndValues[i], keysAndValues[i + 1]);
+        }
+        return form;
+    }
+
+    @Test
+    void interpolated_resolvesARawBodyUnderOneOutcome() {
+        // when
+        var interpolated = underTest.interpolated(validRequest, interpolation, runtimeData);
+
+        // then
+        assertThat(interpolated.getBody().getRaw()).isEqualTo("{}-i");
+        assertThat(interpolated.getOutcomes()).containsKey("body.raw");
+    }
+
+    @Test
+    void interpolated_reportsAFileBodyByItsPathAndItsContent() throws IOException {
+        // given
+        var file = bodyDir.resolve("order.json");
+        Files.writeString(file, "{}");
+        var request = new HttpRequestDefinition("http://url", "POST", HttpBody.file("file:" + file), null);
+        var data = new RuntimeData(Map.of(), Map.of(), new LinkedHashMap<>(), Map.of(), null);
+
+        // when
+        var interpolated = underTest.interpolated(request, passthrough, data);
+
+        // then
+        assertThat(interpolated.getOutcomes()).containsKeys("body.file", "body.fileContent");
+        assertThat(interpolated.getBody().getFile()).isEqualTo("file:" + file);
+    }
+
+    @Test
+    void interpolated_resolvesEachFormEntryUnderItsOwnOutcomeInOrder() {
+        // given
+        var request = new HttpRequestDefinition(
+                "http://url", "POST", HttpBody.form(form("grant_type", "password", "username", "${vars.user}")), null);
+
+        // when
+        var interpolated = underTest.interpolated(request, interpolation, runtimeData);
+
+        // then
+        assertThat(interpolated.getBody().getForm())
+                .containsExactly(Map.entry("grant_type", "password-i"), Map.entry("username", "${vars.user}-i"));
+        assertThat(interpolated.getOutcomes().keySet())
+                .containsSubsequence("body.form.grant_type", "body.form.username");
+    }
+
+    @Test
+    void interpolated_keepsASecretFormEntryMaskedInItsOutcome() {
+        // given
+        var request = new HttpRequestDefinition(
+                "http://url", "POST", HttpBody.form(form("client_secret", "${secrets.x}")), null);
+
+        // when
+        var interpolated = underTest.interpolated(request, secrets, runtimeData);
+
+        // then
+        var outcome = interpolated.getOutcomes().get("body.form.client_secret");
+        assertThat(outcome.containsSecret()).isTrue();
+        assertThat(outcome.reportingString()).isEqualTo("${secrets.x} → ***");
+    }
+
+    @Test
+    void interpolated_encodesTheResolvedValuesSoAnAmpersandArrivesIntact() {
+        // given - the secret resolves to text holding & and =
+        var request = new HttpRequestDefinition(
+                "http://url", "POST", HttpBody.form(form("client_secret", "${secrets.x}", "a", "1")), null);
+
+        // when
+        var interpolated = underTest.interpolated(request, secrets, runtimeData);
+
+        // then
+        assertThat(interpolated.getBody().getPayload()).isEqualTo("client_secret=a%26b%3Dc&a=1");
+    }
+
+    @Test
+    void interpolated_throwsForAFormValueThatResolvesToJsonNull() {
+        // given
+        Interpolation toNull = (input, data) -> new InterpolationOutcome(null, input + " → null");
+        var request = new HttpRequestDefinition(
+                "http://url", "POST", HttpBody.form(form("id", "${response.json.$.id}")), null);
+
+        // when / then
+        assertThatThrownBy(() -> underTest.interpolated(request, toNull, runtimeData))
+                .isInstanceOf(BratException.class);
+    }
+
+    // --- a form's Content-Type ---
+
+    @Test
+    void interpolated_addsTheFormContentTypeAfterTheAuthoredHeaders() {
+        // given
+        var request = new HttpRequestDefinition(
+                "http://url", "POST", HttpBody.form(form("a", "1")), Map.of("Accept", "application/json"));
+
+        // when
+        var interpolated = underTest.interpolated(request, passthrough, runtimeData);
+
+        // then
+        assertThat(interpolated.getHeaders())
+                .containsExactly(
+                        Map.entry("Accept", "application/json"),
+                        Map.entry("Content-Type", "application/x-www-form-urlencoded"));
+        var outcome = interpolated.getOutcomes().get("header.Content-Type");
+        assertThat(outcome.value()).isEqualTo("application/x-www-form-urlencoded");
+        assertThat(outcome.reportingString()).isEqualTo("body form → application/x-www-form-urlencoded");
+        assertThat(outcome.containsSecret()).isFalse();
+    }
+
+    @Test
+    void interpolated_addsTheFormContentTypeWhenThereAreNoHeaders() {
+        // given
+        var request = new HttpRequestDefinition("http://url", "POST", HttpBody.form(form("a", "1")), null);
+
+        // when
+        var interpolated = underTest.interpolated(request, passthrough, runtimeData);
+
+        // then
+        assertThat(interpolated.getHeaders())
+                .containsExactly(Map.entry("Content-Type", "application/x-www-form-urlencoded"));
+    }
+
+    @Test
+    void interpolated_keepsADeclaredFormContentTypeWhateverItsCase() {
+        // given
+        var request = new HttpRequestDefinition(
+                "http://url",
+                "POST",
+                HttpBody.form(form("a", "1")),
+                Map.of("content-type", "application/x-www-form-urlencoded; charset=UTF-8"));
+
+        // when
+        var interpolated = underTest.interpolated(request, passthrough, runtimeData);
+
+        // then - kept as written, and not added a second time
+        assertThat(interpolated.getHeaders())
+                .containsExactly(Map.entry("content-type", "application/x-www-form-urlencoded; charset=UTF-8"));
+    }
+
+    @Test
+    void interpolated_throwsWhenADeclaredContentTypeResolvesToAnotherType() {
+        // given
+        Interpolation json = (input, data) -> "${env.contentType}".equals(input)
+                ? new InterpolationOutcome("application/json", input + " → application/json")
+                : new InterpolationOutcome(input, input);
+        var request = new HttpRequestDefinition(
+                "http://url", "POST", HttpBody.form(form("a", "1")), Map.of("Content-Type", "${env.contentType}"));
+
+        // when / then
+        assertThatThrownBy(() -> underTest.interpolated(request, json, runtimeData))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("application/json");
+    }
+
+    @Test
+    void interpolated_addsNoContentTypeForABodyThatIsNotAForm() {
+        // given
+        var request = new HttpRequestDefinition("http://url", "POST", HttpBody.raw("{}"), null);
+
+        // when
+        var interpolated = underTest.interpolated(request, passthrough, runtimeData);
+
+        // then
+        assertThat(interpolated.getHeaders()).isNull();
     }
 }
