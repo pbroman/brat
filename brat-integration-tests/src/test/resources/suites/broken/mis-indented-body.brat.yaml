@@ -1,0 +1,16 @@
+# Deliberately broken: 'body' is indented one level too deep. Loaded by LoadingTest, which checks that
+# the error names the key's parent, so it reads as a placement error rather than a type error.
+name: a mis-indented body
+
+requests:
+  - name: a request nobody will ever send
+    requestDefinition:
+      url: "http://localhost:1/never"
+      method: POST
+      headers:
+        Content-Type: application/json
+        body:  # one level too deep: this is now a header holding a mapping
+          raw: |
+            {
+              "name": "Ada"
+            }

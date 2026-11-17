@@ -481,6 +481,141 @@ class SuiteLoaderTest {
                 .hasMessageContaining("line");
     }
 
+    // ---------- naming the parent of a value of the wrong shape ----------
+
+    @Test
+    void load_namesTheParentOfAMisIndentedKey() {
+        // given - 'body' one level too deep, so it binds as a header holding a mapping
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      url: http://x
+                      headers:
+                        Accept: application/json
+                        body:
+                          raw: x
+                """;
+
+        // then - the parent is what says it landed in the wrong place
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageStartingWith("'body' under 'headers' is not a String")
+                .hasMessageContaining("line 8, column 9");
+    }
+
+    @Test
+    void load_skipsAListPositionWhenNamingTheParent() {
+        // given - the pointer is /requests/0/phase
+        var yaml = "name: s\nrequests:\n  - name: r\n    phase: nope\n";
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageStartingWith("'phase' under 'requests' is not one of [SETUP, MAIN, TEARDOWN]");
+    }
+
+    @Test
+    void load_namesAKeyAtTheTopOfTheDocumentAlone() {
+        // given
+        var yaml = "name: [a, b]\n";
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageStartingWith("'name' is not a String")
+                .hasMessageNotContaining("under");
+    }
+
+    @Test
+    void load_namesAListEntryOfTheWrongShapeWithoutItsPosition() {
+        // given - a request written as a plain string
+        var yaml = "name: s\nrequests:\n  - plain\n";
+
+        // then - the line and column place it, so the index is not printed
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageStartingWith("An entry under 'requests' is not a Request")
+                .hasMessageNotContaining("'0'");
+    }
+
+    @Test
+    void load_unescapesAKeyWhenNamingIt() {
+        // given - a header name holding '/', which the pointer escapes
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      url: http://x
+                      headers:
+                        a/b:
+                          x: y
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageStartingWith("'a/b' under 'headers' is not a String");
+    }
+
+    @Test
+    void load_namesAKeyMadeOfDigitsAsAKey() {
+        // given - a header named '200' holding a mapping; a key, not a list position
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      url: http://x
+                      headers:
+                        200:
+                          x: y
+                """;
+
+        // then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageStartingWith("'200' under 'headers' is not a String");
+    }
+
+    @Test
+    void load_withholdsTheMessageOfAConstructorThatRejectsAValueWithAnotherException() {
+        // given - a plugin's definition whose constructor quotes the value in a non-BRAT exception
+        var loader =
+                new SuiteLoader(Map.of(HTTP, HttpRequestDefinition.class, "picky", PickyDefinition.class), Set.of());
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      protocol: picky
+                      target: s3cr3t-token-value
+                """;
+
+        // then
+        assertThatThrownBy(() -> loader.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageStartingWith("'requestDefinition' under 'requests' is not a PickyDefinition")
+                .hasMessageNotContaining("s3cr3t-token-value");
+    }
+
+    /** A plugin's definition that rejects every value with an exception that is not a BratException. */
+    public static final class PickyDefinition extends ConfigData implements RequestDefinition {
+
+        @JsonCreator
+        public PickyDefinition(String target) {
+            super(null);
+            throw new IllegalArgumentException("will not take " + target);
+        }
+
+        @Override
+        public String protocol() {
+            return "picky";
+        }
+    }
+
     // ---------- the body ----------
 
     private static String requestWithBody(String body) {
