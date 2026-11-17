@@ -1,0 +1,16 @@
+# A proxy comes from the JVM's standard flags, not from the suite:
+#   java -Dhttp.proxyHost=proxy.example.com -Dhttp.proxyPort=3128 -jar brat-cli.jar run ...
+# Nothing below mentions it. ProxyTest sets the flags around the run.
+name: through a proxy
+requests:
+  - name: reach a host only the proxy knows
+    requestDefinition:
+      url: http://orders.brat-proxy.invalid/orders  # .invalid never resolves, so only the proxy can answer
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: 200
+        - a: "${response.body}"
+          func: isEqualTo
+          b: answered by the proxy

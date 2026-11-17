@@ -25,6 +25,7 @@ import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.impl.routing.SystemDefaultRoutePlanner;
 import org.apache.hc.client5.http.protocol.HttpClientContext;
 import org.apache.hc.core5.http.ClassicHttpResponse;
 import org.apache.hc.core5.http.ContentType;
@@ -41,8 +42,9 @@ import static org.apache.hc.core5.http.HttpHeaders.CONTENT_TYPE;
  * The {@link HttpRequestHandler} built on Apache HttpClient5.
  * <p>
  * Named for the client it wraps rather than for being the only one, because it will not be: a suite
- * selects a handler by name, and a proxied, mTLS or self-signed-certificate suite is a differently
- * configured handler rather than a different implementation.
+ * selects a handler by name, and a suite needing network settings of its own, such as a client
+ * certificate, is a differently configured handler rather than a different implementation. A proxy
+ * and trusted certificates for the whole process need neither; see below.
  *
  * <h2>What throws and what does not</h2>
  * <strong>The line is whether a response exists at all, not what its status says.</strong> Every
@@ -85,6 +87,29 @@ import static org.apache.hc.core5.http.HttpHeaders.CONTENT_TYPE;
  * The client's own cookie management is switched off rather than left at its default, because its
  * store belongs to the client and the client belongs to the process: a session established by one
  * run would be replayed in the next, and a suite would pass or fail depending on what ran before it.
+ *
+ * <h2>Proxies and trusted certificates</h2>
+ * <strong>Both come from the JVM, through its standard properties, and nothing else.</strong>
+ * <ul>
+ *   <li><strong>Proxy</strong> — the JVM's default {@link java.net.ProxySelector}, asked on every
+ *       request: {@code http.proxyHost}/{@code http.proxyPort} for {@code http} URLs,
+ *       {@code https.proxyHost}/{@code https.proxyPort} for {@code https} ones, and
+ *       {@code http.nonProxyHosts} for the hosts reached directly (by default {@code localhost} and
+ *       the loopback addresses). Setting them after the handler is built still takes effect, as does
+ *       replacing the default selector. The {@code HTTP_PROXY}/{@code HTTPS_PROXY} environment
+ *       variables are not read.</li>
+ *   <li><strong>A proxy that asks for a login is not supported.</strong> Its
+ *       {@code 407 Proxy Authentication Required} comes back as the response.</li>
+ *   <li><strong>Trusted certificates</strong> — the JVM's default trust store: {@code cacerts}, or the
+ *       store {@code javax.net.ssl.trustStore} names, which <em>replaces</em> {@code cacerts} rather
+ *       than adding to it ({@code javax.net.ssl.trustStorePassword} and {@code trustStoreType}
+ *       alongside). Read when the handler is built, so they must be set before then. A certificate
+ *       the store does not trust fails the handshake, which is a transport failure.</li>
+ * </ul>
+ * The client's own system-property support stays off, so {@code http.agent}, the JVM's default
+ * credentials, {@code https.protocols} and {@code https.cipherSuites} do not apply. Properties the
+ * JDK applies by itself, beneath the client, still do: {@code jdk.tls.client.protocols}, for
+ * example, or DNS caching.
  */
 public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoCloseable {
 
@@ -149,6 +174,10 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
                 // Ours rather than the default: the default refuses a cross-host redirect only for
                 // Authorization and Cookie, and compares host names but not ports.
                 .setRedirectStrategy(new CredentialAwareRedirectStrategy())
+                // No selector of its own, so the JVM's default is asked on every request. Narrower
+                // than useSystemProperties(), which would also read http.agent, the system
+                // credentials, https.protocols and the cipher suites. See the class Javadoc.
+                .setRoutePlanner(new SystemDefaultRoutePlanner(null))
                 .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
                         .setMaxConnTotal(maxTotal)
                         .setMaxConnPerRoute(maxPerRoute)
