@@ -24,20 +24,23 @@ import org.apache.commons.lang3.ObjectUtils;
  *
  * @param timeout the nearest declared timeout, in text form and not yet interpolated, or {@code null}
  *        if no enclosing suite declared one
+ * @param followRedirects the nearest declared {@code followRedirects}, in text form and not yet
+ *        interpolated, or {@code null} if no enclosing suite declared one
  * @param auth the nearest declared auth block, as authored and not yet interpolated, or {@code null} if
  *        no enclosing suite declared one. Never merged: the nearest block is taken whole
  * @param requestHandlers the handler names declared by the enclosing suites, merged per protocol with
  *        the nearest suite winning; never {@code null}
  */
-record InheritedDefaults(String timeout, Auth auth, Map<String, String> requestHandlers) {
+record InheritedDefaults(String timeout, String followRedirects, Auth auth, Map<String, String> requestHandlers) {
 
     /** What the root suite inherits: nothing. */
-    static final InheritedDefaults NONE = new InheritedDefaults(null, null, Map.of());
+    static final InheritedDefaults NONE = new InheritedDefaults(null, null, null, Map.of());
 
     /**
      * Defaults {@code requestHandlers} to empty and copies it.
      *
      * @param timeout the nearest declared timeout, or {@code null}
+     * @param followRedirects the nearest declared {@code followRedirects}, or {@code null}
      * @param auth the nearest declared auth block, or {@code null}
      * @param requestHandlers the merged handler names, or {@code null} for none
      */
@@ -50,7 +53,8 @@ record InheritedDefaults(String timeout, Auth auth, Map<String, String> requestH
      * These defaults with {@code suite}'s own declarations folded in, as seen by everything beneath
      * it.
      * <ul>
-     *   <li>{@code timeout}: the suite's, if it declares one; otherwise the inherited one.</li>
+     *   <li>{@code timeout} and {@code followRedirects}: each the suite's, if it declares one; otherwise
+     *       the inherited one.</li>
      *   <li>{@code auth}: the suite's, if it declares one, replacing the inherited block wholesale —
      *       never merged argument by argument; otherwise the inherited one.</li>
      *   <li>{@code requestHandlers}: the inherited names with the suite's laid over them per
@@ -64,24 +68,29 @@ record InheritedDefaults(String timeout, Auth auth, Map<String, String> requestH
     InheritedDefaults with(TestSuite suite) {
         return new InheritedDefaults(
                 ObjectUtils.firstNonNull(suite.timeout(), timeout),
+                ObjectUtils.firstNonNull(suite.followRedirects(), followRedirects),
                 ObjectUtils.firstNonNull(suite.auth(), auth),
                 overlaid(requestHandlers, suite.requestHandlers()));
     }
 
     /**
-     * The options {@code request} runs with, as authored: for each of {@code timeout} and
-     * {@code auth}, its own if it declares one, otherwise the inherited one. A declared {@code auth}
-     * replaces the inherited block wholesale.
+     * The options {@code request} runs with, as authored: for each of {@code timeout},
+     * {@code followRedirects} and {@code auth}, its own if it declares one, otherwise the inherited one.
+     * A declared {@code auth} replaces the inherited block wholesale.
      *
      * @param request the request about to run; must not be {@code null}
      * @return a new, not yet interpolated {@link RequestOptions}. Its {@code timeout} is {@code null}
      *         when neither the request nor any enclosing suite declared one, leaving the default to be
-     *         applied when the value is read; its {@code auth} is {@code null} when nothing declared
-     *         one, and the request is then sent with no credentials
+     *         applied when the value is read, and likewise its {@code followRedirects}; its
+     *         {@code auth} is {@code null} when nothing declared one, and the request is then sent with
+     *         no credentials
      */
     RequestOptions options(Request request) {
         return new RequestOptions(
-                ObjectUtils.firstNonNull(request.timeout(), timeout), ObjectUtils.firstNonNull(request.auth(), auth));
+                ObjectUtils.firstNonNull(request.timeout(), timeout),
+                ObjectUtils.firstNonNull(request.followRedirects(), followRedirects),
+                ObjectUtils.firstNonNull(request.auth(), auth),
+                null);
     }
 
     /**

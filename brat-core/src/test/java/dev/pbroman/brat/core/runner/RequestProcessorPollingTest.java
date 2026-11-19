@@ -111,7 +111,7 @@ class RequestProcessorPollingTest {
         var repeatUntil = new RepeatUntil(pollCondition, maxAttempts, wait, messageOnFail);
         var flowControl = new FlowControl(null, repeatUntil);
         when(flowControlInterpolator.interpolated(any(), any(), any())).thenReturn(flowControl);
-        return new Request("poll", null, null, null, null, null, null, null, authored, null, flowControl);
+        return new Request("poll", null, null, null, null, null, null, null, null, authored, null, flowControl);
     }
 
     /** A polling request that also declares response actions, so the two can be observed together. */
@@ -121,6 +121,7 @@ class RequestProcessorPollingTest {
         when(flowControlInterpolator.interpolated(any(), any(), any())).thenReturn(flowControl);
         return new Request(
                 "poll",
+                null,
                 null,
                 null,
                 null,
@@ -196,7 +197,7 @@ class RequestProcessorPollingTest {
     void process_emitsNoAttemptFinishedForARequestThatDoesNotPoll() {
         // given
         when(requestHandler.performRequest(any(), any())).thenReturn(response(200));
-        var request = new Request("once", null, null, null, null, null, null, null, authored, null, null);
+        var request = new Request("once", null, null, null, null, null, null, null, null, authored, null, null);
 
         // when
         underTest.process(request, OPTIONS, coordinates, runtimeData, requestHandler);
@@ -217,6 +218,7 @@ class RequestProcessorPollingTest {
         when(flowControlInterpolator.interpolated(any(), any(), any())).thenReturn(flowControl);
         var request = new Request(
                 "poll",
+                null,
                 null,
                 null,
                 null,

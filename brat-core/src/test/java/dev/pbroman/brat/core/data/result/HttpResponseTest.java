@@ -108,4 +108,10 @@ class HttpResponseTest {
         // then
         assertThat(response.headers().get("Connection")).containsExactly("keep-alive", null);
     }
+
+    @Test
+    void constructor_leavesRedirectNotFollowedNullInTheThreeArgumentForm() {
+        // when / then
+        assertThat(new HttpResponse(200, Map.of(), "ok").redirectNotFollowed()).isNull();
+    }
 }

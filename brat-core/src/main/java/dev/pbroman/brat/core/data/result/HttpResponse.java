@@ -15,8 +15,15 @@ import java.util.TreeMap;
  * argument is treated as empty rather than rejected, and so is a {@code null} value list for an
  * individual header — a header present with no values reads back as an empty list. The returned
  * {@code headers} map is always unmodifiable, independent of whether the map passed in was.
+ *
+ * @param statusCode the status code
+ * @param headers every header, every value
+ * @param body the body, or {@code null} when there was none
+ * @param redirectNotFollowed the {@code Location} of a redirect that was refused although the request
+ *        follows redirects — because following it would send credentials to another origin — as
+ *        received; or {@code null} when nothing was refused
  */
-public record HttpResponse(int statusCode, Map<String, List<String>> headers, String body) {
+public record HttpResponse(int statusCode, Map<String, List<String>> headers, String body, String redirectNotFollowed) {
 
     /**
      * Copies the headers into a case-insensitive, unmodifiable map, so lookups need not guess at
@@ -35,5 +42,16 @@ public record HttpResponse(int statusCode, Map<String, List<String>> headers, St
             }
         }
         headers = Collections.unmodifiableMap(caseInsensitiveHeaders);
+    }
+
+    /**
+     * A response that refused no redirect: {@code redirectNotFollowed} is {@code null}.
+     *
+     * @param statusCode the status code
+     * @param headers every header, every value
+     * @param body the body, or {@code null} when there was none
+     */
+    public HttpResponse(int statusCode, Map<String, List<String>> headers, String body) {
+        this(statusCode, headers, body, null);
     }
 }

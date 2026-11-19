@@ -116,7 +116,7 @@ public final class SensitiveValues {
      */
     private static void addFromForm(ValueMask mask, HttpRequestDefinition sent) {
         for (var entry : sent.getBody().getForm().entrySet()) {
-            if (!SENSITIVE_FIELDS.contains(normalised(entry.getKey()))) {
+            if (!isSensitiveName(entry.getKey())) {
                 continue;
             }
             var outcome = sent.getOutcomes().get(FORM_PREFIX + entry.getKey());
@@ -152,7 +152,7 @@ public final class SensitiveValues {
     private static void addFields(ValueMask mask, JsonNode node) {
         if (node.isObject()) {
             for (var property : node.properties()) {
-                if (property.getValue().isString() && SENSITIVE_FIELDS.contains(normalised(property.getKey()))) {
+                if (property.getValue().isString() && isSensitiveName(property.getKey())) {
                     mask.addGuessed(property.getValue().stringValue());
                 } else {
                     addFields(mask, property.getValue());
@@ -189,6 +189,20 @@ public final class SensitiveValues {
         if (!value.isEmpty()) {
             mask.addGuessed(value);
         }
+    }
+
+    /**
+     * Whether a field name is one of the sensitive ones — {@code access_token}, {@code refresh_token},
+     * {@code id_token}, {@code client_secret} or {@code password} — matched ignoring case, {@code _} and
+     * {@code -}, so {@code accessToken} and {@code Client-Secret} count.
+     *
+     * @param fieldName a JSON field or form entry name; must not be {@code null}
+     * @return whether its value looks like a credential
+     * @throws BratException if {@code fieldName} is {@code null}
+     */
+    public static boolean isSensitiveName(String fieldName) {
+        nonNull(fieldName, "The field name must not be null");
+        return SENSITIVE_FIELDS.contains(normalised(fieldName));
     }
 
     /** A field name lower case, with {@code _} and {@code -} removed. */

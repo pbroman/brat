@@ -36,6 +36,9 @@ import static dev.pbroman.brat.core.util.Constants.CONSTANTS;
  *        {@link Constants#DEFAULT_TIMEOUT_MS}. Named for what it is rather
  *        than prefixed: a request's own {@code timeout} is the same word one level down, exactly as
  *        {@code auth} is
+ * @param followRedirects whether HTTP requests beneath this suite follow redirects — {@code true} or
+ *        {@code false} in text form, possibly holding {@code ${...}} tokens — or {@code null} to
+ *        inherit; {@code false} when nothing declares one. HTTP only
  * @param skipCondition skip this suite and everything under it when it holds, or {@code null}
  * @param requestHandlers which handler executes a request, keyed by protocol; never {@code null}.
  *        Merges per key rather than replacing wholesale
@@ -49,6 +52,7 @@ public record TestSuite(
         Map<String, String> setVars,
         Auth auth,
         String timeout,
+        String followRedirects,
         Condition skipCondition,
         Map<String, String> requestHandlers,
         List<Request> requests,

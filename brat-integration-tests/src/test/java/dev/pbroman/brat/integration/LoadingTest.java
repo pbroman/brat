@@ -37,6 +37,18 @@ class LoadingTest extends EndToEndTestBase {
     }
 
     @Test
+    void load_namesTheParentOfAMisIndentedKey() {
+        // when
+        var thrown = assertThatThrownBy(() -> suite("suites/broken/mis-indented-body.brat.yaml"));
+
+        // then — 'body' landed under 'headers', and the message says where rather than what to change
+        thrown.isInstanceOf(BratException.class)
+                .hasMessageContaining("suites/broken/mis-indented-body.brat.yaml")
+                .hasMessageContaining("'body' under 'headers' is not a String")
+                .hasMessageContaining("line 12, column 9");
+    }
+
+    @Test
     void run_resolvesAnchorsAndMergeKeysInAFileThatThenRuns() {
         // when — the second request inherits the first's definition and overrides its url
         var suite = suite("suites/anchored-requests.brat.yaml");

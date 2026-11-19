@@ -213,4 +213,22 @@ class HttpResponseVarsTest {
     private static Map<String, List<String>> headersOf(Map<String, Object> vars) {
         return (Map<String, List<String>>) vars.get(HEADERS);
     }
+
+    @Test
+    void of_recordsARefusedRedirect() {
+        // when
+        var vars = HttpResponseVars.of(new HttpResponse(302, Map.of(), null, "https://other.example/x"));
+
+        // then
+        assertThat(vars).containsEntry("redirectNotFollowed", "https://other.example/x");
+    }
+
+    @Test
+    void of_omitsTheRedirectKeyWhenNothingWasRefused() {
+        // when
+        var vars = HttpResponseVars.of(new HttpResponse(302, Map.of(), null));
+
+        // then
+        assertThat(vars).doesNotContainKey("redirectNotFollowed");
+    }
 }

@@ -17,6 +17,7 @@ import tools.jackson.databind.json.JsonMapper;
 import static dev.pbroman.brat.core.util.Constants.BODY;
 import static dev.pbroman.brat.core.util.Constants.HEADERS;
 import static dev.pbroman.brat.core.util.Constants.JSON;
+import static dev.pbroman.brat.core.util.Constants.REDIRECT_NOT_FOLLOWED;
 import static dev.pbroman.brat.core.util.Constants.STATUS_CODE;
 
 /**
@@ -49,7 +50,7 @@ public final class HttpResponseVars {
     /**
      * Flattens a response into the {@code responseVars} namespace.
      * <p>
-     * Four keys, each omitted rather than held as {@code null} when it has no value — a consumer
+     * Five keys, each omitted rather than held as {@code null} when it has no value — a consumer
      * reads an absent key and a null value identically, and omitting keeps the map printable:
      * <ul>
      *   <li>{@code statusCode} — the status as an {@link Integer}. Always present</li>
@@ -63,6 +64,9 @@ public final class HttpResponseVars {
      *       failure inside JSONPath. It is the body <em>string</em> rather than a parsed tree because
      *       every consumer feeds {@code toString()} to JSONPath; parsing here would round-trip the
      *       text for nothing</li>
+     *   <li>{@code redirectNotFollowed} — the {@code Location} of a redirect that was refused, as the
+     *       response records it. Omitted when nothing was refused. It is there for a report to read;
+     *       no {@code ${response.…}} token resolves it</li>
      * </ul>
      * The {@code json} key's absence is how a rule tells "the response held no JSON" from "the
      * response held JSON with nothing at that path", which are different failures to an author.
@@ -81,6 +85,9 @@ public final class HttpResponseVars {
         if (response.body() != null) {
             map.put(BODY, response.body());
             addJson(response, map);
+        }
+        if (response.redirectNotFollowed() != null) {
+            map.put(REDIRECT_NOT_FOLLOWED, response.redirectNotFollowed());
         }
 
         return Map.copyOf(map);

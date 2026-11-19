@@ -2,6 +2,7 @@ package dev.pbroman.brat.core.loader;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import dev.pbroman.brat.core.api.data.RequestDefinition;
@@ -13,7 +14,6 @@ import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.TestSuite;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.Require;
-import org.apache.commons.lang3.StringUtils;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.MapperFeature;
@@ -117,7 +117,13 @@ public final class SuiteLoader {
      * @throws BratException for anything that makes the document unusable, each naming the offending
      *         key and where it sat — see {@link YamlComposer} for what the document itself must be,
      *         and {@link SuiteChecks} for the rules a bound suite must satisfy. A value of the wrong
-     *         shape for its field is rejected here, between the two
+     *         shape for its field is rejected here, between the two, and its message names the key
+     *         under the nearest enclosing key ({@code 'body' under 'headers' is not a String}), list
+     *         positions skipped; a list entry of the wrong shape is {@code An entry under 'requests'};
+     *         a key at the top of the document is named alone. A key made only of digits is a key, not a
+     *         list position. A constructor that rejects a value with a {@code BratException} has its
+     *         message shown as it stands; with any other exception it is reported as
+     *         {@code ... is not a <type>}, and its own message is not shown
      */
     public TestSuite load(String yaml, String origin) {
         var document = YamlComposer.compose(yaml);
@@ -142,8 +148,7 @@ public final class SuiteLoader {
         } catch (UnrecognizedPropertyException e) {
             throw LoaderErrors.at(origin, document, pointerOf(e), "Unknown key '" + e.getPropertyName() + "'");
         } catch (JacksonException e) {
-            var pointer = pointerOf(e);
-            throw LoaderErrors.at(origin, document, pointer, describe(e, pointer));
+            throw LoaderErrors.at(origin, document, pointerOf(e), describe(e));
         }
     }
 
@@ -179,10 +184,9 @@ public final class SuiteLoader {
      * is used as it stands.
      *
      * @param e the binding failure
-     * @param pointer the JSON Pointer of the offending value
      * @return the message to report
      */
-    private static String describe(JacksonException e, String pointer) {
+    private static String describe(JacksonException e) {
         Throwable cause = e;
         while (cause.getCause() != null) {
             cause = cause.getCause();
@@ -190,17 +194,50 @@ public final class SuiteLoader {
         if (cause instanceof BratException) {
             return cause.getMessage();
         }
-        // The pointer is never empty here: load() has already established that the root is a mapping,
-        // so a binding failure is always inside one.
-        var key =
-                StringUtils.substringAfterLast(pointer, "/").replace("~1", "/").replace("~0", "~");
+        var subject = subjectOf(e);
         var target = e instanceof MismatchedInputException mismatch ? mismatch.getTargetType() : null;
         if (target != null && target.isEnum()) {
-            return "Value for '" + key + "' is not one of " + Arrays.toString(target.getEnumConstants());
+            return subject + " is not one of " + Arrays.toString(target.getEnumConstants());
         }
+        // Every failure binding a converted tree has reported a target type, a throwing constructor
+        // and a class with no usable creator included; this covers a Jackson failure that does not.
         return target == null
-                ? "Value for '" + key + "' cannot be bound to its field"
-                : "Value for '" + key + "' is not a " + target.getSimpleName();
+                ? subject + " cannot be bound to its field"
+                : subject + " is not a " + target.getSimpleName();
+    }
+
+    /**
+     * Names what a binding failure points at, in the words a message opens with.
+     * <p>
+     * The parent is what places a mis-indented key: {@code body} nested one level too deep is bound
+     * as a header, and {@code 'body' is not a String} alone reads as advice about the body. Mapping:
+     * <ul>
+     *   <li>a key with an enclosing key — {@code 'body' under 'headers'}; list positions between the
+     *       two are skipped, so {@code requests[0].phase} is {@code 'phase' under 'requests'};</li>
+     *   <li>a key at the top of the document — {@code 'name'}, alone;</li>
+     *   <li>a list position — {@code An entry under 'requests'}, the position itself never printed,
+     *       since the line and column already place it.</li>
+     * </ul>
+     * A key made only of digits, such as a header {@code 200}, is a key and not a list position. The
+     * path always holds a key: {@code load} has already established that the root is a mapping, so a binding failure is
+     * always inside one, and a list position always has a key above it.
+     *
+     * @param e the binding failure
+     * @return the subject, e.g. {@code 'body' under 'headers'}
+     */
+    private static String subjectOf(JacksonException e) {
+        var steps = e.getPath().stream()
+                .filter(reference -> reference.getPropertyName() != null || reference.getIndex() >= 0)
+                .toList();
+        var keys = steps.stream()
+                .map(JacksonException.Reference::getPropertyName)
+                .filter(Objects::nonNull)
+                .toList();
+        if (steps.getLast().getPropertyName() == null) {
+            return "An entry under '" + keys.getLast() + "'";
+        }
+        var key = "'" + keys.getLast() + "'";
+        return keys.size() == 1 ? key : key + " under '" + keys.get(keys.size() - 2) + "'";
     }
 
     /**

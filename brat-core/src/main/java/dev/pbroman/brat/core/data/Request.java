@@ -25,6 +25,10 @@ import dev.pbroman.brat.core.api.data.RequestDefinition;
  * @param timeout how long to wait for this request, in milliseconds and in text form, possibly
  *        holding {@code ${...}} tokens; or {@code null} to use the default. Resolved into the
  *        {@link RequestOptions} the handler receives, which is where it is validated
+ * @param followRedirects whether an HTTP request follows redirects — {@code true} or {@code false} in
+ *        text form, possibly holding {@code ${...}} tokens; or {@code null} to inherit the nearest
+ *        suite's, and {@code false} when nothing declares one. Resolved into the
+ *        {@link RequestOptions} the handler receives, which is where it is validated. HTTP only
  * @param skipCondition skip this request when it holds, or {@code null} to always run it
  * @param phase when this request runs relative to everything else under its suite; never {@code null}, defaulting to
  *        {@link Phase#MAIN}
@@ -41,6 +45,7 @@ public record Request(
         String id,
         Auth auth,
         String timeout,
+        String followRedirects,
         Condition skipCondition,
         Phase phase,
         Map<String, String> requestHandlers,

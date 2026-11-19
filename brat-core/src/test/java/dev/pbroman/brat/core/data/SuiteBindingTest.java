@@ -203,10 +203,10 @@ class SuiteBindingTest {
     void constructor_copiesTheCollectionsItWasGiven() {
         // given
         var requests = new java.util.ArrayList<Request>();
-        var suite = new TestSuite("s", null, null, null, null, null, null, null, requests, null);
+        var suite = new TestSuite("s", null, null, null, null, null, null, null, null, requests, null);
 
         // when
-        requests.add(new Request("r", null, null, null, null, null, null, null, null, null, null));
+        requests.add(new Request("r", null, null, null, null, null, null, null, null, null, null, null));
 
         // then
         assertThat(suite.requests()).isEmpty();
@@ -215,7 +215,7 @@ class SuiteBindingTest {
     @Test
     void constructor_handsOutUnmodifiableCollections() {
         // given
-        var suite = new TestSuite("s", null, null, null, null, null, null, null, List.of(), null);
+        var suite = new TestSuite("s", null, null, null, null, null, null, null, null, List.of(), null);
 
         // then
         assertThatThrownBy(() -> suite.constants().put("k", "v")).isInstanceOf(UnsupportedOperationException.class);
@@ -271,7 +271,7 @@ class SuiteBindingTest {
         handlers.put("http", "mtls");
 
         // when
-        var request = new Request("r", null, null, null, null, null, Phase.TEARDOWN, handlers, null, null, null);
+        var request = new Request("r", null, null, null, null, null, null, Phase.TEARDOWN, handlers, null, null, null);
         handlers.put("ftp", "other");
 
         // then - declared values survive, and the map is copied
@@ -282,7 +282,7 @@ class SuiteBindingTest {
     @Test
     void constructor_defaultsPhaseOnARequestToo() {
         // when
-        var request = new Request("r", null, null, null, null, null, null, null, null, null, null);
+        var request = new Request("r", null, null, null, null, null, null, null, null, null, null, null);
 
         // then
         assertThat(request.phase()).isEqualTo(Phase.MAIN);
@@ -313,7 +313,7 @@ class SuiteBindingTest {
         Map<String, Object> constants = Map.of("runId", "${__uuid}");
 
         // then - constants are literal; computing a value is what suite-level setVars is for
-        assertThatThrownBy(() -> new TestSuite("s", null, constants, null, null, null, null, null, null, null))
+        assertThatThrownBy(() -> new TestSuite("s", null, constants, null, null, null, null, null, null, null, null))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("constants.runId")
                 .hasMessageNotContaining("__uuid");
@@ -327,7 +327,7 @@ class SuiteBindingTest {
         constants.put("db.host", "b");
 
         // then
-        assertThatThrownBy(() -> new TestSuite("s", null, constants, null, null, null, null, null, null, null))
+        assertThatThrownBy(() -> new TestSuite("s", null, constants, null, null, null, null, null, null, null, null))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("constants.db.host");
     }

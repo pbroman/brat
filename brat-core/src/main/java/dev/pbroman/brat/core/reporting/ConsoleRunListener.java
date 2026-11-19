@@ -134,6 +134,8 @@ final class ConsoleRunListener implements RunListener {
             line.append(DASH).append(shown(reason));
         }
         out.println(line);
+        ResponseRenderer.redirectNotice(result, mask, detail.showSecrets())
+                .ifPresent(notice -> out.println(indent(depth(coordinates.path())) + DETAIL_INDENT + notice));
 
         for (var assertion : result.responseActionsResult().assertionResults()) {
             count(assertion);
