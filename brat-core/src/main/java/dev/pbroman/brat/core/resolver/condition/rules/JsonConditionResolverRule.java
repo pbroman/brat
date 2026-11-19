@@ -16,8 +16,6 @@ import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.exception.BratException;
 
 import static dev.pbroman.brat.core.util.Constants.ARG_IGNORE;
-import static dev.pbroman.brat.core.util.Constants.ARG_MAX;
-import static dev.pbroman.brat.core.util.Constants.ARG_MIN;
 import static dev.pbroman.brat.core.util.Constants.CONTAINS;
 import static dev.pbroman.brat.core.util.Constants.CONTAINS_ANY_OF;
 import static dev.pbroman.brat.core.util.Constants.CONTAINS_EXACTLY;
@@ -97,14 +95,11 @@ public final class JsonConditionResolverRule extends AbstractConditionResolverRu
             return elements(b).contains(canonical(a));
         });
         predicates.put(CONTAINS_KEY, (a, b, args) -> asMap(a).containsKey(b));
-        predicates.put(HAS_SIZE, (a, b, args) -> sizeOf(a) == size(b));
-        predicates.put(HAS_SIZE_GREATER_THAN, (a, b, args) -> sizeOf(a) > size(b));
-        predicates.put(HAS_SIZE_BETWEEN, (a, b, args) -> {
-            rejectUnknownArgs(args, JSON_CONDITION, HAS_SIZE_BETWEEN, ARG_MIN, ARG_MAX);
-            var size = sizeOf(a);
-            return size >= size(requiredArg(args, JSON_CONDITION, HAS_SIZE_BETWEEN, ARG_MIN))
-                    && size <= size(requiredArg(args, JSON_CONDITION, HAS_SIZE_BETWEEN, ARG_MAX));
-        });
+        predicates.put(HAS_SIZE, (a, b, args) -> sizeOf(a) == OperandUtils.size(b));
+        predicates.put(HAS_SIZE_GREATER_THAN, (a, b, args) -> sizeOf(a) > OperandUtils.size(b));
+        predicates.put(
+                HAS_SIZE_BETWEEN,
+                (a, b, args) -> OperandUtils.sizeBetween(sizeOf(a), args, subject(JSON_CONDITION, HAS_SIZE_BETWEEN)));
         predicates.put(DOES_NOT_HAVE_DUPLICATES, (a, b, args) -> {
             var elements = elements(a);
             return new HashSet<>(elements).size() == elements.size();
@@ -274,17 +269,6 @@ public final class JsonConditionResolverRule extends AbstractConditionResolverRu
             default ->
                 throw new BratException("This function needs a sequence or a mapping, but a was " + describe(value));
         };
-    }
-
-    /**
-     * A size given as an operand or an argument, written either as YAML-native number or as text.
-     */
-    private static int size(Object value) {
-        try {
-            return new BigDecimal(String.valueOf(value).trim()).intValueExact();
-        } catch (ArithmeticException | NumberFormatException e) {
-            throw new BratException("A size must be a whole number, but was '" + value + "'");
-        }
     }
 
     /**

@@ -194,4 +194,81 @@ class StringConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
         // when / then
         assertThat(resolver.resolve(condition)).contains(true);
     }
+
+    // --- size funcs on text ---
+
+    @ParameterizedTest
+    @CsvSource({"abc,3", "'',0", "a b,3"})
+    void resolve_hasSizeCountsTheCharacters(String a, String size) {
+        // when
+        var result = resolver.resolve(new Condition("hasSize", a, size));
+
+        // then
+        assertThat(result).contains(true);
+    }
+
+    @Test
+    void resolve_hasSizeCountsACharacterOutsideTheBasicPlaneAsOne() {
+        // given — one emoji, two UTF-16 units
+        var a = "\uD83D\uDE00";
+
+        // when
+        var result = resolver.resolve(new Condition("hasSize", a, "1"));
+
+        // then
+        assertThat(result).contains(true);
+    }
+
+    @Test
+    void resolve_hasSizeIsFalseForAnotherCount() {
+        // when
+        var result = resolver.resolve(new Condition("hasSize", "abc", 4));
+
+        // then
+        assertThat(result).contains(false);
+    }
+
+    @Test
+    void resolve_hasSizeGreaterThanIsStrict() {
+        // when / then
+        assertThat(resolver.resolve(new Condition("hasSizeGreaterThan", "abc", "2")))
+                .contains(true);
+        assertThat(resolver.resolve(new Condition("hasSizeGreaterThan", "abc", "3")))
+                .contains(false);
+    }
+
+    @Test
+    void resolve_hasSizeBetweenTakesInclusiveBoundsAndNoB() {
+        // when / then
+        assertThat(resolver.resolve(new Condition("hasSizeBetween", "abc", null, Map.of("min", "3", "max", "5"))))
+                .contains(true);
+        assertThat(resolver.resolve(new Condition("hasSizeBetween", "abcdef", null, Map.of("min", "3", "max", "5"))))
+                .contains(false);
+    }
+
+    @Test
+    void resolve_hasSizeBetweenRejectsAnUnknownArgument() {
+        // when / then
+        assertThatThrownBy(() -> resolver.resolve(
+                        new Condition("hasSizeBetween", "abc", null, Map.of("min", "1", "max", "5", "mx", "3"))))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("mx");
+    }
+
+    @Test
+    void resolve_hasSizeThrowsForASizeThatIsNotAWholeNumber() {
+        // when / then
+        assertThatThrownBy(() -> resolver.resolve(new Condition("hasSize", "abc", "three")))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("whole number");
+    }
+
+    @Test
+    void resolve_hasSizeNegates() {
+        // when
+        var result = resolver.resolve(new Condition("notHasSize", "abc", "4"));
+
+        // then
+        assertThat(result).contains(true);
+    }
 }
