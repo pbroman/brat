@@ -30,20 +30,20 @@ class ReporterContextTest {
     void constructor_copiesTheArgsSoTheContextCannotChangeAfterwards() {
         // given
         var args = new HashMap<String, String>();
-        args.put("detail", "all");
+        args.put("response", "all");
 
         // when
         var underTest = new ReporterContext(args, renderer);
         args.put("file", "out.txt");
 
         // then
-        assertThat(underTest.args()).containsExactly(Map.entry("detail", "all"));
+        assertThat(underTest.args()).containsExactly(Map.entry("response", "all"));
     }
 
     @Test
     void args_isUnmodifiable() {
         // given
-        var underTest = new ReporterContext(Map.of("detail", "all"), renderer);
+        var underTest = new ReporterContext(Map.of("response", "all"), renderer);
 
         // when / then
         assertThatThrownBy(() -> underTest.args().put("file", "out.txt"))

@@ -243,6 +243,18 @@ public class CrudApplication {
         return Map.of("token", account.token());
     }
 
+    /**
+     * Exchanges a username and password for the account's token, shaped like an OAuth2 token response.
+     *
+     * @param login the credentials
+     * @return the token, as {@code access_token}, with its type
+     */
+    @PostMapping(path = "/oauth/token", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, String> oauthToken(@RequestBody Login login) {
+        var token = login(login).get("token");
+        return Map.of("access_token", token, "token_type", "Bearer");
+    }
+
     /** Says which account the request's credentials belong to. */
     @GetMapping(path = "/secure/whoami", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> whoami(

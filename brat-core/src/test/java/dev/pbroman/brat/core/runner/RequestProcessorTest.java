@@ -11,6 +11,7 @@ import dev.pbroman.brat.core.api.handler.ResponseHandler;
 import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.auth.AuthHandlerRegistry;
 import dev.pbroman.brat.core.auth.BearerAuthHandler;
@@ -91,7 +92,8 @@ class RequestProcessorTest {
                 flowControlInterpolator,
                 new RequestOptionsInterpolator(),
                 new RequestExecutor(conditionEvaluator, attempt -> {}, phase -> false),
-                AUTH_HANDLERS);
+                AUTH_HANDLERS,
+                new ValueMask());
 
         runtimeData = new RuntimeData(Map.of(), Map.of());
 
@@ -512,7 +514,8 @@ class RequestProcessorTest {
                 flowControlInterpolator,
                 new RequestOptionsInterpolator(),
                 new RequestExecutor(realEvaluator, attempt -> {}, phase -> false),
-                AUTH_HANDLERS);
+                AUTH_HANDLERS,
+                new ValueMask());
 
         // when
         var result = underTestWithRealInterpolator.process(

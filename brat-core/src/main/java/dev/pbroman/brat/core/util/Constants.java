@@ -19,6 +19,9 @@ public final class Constants {
         // utility class
     }
 
+    /** What a report shows in place of a secret or a masked value. */
+    public static final String MASK = "***";
+
     public static final String CONSTANTS = "constants";
     public static final String HEADERS = "headers";
     public static final String ENV = "env";

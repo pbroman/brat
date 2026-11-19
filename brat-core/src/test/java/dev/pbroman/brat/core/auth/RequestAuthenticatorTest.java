@@ -8,6 +8,7 @@ import java.util.Map;
 
 import dev.pbroman.brat.core.api.auth.AuthHandler;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
+import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.exception.BratException;
@@ -20,7 +21,19 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RequestAuthenticatorTest {
 
-    private static final Auth AUTH = new Auth("sig", Map.of("secret", "s3cr3t"));
+    /** Credentials built from a secret: interpolated, with a secret-bearing outcome. */
+    private static final Auth AUTH = new Auth(
+            "sig",
+            Map.of("secret", "s3cr3t"),
+            Map.of("args.secret", new InterpolationOutcome("s3cr3t", "${secrets.sig} → ***", true)));
+
+    /** Credentials typed into the suite or captured from a response: interpolated, nothing secret. */
+    private static final Auth CLEAR_AUTH = new Auth(
+            "sig",
+            Map.of("token", "abcd1234"),
+            Map.of("args.token", new InterpolationOutcome("abcd1234", "${vars.token} → abcd1234")));
+
+    private final ValueMask mask = new ValueMask();
 
     private final HttpRequestDefinition request = new HttpRequestDefinition(
             "http://localhost/orders",
@@ -33,7 +46,7 @@ class RequestAuthenticatorTest {
     @Test
     void authenticated_addsTheReturnedHeadersToACopy() {
         // when
-        var sent = RequestAuthenticator.authenticated(AUTH, returning(Map.of("X-Sig", "abc")), request);
+        var sent = RequestAuthenticator.authenticated(AUTH, returning(Map.of("X-Sig", "abc")), request, mask);
 
         // then
         assertThat(sent).isNotSameAs(request);
@@ -52,7 +65,7 @@ class RequestAuthenticatorTest {
         var bare = new HttpRequestDefinition("http://localhost/orders", "GET", null, null, null, Map.of());
 
         // when
-        var sent = RequestAuthenticator.authenticated(AUTH, returning(Map.of("X-Sig", "abc")), bare);
+        var sent = RequestAuthenticator.authenticated(AUTH, returning(Map.of("X-Sig", "abc")), bare, mask);
 
         // then
         assertThat(sent.getHeaders()).containsExactly(Map.entry("X-Sig", "abc"));
@@ -61,7 +74,7 @@ class RequestAuthenticatorTest {
     @Test
     void authenticated_doesNotModifyTheRequest() {
         // when
-        RequestAuthenticator.authenticated(AUTH, returning(Map.of("X-Sig", "abc")), request);
+        RequestAuthenticator.authenticated(AUTH, returning(Map.of("X-Sig", "abc")), request, mask);
 
         // then
         assertThat(request.getHeaders()).containsExactly(Map.entry("Accept", "application/json"));
@@ -74,7 +87,7 @@ class RequestAuthenticatorTest {
         var handler = new RecordingHandler(Map.of("X-Sig", "abc"));
 
         // when
-        RequestAuthenticator.authenticated(AUTH, handler, request);
+        RequestAuthenticator.authenticated(AUTH, handler, request, mask);
 
         // then
         assertThat(handler.calls).hasSize(1);
@@ -85,7 +98,7 @@ class RequestAuthenticatorTest {
     @Test
     void authenticated_returnsTheRequestItselfWhenThereAreNoHeadersToAdd() {
         // when
-        var sent = RequestAuthenticator.authenticated(AUTH, returning(Map.of()), request);
+        var sent = RequestAuthenticator.authenticated(AUTH, returning(Map.of()), request, mask);
 
         // then
         assertThat(sent).isSameAs(request);
@@ -96,7 +109,7 @@ class RequestAuthenticatorTest {
     @Test
     void authenticated_keepsTheRequestsOutcomesAndAddsOnePerHeader() {
         // when
-        var sent = RequestAuthenticator.authenticated(AUTH, returning(Map.of("X-Sig", "abc")), request);
+        var sent = RequestAuthenticator.authenticated(AUTH, returning(Map.of("X-Sig", "abc")), request, mask);
 
         // then
         assertThat(sent.getOutcomes()).containsOnlyKeys("url", "header.X-Sig");
@@ -112,7 +125,8 @@ class RequestAuthenticatorTest {
     @ValueSource(strings = {"Authorization", "authorization", "Proxy-Authorization", "PROXY-AUTHORIZATION"})
     void authenticated_keepsTheSchemeWordOfAnAuthorizationHeader(String name) {
         // when
-        var sent = RequestAuthenticator.authenticated(AUTH, returning(Map.of(name, "Basic YWRtaW46c2VjcmV0")), request);
+        var sent = RequestAuthenticator.authenticated(
+                AUTH, returning(Map.of(name, "Basic YWRtaW46c2VjcmV0")), request, mask);
 
         // then
         var outcome = sent.getOutcomes().get("header." + name);
@@ -123,7 +137,8 @@ class RequestAuthenticatorTest {
     @Test
     void authenticated_masksAnAuthorizationHeaderWithoutASchemeWhole() {
         // when - no space, so there is no scheme word to keep and the whole value is the credential
-        var sent = RequestAuthenticator.authenticated(AUTH, returning(Map.of("Authorization", "abc.def")), request);
+        var sent =
+                RequestAuthenticator.authenticated(AUTH, returning(Map.of("Authorization", "abc.def")), request, mask);
 
         // then
         assertThat(sent.getOutcomes().get("header.Authorization").reportingString())
@@ -133,7 +148,7 @@ class RequestAuthenticatorTest {
     @Test
     void authenticated_masksEveryOtherHeaderWholeEvenWithASpace() {
         // when
-        var sent = RequestAuthenticator.authenticated(AUTH, returning(Map.of("X-Api-Key", "Key abc")), request);
+        var sent = RequestAuthenticator.authenticated(AUTH, returning(Map.of("X-Api-Key", "Key abc")), request, mask);
 
         // then
         assertThat(sent.getOutcomes().get("header.X-Api-Key").reportingString()).isEqualTo("auth sig → ***");
@@ -145,7 +160,8 @@ class RequestAuthenticatorTest {
     @ValueSource(strings = {"Accept", "accept", "ACCEPT"})
     void authenticated_rejectsAHeaderTheRequestAlreadyCarries(String name) {
         // when / then
-        assertThatThrownBy(() -> RequestAuthenticator.authenticated(AUTH, returning(Map.of(name, "x-secret")), request))
+        assertThatThrownBy(() ->
+                        RequestAuthenticator.authenticated(AUTH, returning(Map.of(name, "x-secret")), request, mask))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining(name)
                 .hasMessageContaining("sig")
@@ -156,7 +172,7 @@ class RequestAuthenticatorTest {
     @Test
     void authenticated_rejectsANullMapNamingTheType() {
         // when / then
-        assertThatThrownBy(() -> RequestAuthenticator.authenticated(AUTH, returning(null), request))
+        assertThatThrownBy(() -> RequestAuthenticator.authenticated(AUTH, returning(null), request, mask))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("sig");
     }
@@ -168,7 +184,7 @@ class RequestAuthenticatorTest {
         headers.put(null, "s3cr3t");
 
         // when / then
-        assertThatThrownBy(() -> RequestAuthenticator.authenticated(AUTH, returning(headers), request))
+        assertThatThrownBy(() -> RequestAuthenticator.authenticated(AUTH, returning(headers), request, mask))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("sig")
                 .hasMessageNotContaining("s3cr3t");
@@ -178,7 +194,8 @@ class RequestAuthenticatorTest {
     @ValueSource(strings = {"", "  "})
     void authenticated_rejectsABlankHeaderName(String blank) {
         // when / then
-        assertThatThrownBy(() -> RequestAuthenticator.authenticated(AUTH, returning(Map.of(blank, "s3cr3t")), request))
+        assertThatThrownBy(() ->
+                        RequestAuthenticator.authenticated(AUTH, returning(Map.of(blank, "s3cr3t")), request, mask))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("sig")
                 .hasMessageNotContaining("s3cr3t");
@@ -191,7 +208,7 @@ class RequestAuthenticatorTest {
         headers.put("X-Sig", null);
 
         // when / then
-        assertThatThrownBy(() -> RequestAuthenticator.authenticated(AUTH, returning(headers), request))
+        assertThatThrownBy(() -> RequestAuthenticator.authenticated(AUTH, returning(headers), request, mask))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("sig")
                 .hasMessageContaining("X-Sig");
@@ -201,7 +218,8 @@ class RequestAuthenticatorTest {
     @ValueSource(strings = {"", "  "})
     void authenticated_rejectsABlankHeaderValueNamingTheHeader(String blank) {
         // when / then
-        assertThatThrownBy(() -> RequestAuthenticator.authenticated(AUTH, returning(Map.of("X-Sig", blank)), request))
+        assertThatThrownBy(() ->
+                        RequestAuthenticator.authenticated(AUTH, returning(Map.of("X-Sig", blank)), request, mask))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("sig")
                 .hasMessageContaining("X-Sig");
@@ -215,7 +233,7 @@ class RequestAuthenticatorTest {
         headers.put("x-sig", "s3cr3t-2");
 
         // when / then
-        assertThatThrownBy(() -> RequestAuthenticator.authenticated(AUTH, returning(headers), request))
+        assertThatThrownBy(() -> RequestAuthenticator.authenticated(AUTH, returning(headers), request, mask))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("sig")
                 .hasMessageNotContaining("s3cr3t-1")
@@ -228,11 +246,78 @@ class RequestAuthenticatorTest {
         var thrown = new BratException("The 'secret' argument is blank, which the 'sig' auth cannot use");
 
         // when / then
-        assertThatThrownBy(() -> RequestAuthenticator.authenticated(AUTH, throwing(thrown), request))
+        assertThatThrownBy(() -> RequestAuthenticator.authenticated(AUTH, throwing(thrown), request, mask))
                 .isSameAs(thrown);
     }
 
     // ---------- helpers ----------
+
+    @Test
+    void authenticated_addsTheCredentialOfASecretBuiltHeaderAsASecret() {
+        // when
+        RequestAuthenticator.authenticated(
+                AUTH, returning(Map.of("Authorization", "Basic YWRtaW46c2VjcmV0")), request, mask);
+
+        // then - masked even when a report shows guessed values
+        assertThat(mask.mask("Basic YWRtaW46c2VjcmV0", true)).isEqualTo("Basic ***");
+    }
+
+    @Test
+    void authenticated_reportsClearCredentialsInClear() {
+        // when
+        var sent = RequestAuthenticator.authenticated(
+                CLEAR_AUTH, returning(Map.of("Authorization", "Bearer abcd1234")), request, mask);
+
+        // then
+        var outcome = sent.getOutcomes().get("header.Authorization");
+        assertThat(outcome.value()).isEqualTo("Bearer abcd1234");
+        assertThat(outcome.reportingString()).isEqualTo("auth sig → Bearer abcd1234");
+        assertThat(outcome.containsSecret()).isFalse();
+    }
+
+    @Test
+    void authenticated_addsTheCredentialOfAClearHeaderAsGuessed() {
+        // when
+        RequestAuthenticator.authenticated(
+                CLEAR_AUTH, returning(Map.of("Authorization", "Bearer abcd1234")), request, mask);
+
+        // then - masked by default, the scheme word kept, and shown when asked
+        assertThat(mask.mask("auth sig → Bearer abcd1234", false)).isEqualTo("auth sig → Bearer ***");
+        assertThat(mask.mask("auth sig → Bearer abcd1234", true)).isEqualTo("auth sig → Bearer abcd1234");
+    }
+
+    @Test
+    void authenticated_addsTheWholeValueOfAnyOtherHeader() {
+        // when
+        RequestAuthenticator.authenticated(CLEAR_AUTH, returning(Map.of("X-Api-Key", "Key abcd1234")), request, mask);
+
+        // then
+        assertThat(mask.mask("Key abcd1234", false)).isEqualTo("***");
+    }
+
+    @Test
+    void authenticated_treatsAnAuthThatWasNeverInterpolatedAsClear() {
+        // given - no outcomes, so nothing in it was built from a secret
+        var authored = new Auth("sig", Map.of("token", "abcd1234"));
+
+        // when
+        var sent = RequestAuthenticator.authenticated(
+                authored, returning(Map.of("Authorization", "Bearer abcd1234")), request, mask);
+
+        // then
+        assertThat(sent.getOutcomes().get("header.Authorization").containsSecret())
+                .isFalse();
+        assertThat(mask.mask("abcd1234", false)).isEqualTo("***");
+    }
+
+    @Test
+    void authenticated_addsNothingToTheMaskWhenThereAreNoHeadersToAdd() {
+        // when
+        RequestAuthenticator.authenticated(CLEAR_AUTH, returning(Map.of()), request, mask);
+
+        // then
+        assertThat(mask.mask("abcd1234", false)).isEqualTo("abcd1234");
+    }
 
     private static AuthHandler returning(Map<String, String> headers) {
         return new RecordingHandler(headers);

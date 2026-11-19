@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
@@ -16,6 +17,7 @@ import dev.pbroman.brat.core.api.listener.AttemptFinished;
 import dev.pbroman.brat.core.api.listener.RunEvent;
 import dev.pbroman.brat.core.api.listener.RunListener;
 import dev.pbroman.brat.core.api.reporting.ReporterContext;
+import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.data.AssertionSeverity;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
@@ -30,6 +32,7 @@ import dev.pbroman.brat.core.data.result.RunResult;
 import dev.pbroman.brat.core.data.result.SuiteStatus;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.rendering.OutcomeRendererRuleDispatcher;
+import dev.pbroman.brat.core.rendering.ReportText;
 import dev.pbroman.brat.core.rendering.rules.ConsoleOutcomeRendererRule;
 import org.junit.jupiter.api.Test;
 
@@ -95,7 +98,22 @@ class ConsoleRunReporterTest {
     }
 
     private static RequestStatus completed() {
-        return new RequestStatus.Completed(Map.of(), 1, 10);
+        return completed("{\"name\":\"bob\"}");
+    }
+
+    /** A completed request whose response is a 200 holding {@code body} as JSON. */
+    private static RequestStatus completed(String body) {
+        var headers = new TreeMap<String, List<String>>(String.CASE_INSENSITIVE_ORDER);
+        headers.put("Content-Type", List.of("application/json"));
+        return new RequestStatus.Completed(
+                Map.of("statusCode", 200, "headers", headers, "body", body, "json", body), 1, 10);
+    }
+
+    /** A listener that has received {@code RunStarted} carrying {@code mask}. */
+    private RunListener started(Map<String, String> args, ValueMask mask) {
+        var listener = listener(args);
+        listener.on(new RunEvent.RunStarted(Instant.now(), mask));
+        return listener;
     }
 
     private RequestResult result(String path, RequestStatus status, long elapsedMs, AssertionResult... assertions) {
@@ -161,24 +179,36 @@ class ConsoleRunReporterTest {
     @Test
     void create_rejectsAnUnknownArgument() {
         // when / then - a typo fails before the run
-        assertThatThrownBy(() -> listener(Map.of("detial", "all")))
+        assertThatThrownBy(() -> listener(Map.of("respones", "all")))
                 .isInstanceOf(BratException.class)
-                .hasMessageContaining("detial");
+                .hasMessageContaining("respones")
+                .hasMessageContaining("response");
     }
 
     @Test
-    void create_rejectsAnUnknownDetailValue() {
+    void create_rejectsTheRetiredDetailArgument() {
         // when / then
-        assertThatThrownBy(() -> listener(Map.of("detail", "verbose")))
+        assertThatThrownBy(() -> listener(Map.of("detail", "all")))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("detail");
+    }
+
+    @Test
+    void create_rejectsAValueTheReportDetailRejects() {
+        // when / then
+        assertThatThrownBy(() -> listener(Map.of("response", "verbose")))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("verbose");
+        assertThatThrownBy(() -> listener(Map.of("assertions", "none"))).isInstanceOf(BratException.class);
     }
 
     @Test
-    void create_acceptsBothDetailValues() {
+    void create_acceptsEveryReportDetailArgument() {
+        // given
+        var args = Map.of("response", "all", "request", "none", "assertions", "all", "secrets", "show");
+
         // when / then
-        assertThat(listener(Map.of("detail", "failures"))).isNotNull();
-        assertThat(listener(Map.of("detail", "all"))).isNotNull();
+        assertThat(listener(args)).isNotNull();
     }
 
     @Test
@@ -205,7 +235,7 @@ class ConsoleRunReporterTest {
     @Test
     void on_printsNothingForRunStarted() {
         // when
-        listener().on(new RunEvent.RunStarted(Instant.now()));
+        listener().on(new RunEvent.RunStarted(Instant.now(), new ValueMask()));
 
         // then
         assertThat(printed()).isEmpty();
@@ -314,7 +344,7 @@ class ConsoleRunReporterTest {
                 .contains("FAIL isEqualTo — name must match")
                 .contains("a: ${response.json.$.name} → bob")
                 .contains("b: alice")
-                .contains("HttpRequestDefinition:")
+                .contains("request:")
                 .contains("url: ${env.baseUrl}/users/42 → http://h/users/42")
                 .doesNotContain("isNotNull")
                 .doesNotContain("message: ");
@@ -343,7 +373,7 @@ class ConsoleRunReporterTest {
         assertThat(collapsed())
                 .contains("PASS read user (38 ms)")
                 .contains("WARN isLessThan — name must match")
-                .doesNotContain("HttpRequestDefinition:");
+                .doesNotContain("request:");
     }
 
     @Test
@@ -356,9 +386,10 @@ class ConsoleRunReporterTest {
     }
 
     @Test
-    void on_showsEveryAssertionAndTheRequestAsSentWithDetailAll() {
+    void on_showsEveryAssertionAndTheRequestAsSentWithAll() {
         // when
-        listener(Map.of("detail", "all")).on(finished(result("users/read user", completed(), 38, passing())));
+        listener(Map.of("assertions", "all", "request", "all"))
+                .on(finished(result("users/read user", completed(), 38, passing())));
 
         // then
         assertThat(collapsed())
@@ -425,10 +456,230 @@ class ConsoleRunReporterTest {
                 new Condition("isEqualTo", SECRET, "x", null, outcomes), "token", false, AssertionSeverity.FAIL);
 
         // when
-        listener(Map.of("detail", "all")).on(finished(result("users/read", completed(), 5, overSecret)));
+        listener(Map.of("assertions", "all", "request", "all", "response", "all"))
+                .on(finished(result("users/read", completed(), 5, overSecret)));
 
         // then
         assertThat(printed()).contains("***").doesNotContain(SECRET);
+    }
+
+    // --- the response ---
+
+    @Test
+    void on_showsTheResponseBelowTheRequestAsSentUnderAFailedRequest() {
+        // when
+        listener().on(finished(result("users/read user", completed(), 38, failing())));
+
+        // then
+        var printed = collapsed();
+        assertThat(printed).contains("response: 200").contains("Content-Type: application/json");
+        assertThat(printed).contains("\"name\" : \"bob\"");
+        assertThat(printed.indexOf("response: 200")).isGreaterThan(printed.indexOf("request:"));
+    }
+
+    @Test
+    void on_printsTheResponseAtTheIndentOfTheRequestAsSent() {
+        // when
+        listener().on(finished(result("users/read user", completed(), 38, failing())));
+
+        // then
+        var request = lines().stream()
+                .filter(line -> line.endsWith("request:"))
+                .findFirst()
+                .orElseThrow();
+        var response = lines().stream()
+                .filter(line -> line.endsWith("response: 200"))
+                .findFirst()
+                .orElseThrow();
+        assertThat(response.indexOf('r')).isEqualTo(request.indexOf('r'));
+    }
+
+    @Test
+    void on_showsNoResponseUnderAPassingRequestByDefault() {
+        // when
+        listener().on(finished(result("users/read user", completed(), 38, passing())));
+
+        // then
+        assertThat(printed()).doesNotContain("response:");
+    }
+
+    @Test
+    void on_showsTheResponseUnderEveryRequestWithResponseAll() {
+        // when
+        listener(Map.of("response", "all")).on(finished(result("users/read user", completed(), 38, passing())));
+
+        // then - the response alone: request and assertions keep their own defaults
+        assertThat(collapsed())
+                .contains("response: 200")
+                .doesNotContain("request:")
+                .doesNotContain("isNotNull");
+    }
+
+    @Test
+    void on_showsAGivenUpPollsLastResponse() {
+        // given
+        var gaveUp =
+                new RequestStatus.GaveUp((RequestStatus.Completed) completed("{\"status\":\"RUNNING\"}"), "never done");
+
+        // when
+        listener().on(finished(result("jobs/poll", gaveUp, 900)));
+
+        // then
+        assertThat(collapsed()).contains("\"status\" : \"RUNNING\"");
+    }
+
+    @Test
+    void on_hidesOnlyTheResponseWithResponseNone() {
+        // when
+        listener(Map.of("response", "none")).on(finished(result("users/read user", completed(), 38, failing())));
+
+        // then
+        assertThat(collapsed()).contains("FAIL isEqualTo").contains("request:").doesNotContain("response:");
+    }
+
+    @Test
+    void on_hidesOnlyTheRequestWithRequestNone() {
+        // when
+        listener(Map.of("request", "none")).on(finished(result("users/read user", completed(), 38, failing())));
+
+        // then
+        assertThat(collapsed())
+                .contains("FAIL isEqualTo")
+                .contains("response: 200")
+                .doesNotContain("request:");
+    }
+
+    @Test
+    void on_showsEveryAssertionWithAssertionsAllAndNothingElse() {
+        // when
+        listener(Map.of("assertions", "all")).on(finished(result("users/read user", completed(), 38, passing())));
+
+        // then
+        assertThat(collapsed())
+                .contains("PASS isNotNull")
+                .doesNotContain("request:")
+                .doesNotContain("response:");
+    }
+
+    // --- masking and the cap ---
+
+    @Test
+    void on_masksAValueTheRunsMaskHoldsWhereverItIsPrinted() {
+        // given - the response revealed a token the assertion operand and the body both show
+        var mask = new ValueMask();
+        mask.addGuessed("tok-12345");
+        var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
+        outcomes.put("a", new InterpolationOutcome("tok-12345", "${response.json.$.access_token} → tok-12345"));
+        outcomes.put("b", new InterpolationOutcome("x", "x"));
+        var assertion = new AssertionResult(
+                new Condition("isEqualTo", "tok-12345", "x", null, outcomes), null, false, AssertionSeverity.FAIL);
+
+        // when
+        started(Map.of(), mask)
+                .on(finished(result("auth/login", completed("{\"access_token\":\"tok-12345\"}"), 5, assertion)));
+
+        // then
+        assertThat(printed()).doesNotContain("tok-12345").contains("→ ***").contains("\"access_token\" : \"***\"");
+    }
+
+    @Test
+    void on_showsGuessedValuesWithSecretsShow() {
+        // given
+        var mask = new ValueMask();
+        mask.addGuessed("tok-12345");
+
+        // when
+        started(Map.of("secrets", "show"), mask)
+                .on(finished(result("auth/login", completed("{\"access_token\":\"tok-12345\"}"), 5, failing())));
+
+        // then
+        assertThat(printed()).contains("tok-12345");
+    }
+
+    @Test
+    void on_masksASecretEvenWithSecretsShow() {
+        // given - a server echoing a secret back
+        var mask = new ValueMask();
+        mask.addSecret("hunter2-pw");
+
+        // when
+        started(Map.of("secrets", "show"), mask)
+                .on(finished(result("auth/login", completed("{\"echo\":\"hunter2-pw\"}"), 5, failing())));
+
+        // then
+        assertThat(printed()).doesNotContain("hunter2-pw");
+    }
+
+    @Test
+    void on_masksTheReasonOfAnErroredRequest() {
+        // given
+        var mask = new ValueMask();
+        mask.addSecret("hunter2-pw");
+
+        // when
+        started(Map.of(), mask).on(finished(result("auth/login", new RequestStatus.Errored("rejected hunter2-pw"), 5)));
+
+        // then
+        assertThat(printed()).contains("rejected ***").doesNotContain("hunter2-pw");
+    }
+
+    @Test
+    void on_masksTheMessageOfAnAssertionAndACaptureFailure() {
+        // given
+        var mask = new ValueMask();
+        mask.addSecret("hunter2-pw");
+        var assertion = new AssertionResult(
+                new Condition("isEqualTo", "a", "b"), "expected hunter2-pw", false, AssertionSeverity.FAIL);
+        var result = new RequestResult(
+                coordinates("auth/login", Phase.MAIN),
+                sent(),
+                null,
+                completed(),
+                5,
+                0,
+                new ResponseActionsResult(
+                        List.of(assertion), List.of(new CaptureFailure("pw", "${x}", "no hunter2-pw here"))));
+
+        // when
+        started(Map.of(), mask).on(finished(result));
+
+        // then
+        assertThat(printed()).doesNotContain("hunter2-pw");
+    }
+
+    @Test
+    void on_masksTheReasonOfASuiteAndTheErrorOfAnAttempt() {
+        // given
+        var mask = new ValueMask();
+        mask.addSecret("hunter2-pw");
+        var listener = started(Map.of(), mask);
+
+        // when
+        feed(
+                listener,
+                new AttemptFinished(coordinates("jobs/poll", Phase.MAIN), 1, 3, 5, false, "refused hunter2-pw"),
+                new RunEvent.SuiteExited("jobs", new SuiteStatus.Aborted("setup said hunter2-pw"), 10));
+
+        // then
+        assertThat(printed()).doesNotContain("hunter2-pw");
+    }
+
+    @Test
+    void on_cutsAnOverlongOutcome() {
+        // given
+        var huge = "x".repeat(ReportText.MAX_LENGTH + 50);
+        var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
+        outcomes.put("a", new InterpolationOutcome(huge, "${response.body} → " + huge));
+        outcomes.put("b", new InterpolationOutcome("x", "x"));
+        var assertion = new AssertionResult(
+                new Condition("isEqualTo", huge, "x", null, outcomes), null, false, AssertionSeverity.FAIL);
+
+        // when
+        listener(Map.of("request", "none", "response", "none"))
+                .on(finished(result("users/read", completed(), 5, assertion)));
+
+        // then
+        assertThat(printed()).contains("more characters").doesNotContain(huge);
     }
 
     @Test
@@ -506,8 +757,8 @@ class ConsoleRunReporterTest {
                 0,
                 new ResponseActionsResult(List.of(authored), List.of()));
 
-        // when
-        listener().on(finished(result));
+        // when - the response hidden, since this is about the assertion alone
+        listener(Map.of("response", "none")).on(finished(result));
 
         // then - the request line and the assertion header, nothing beneath
         assertThat(lines()).hasSize(2);
@@ -515,9 +766,9 @@ class ConsoleRunReporterTest {
     }
 
     @Test
-    void on_showsNoSentRequestUnderASkippedRequestEvenWithDetailAll() {
+    void on_showsNoSentRequestOrResponseUnderASkippedRequestEvenWithAll() {
         // when - a skipped request was never sent
-        listener(Map.of("detail", "all"))
+        listener(Map.of("request", "all", "response", "all"))
                 .on(finished(result("users/delete", new RequestStatus.Skipped("flag off"), 0)));
 
         // then
@@ -682,6 +933,20 @@ class ConsoleRunReporterTest {
 
         // then
         assertThat(lines().getLast()).isEqualTo("54 ms · ABORTED — There is no handler named 'proxy'");
+    }
+
+    @Test
+    void on_masksTheErrorThatEndedARun() {
+        // given
+        var mask = new ValueMask();
+        mask.addSecret("hunter2-pw");
+        var aborted = new RunResult(List.of(), List.of(), 54, false, "The source rejected hunter2-pw");
+
+        // when
+        started(Map.of(), mask).on(new RunEvent.RunFinished(aborted));
+
+        // then
+        assertThat(lines().getLast()).isEqualTo("54 ms · ABORTED — The source rejected ***");
     }
 
     @Test

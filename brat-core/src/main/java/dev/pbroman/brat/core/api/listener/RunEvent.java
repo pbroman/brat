@@ -2,10 +2,13 @@ package dev.pbroman.brat.core.api.listener;
 
 import java.time.Instant;
 
+import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.data.result.RequestCoordinates;
 import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.data.result.RunResult;
 import dev.pbroman.brat.core.data.result.SuiteStatus;
+import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.util.Require;
 
 /**
  * Something that happened during a run, delivered to every {@link RunListener} as it happens.
@@ -31,8 +34,22 @@ public sealed interface RunEvent
      * The run has begun, delivered before any other event.
      *
      * @param at when the run started
+     * @param mask the values this run must not print. Filled as the run goes, so a listener keeps it
+     *        and masks with it whenever it renders; never {@code null}
      */
-    record RunStarted(Instant at) implements RunEvent {}
+    record RunStarted(Instant at, ValueMask mask) implements RunEvent {
+
+        /**
+         * Validates that {@code mask} is present.
+         *
+         * @param at when the run started
+         * @param mask the values this run must not print
+         * @throws BratException if {@code mask} is {@code null}
+         */
+        public RunStarted {
+            Require.nonNull(mask, "The mask of a RunStarted must not be null");
+        }
+    }
 
     /**
      * A suite is being entered.

@@ -10,6 +10,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import lombok.Getter;
 
+import static dev.pbroman.brat.core.util.Constants.MASK;
+
 /**
  * A condition is a function 'a func b' that can be evaluated to true or false.
  * <p>
@@ -20,8 +22,6 @@ import lombok.Getter;
  */
 @Getter
 public sealed class Condition extends ConfigData permits Assertion {
-
-    private static final String MASK = "***";
 
     private final String func;
     private final Object a;

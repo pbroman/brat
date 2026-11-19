@@ -29,6 +29,7 @@
       than a false positive and now copies. Nothing is excluded by name any more.
     - 2026-10-01: one named EI_EXPOSE_REP2 exclusion, `ConsoleRunReporter`, below - the first
       collaborator rather than data to trip the storing half.
+    - 2026-11-13: two more, both holding a run's `ValueMask` - see below.
 -->
 <FindBugsFilter>
     <Match>
@@ -41,6 +42,20 @@
     -->
     <Match>
         <Class name="dev.pbroman.brat.core.reporting.ConsoleRunReporter"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <!--
+        A run's ValueMask is shared on purpose: the run fills it as it goes, and RunStarted hands that
+        same instance to every listener, which masks with whatever has been added by the time it
+        renders. RecordingSecretsProvider adds to it. A copy would freeze the mask at the moment it was
+        taken and miss every value added after - the opposite of the contract.
+    -->
+    <Match>
+        <Class name="dev.pbroman.brat.core.api.listener.RunEvent$RunStarted"/>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Class name="dev.pbroman.brat.core.secrets.RecordingSecretsProvider"/>
         <Bug pattern="EI_EXPOSE_REP2"/>
     </Match>
 </FindBugsFilter>

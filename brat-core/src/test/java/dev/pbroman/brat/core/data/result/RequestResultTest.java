@@ -150,6 +150,49 @@ class RequestResultTest {
         assertThat(new RequestStatus.Completed(null, 1, 42).responseVars()).isEmpty();
     }
 
+    @Test
+    void responseVars_isTheCompletedResponse() {
+        // given
+        var result = result(completed(), List.of(), List.of());
+
+        // when
+        var responseVars = result.responseVars();
+
+        // then
+        assertThat(responseVars).contains(Map.of("statusCode", "200"));
+    }
+
+    @Test
+    void responseVars_isTheLastAttemptsResponseForAGivenUpPoll() {
+        // given
+        var lastAttempt = new RequestStatus.Completed(Map.of("statusCode", "202"), 3, 42);
+        var result = result(new RequestStatus.GaveUp(lastAttempt, "never COMPLETE"), List.of(), List.of());
+
+        // when
+        var responseVars = result.responseVars();
+
+        // then
+        assertThat(responseVars).contains(Map.of("statusCode", "202"));
+    }
+
+    @Test
+    void responseVars_isEmptyForAnErroredRequest() {
+        // given
+        var result = result(new RequestStatus.Errored("connection refused"), List.of(), List.of());
+
+        // when / then
+        assertThat(result.responseVars()).isEmpty();
+    }
+
+    @Test
+    void responseVars_isEmptyForASkippedRequest() {
+        // given
+        var result = result(new RequestStatus.Skipped("Skipped due to condition"), List.of(), List.of());
+
+        // when / then
+        assertThat(result.responseVars()).isEmpty();
+    }
+
     private static RequestStatus completed() {
         return new RequestStatus.Completed(Map.of("statusCode", "200"), 1, 42);
     }

@@ -27,7 +27,9 @@ import picocli.CommandLine.Spec;
  * The {@code brat run} command: runs one suite, reports it on stdout, and answers with an exit code.
  *
  * <pre>
- * brat run &lt;suite-or-directory&gt; [-e &lt;name&gt; | --env-dir &lt;path&gt;] [-p key=value]... [--verbose]
+ * brat run &lt;suite-or-directory&gt; [-e &lt;name&gt; | --env-dir &lt;path&gt;] [-p key=value]...
+ *          [--show-response &lt;scope&gt;] [--show-request &lt;scope&gt;] [--show-assertions &lt;scope&gt;]
+ *          [--show-secrets] [--verbose]
  * </pre>
  *
  * <strong>What it runs.</strong> The arguments map onto a {@code Launch} and nothing more — every rule
@@ -37,6 +39,13 @@ import picocli.CommandLine.Spec;
  * neither means no environment. {@code -e} and {@code --env-dir} are exclusive. Each
  * {@code -p}/{@code --param key=value} is a launch parameter — {@code ${params.key}}, or a namespace
  * override such as {@code env.baseUrl=…}; a key given twice keeps its last value.
+ * <p>
+ * <strong>What the report shows.</strong> {@code --show-response}, {@code --show-request} and
+ * {@code --show-assertions} each take {@code failures}, {@code all} or {@code none} ({@code assertions}
+ * not {@code none}), and {@code --show-secrets} takes no value. They map onto the console reporter's
+ * arguments {@code response}, {@code request}, {@code assertions} and {@code secrets: show}, and only
+ * an option that was given is passed on, so a default is core's. A value core rejects exits {@code 2}
+ * before anything is printed on stdout.
  * <p>
  * <strong>Stdout</strong> carries the run and nothing else: first one line naming what runs —
  * <pre>
@@ -57,7 +66,8 @@ import picocli.CommandLine.Spec;
  *   <li>{@code 1} — the run failed: a request or assertion failed, a suite was aborted, or the run was
  *       stopped or cancelled;</li>
  *   <li>{@code 2} — it could not run: arguments picocli rejects (an unknown option, {@code -e} with
- *       {@code --env-dir}, a {@code -p} without {@code =}), a launch that cannot be read (no suite, an
+ *       {@code --env-dir}, a {@code -p} without {@code =}), a {@code --show-*} value the reporter
+ *       rejects, a launch that cannot be read (no suite, an
  *       environment that is not there, a suite that does not load), or a structural error that ended
  *       the run. Its message is printed to stderr, the stack trace too with {@code --verbose}. Any
  *       other failure — any exception, or an {@link Error} — exits {@code 2} the same way, its message
@@ -118,6 +128,30 @@ final class RunCommand implements Callable<Integer> {
             description = "A launch parameter, read as $${params.key}, or a namespace override such as env.baseUrl=….")
     private Map<String, String> params = new LinkedHashMap<>();
 
+    @Option(
+            names = "--show-response",
+            paramLabel = "<scope>",
+            description = "Show the response under failed requests (failures, the default), all of them, or none.")
+    private String showResponse;
+
+    @Option(
+            names = "--show-request",
+            paramLabel = "<scope>",
+            description = "Show the request as sent under failed requests (failures, the default), all, or none.")
+    private String showRequest;
+
+    @Option(
+            names = "--show-assertions",
+            paramLabel = "<scope>",
+            description = "Show the failed assertions (failures, the default) or all of them.")
+    private String showAssertions;
+
+    @Option(
+            names = "--show-secrets",
+            description = "Show values that only look sensitive, such as a token in a response."
+                    + " A value from a secrets source stays masked.")
+    private boolean showSecrets;
+
     @Option(names = "--verbose", description = "Log at DEBUG, and print the stack trace of an error.")
     private boolean verbose;
 
@@ -147,6 +181,8 @@ final class RunCommand implements Callable<Integer> {
         // Before anything that logs exists: slf4j-simple reads its configuration once, on first use.
         configureLogging();
         try (var brat = Brat.builder().build()) {
+            // Before anything is printed: a --show-* value the reporter rejects is a bad argument.
+            var listeners = List.of(brat.reporter(ConsoleRunReporter.NAME, reporterArgs()));
             var prepared = new LaunchReader(brat.loader(), brat.environmentReader()).read(launch());
             // The stream core's console reporter writes to, so this line and the report stay in order.
             PrintStream report = System.out;
@@ -155,7 +191,6 @@ final class RunCommand implements Callable<Integer> {
             var control = controls.get();
             var stopper = InterruptStopper.install(control, spec.commandLine().getErr());
             try {
-                var listeners = List.of(brat.reporter(ConsoleRunReporter.NAME, Map.of()));
                 var result = brat.run(prepared.suite(), prepared.environment(), listeners, control);
                 return result.failed() ? FAILED : PASSED;
             } finally {
@@ -180,6 +215,28 @@ final class RunCommand implements Callable<Integer> {
         if (System.getProperty(key) == null) {
             System.setProperty(key, value);
         }
+    }
+
+    /**
+     * The console reporter's arguments: one per {@code --show-*} option given, none for one left out.
+     *
+     * @return the arguments
+     */
+    private Map<String, String> reporterArgs() {
+        var args = new LinkedHashMap<String, String>();
+        if (showResponse != null) {
+            args.put("response", showResponse);
+        }
+        if (showRequest != null) {
+            args.put("request", showRequest);
+        }
+        if (showAssertions != null) {
+            args.put("assertions", showAssertions);
+        }
+        if (showSecrets) {
+            args.put("secrets", "show");
+        }
+        return args;
     }
 
     /**

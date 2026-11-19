@@ -13,6 +13,7 @@ import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.listener.AttemptFinished;
+import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.api.resolver.ConditionResolver;
 import dev.pbroman.brat.core.auth.AuthHandlerRegistry;
 import dev.pbroman.brat.core.auth.BearerAuthHandler;
@@ -97,7 +98,8 @@ class RequestProcessorPollingTest {
                 flowControlInterpolator,
                 new RequestOptionsInterpolator(),
                 new RequestExecutor(conditionEvaluator, attempts::add, phase -> false),
-                new AuthHandlerRegistry(List.of(new NoneAuthHandler(), new BearerAuthHandler(), countingAuthHandler)));
+                new AuthHandlerRegistry(List.of(new NoneAuthHandler(), new BearerAuthHandler(), countingAuthHandler)),
+                new ValueMask());
 
         runtimeData = new RuntimeData(Map.of(), Map.of());
         when(requestDefinitionInterpolator.interpolated(any(), any(), any())).thenReturn(interpolated);

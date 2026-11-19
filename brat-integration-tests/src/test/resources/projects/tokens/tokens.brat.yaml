@@ -1,0 +1,24 @@
+# A token request whose check fails, so the console shows the response it came back with — and masks
+# the access_token in it unless the run says --show-secrets.
+name: tokens
+description: fetches an OAuth2-style token and checks a field the server never sends
+
+requests:
+  - name: fetch a token
+    requestDefinition:
+      url: "${env.baseUrl}/oauth/token"
+      method: POST
+      headers:
+        Content-Type: application/json
+      body:
+        raw: |
+          {
+            "username": "reader",
+            "password": "reader-password"
+          }
+    responseActions:
+      assertions:
+        - a: "${response.json.$.token_type}"
+          func: isEqualTo
+          b: "MAC"   # fails on purpose: the server issues Bearer tokens
+          message: the token must be a MAC token

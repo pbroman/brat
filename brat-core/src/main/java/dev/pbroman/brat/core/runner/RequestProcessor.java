@@ -8,6 +8,7 @@ import dev.pbroman.brat.core.api.handler.RequestHandler;
 import dev.pbroman.brat.core.api.handler.ResponseHandler;
 import dev.pbroman.brat.core.api.interpolation.ConfigDataInterpolator;
 import dev.pbroman.brat.core.api.interpolation.Interpolation;
+import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.auth.AuthHandlerRegistry;
 import dev.pbroman.brat.core.auth.NoneAuthHandler;
 import dev.pbroman.brat.core.auth.RequestAuthenticator;
@@ -55,6 +56,7 @@ final class RequestProcessor {
     private final ConfigDataInterpolator<RequestOptions> requestOptionsInterpolator;
     private final RequestExecutor requestExecutor;
     private final AuthHandlerRegistry authHandlers;
+    private final ValueMask mask;
 
     /**
      * Constructs a processor over the collaborators it delegates to.
@@ -71,6 +73,7 @@ final class RequestProcessor {
      *        options
      * @param requestExecutor performs the request's attempts and says how they ended
      * @param authHandlers the auth handlers a request's {@code auth} type is looked up in
+     * @param mask the run's mask, which the credentials auth adds are recorded in
      */
     RequestProcessor(
             Interpolation interpolation,
@@ -80,7 +83,8 @@ final class RequestProcessor {
             ConfigDataInterpolator<FlowControl> flowControlInterpolator,
             ConfigDataInterpolator<RequestOptions> requestOptionsInterpolator,
             RequestExecutor requestExecutor,
-            AuthHandlerRegistry authHandlers) {
+            AuthHandlerRegistry authHandlers,
+            ValueMask mask) {
         this.interpolation = interpolation;
         this.requestDefinitionInterpolators = requestDefinitionInterpolators;
         this.conditionEvaluator = conditionEvaluator;
@@ -89,6 +93,7 @@ final class RequestProcessor {
         this.requestOptionsInterpolator = requestOptionsInterpolator;
         this.requestExecutor = requestExecutor;
         this.authHandlers = authHandlers;
+        this.mask = mask;
     }
 
     /**
@@ -347,7 +352,7 @@ final class RequestProcessor {
         }
         var handler = authHandlers.get(auth.getType());
         // The executor applies this to the definition it was given, so the cast holds.
-        return def -> RequestAuthenticator.authenticated(auth, handler, (HttpRequestDefinition) def);
+        return def -> RequestAuthenticator.authenticated(auth, handler, (HttpRequestDefinition) def, mask);
     }
 
     /**
