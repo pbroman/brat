@@ -4,10 +4,7 @@ import java.util.regex.Pattern;
 
 /**
  * The string literals shared across {@code brat-core}: interpolation namespaces, condition func
- * names, auth types, request defaults and console colours.
- * <p>
- * Carried over wholesale from the reference implementation, so it still holds constants nothing uses
- * yet.
+ * names, auth types and request defaults.
  */
 public final class Constants {
 
@@ -42,7 +39,6 @@ public final class Constants {
     /** The key inside a {@code requestDefinition:} block naming what kind of request it describes. */
     public static final String PROTOCOL = "protocol";
 
-    public static final String REQUEST_RESULTS = "requestResults";
     public static final String RESPONSE = "response";
     public static final String RESPONSE_VARS = "responseVars";
     public static final String STATUS_CODE = "statusCode";
@@ -147,17 +143,5 @@ public final class Constants {
 
     public static final String IS_PREFIX = "is";
 
-    public static final String NEGATION_REGEX = "^(not|!)(.+)";
-    public static final Pattern NEGATION_PATTERN = Pattern.compile(NEGATION_REGEX);
-
-    // COLORS
-    public static final String COLOR_RESET = "\033[0m";
-    public static final String COLOR_RED = "\033[0;31m";
-    public static final String COLOR_GREEN = "\033[0;32m";
-    public static final String COLOR_YELLOW = "\033[0;33m";
-    public static final String COLOR_BLUE = "\033[0;34m";
-    public static final String COLOR_PURPLE = "\033[0;35m";
-    public static final String COLOR_CYAN = "\033[0;36m";
-    public static final String COLOR_WHITE = "\033[0;37m";
-    public static final String COLOR_BLACK_BOLD = "\033[1;30m";
+    public static final Pattern NEGATION_PATTERN = Pattern.compile("^(not|!)(.+)");
 }

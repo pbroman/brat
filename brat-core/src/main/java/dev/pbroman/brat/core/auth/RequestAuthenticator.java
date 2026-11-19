@@ -12,6 +12,7 @@ import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.HttpHeaderUtils;
 import org.apache.commons.lang3.StringUtils;
 
+import static dev.pbroman.brat.core.data.HttpRequestDefinition.OUTCOME_HEADER_PREFIX;
 import static dev.pbroman.brat.core.util.Constants.AUTHORIZATION;
 import static dev.pbroman.brat.core.util.Constants.MASK;
 
@@ -92,7 +93,9 @@ public final class RequestAuthenticator {
             var value = header.getValue();
             headers.put(name, value);
             var shown = fromSecret ? masked(name, value) : value;
-            outcomes.put("header." + name, new InterpolationOutcome(value, "auth " + type + " → " + shown, fromSecret));
+            outcomes.put(
+                    OUTCOME_HEADER_PREFIX + name,
+                    new InterpolationOutcome(value, "auth " + type + " → " + shown, fromSecret));
             if (fromSecret) {
                 mask.addSecret(credential(name, value));
             } else {

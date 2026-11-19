@@ -10,6 +10,7 @@ import dev.pbroman.brat.core.api.listener.AttemptFinished;
 import dev.pbroman.brat.core.api.listener.RunEvent;
 import dev.pbroman.brat.core.api.listener.RunListener;
 import dev.pbroman.brat.core.api.rendering.OutcomeRenderer;
+import dev.pbroman.brat.core.api.rendering.RenderKinds;
 import dev.pbroman.brat.core.api.rendering.RenderTarget;
 import dev.pbroman.brat.core.api.reporting.ReportDetail;
 import dev.pbroman.brat.core.api.reporting.ValueMask;
@@ -44,7 +45,6 @@ final class ConsoleRunListener implements RunListener {
     /** Puts the detail under a request beneath its name rather than its verdict. */
     private static final String DETAIL_INDENT = " ".repeat(9);
 
-    private static final String RENDER_KIND = "console";
     private static final String DASH = " — ";
 
     private final PrintStream out;
@@ -234,7 +234,7 @@ final class ConsoleRunListener implements RunListener {
                     new InterpolationOutcome(
                             outcome.value(), shown(outcome.reportingString()), outcome.containsSecret()));
         }
-        renderer.render(RENDER_KIND, new RenderTarget(target.label(), outcomes))
+        renderer.render(RenderKinds.CONSOLE, new RenderTarget(target.label(), outcomes))
                 .lines()
                 .map(line -> indent + line)
                 .forEach(out::println);

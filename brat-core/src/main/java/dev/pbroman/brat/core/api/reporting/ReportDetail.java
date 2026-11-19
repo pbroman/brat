@@ -38,11 +38,26 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  */
 public record ReportDetail(Show response, Show request, Show assertions, boolean showSecrets) {
 
-    /** The argument keys {@link #of(Map)} reads, in the order they are documented. */
-    public static final List<String> KEYS = List.of("response", "request", "assertions", "secrets");
+    /** The argument for which requests the response is shown. */
+    public static final String RESPONSE = "response";
 
-    private static final String SECRETS_MASK = "mask";
-    private static final String SECRETS_SHOW = "show";
+    /** The argument for which requests the request as sent is shown. */
+    public static final String REQUEST = "request";
+
+    /** The argument for which requests every assertion is shown. */
+    public static final String ASSERTIONS = "assertions";
+
+    /** The argument for whether values that only look sensitive are masked or shown. */
+    public static final String SECRETS = "secrets";
+
+    /** The {@link #SECRETS} value that masks, the default. */
+    public static final String SECRETS_MASK = "mask";
+
+    /** The {@link #SECRETS} value that shows. */
+    public static final String SECRETS_SHOW = "show";
+
+    /** The argument keys {@link #of(Map)} reads, in the order they are documented. */
+    public static final List<String> KEYS = List.of(RESPONSE, REQUEST, ASSERTIONS, SECRETS);
 
     /**
      * Validates the components.
@@ -82,9 +97,9 @@ public record ReportDetail(Show response, Show request, Show assertions, boolean
     public static ReportDetail of(Map<String, String> args) {
         nonNull(args, "The reporter args must not be null");
         return new ReportDetail(
-                show(args, "response", List.of(Show.values())),
-                show(args, "request", List.of(Show.values())),
-                show(args, "assertions", List.of(Show.FAILURES, Show.ALL)),
+                show(args, RESPONSE, List.of(Show.values())),
+                show(args, REQUEST, List.of(Show.values())),
+                show(args, ASSERTIONS, List.of(Show.FAILURES, Show.ALL)),
                 showSecrets(args));
     }
 
@@ -162,14 +177,14 @@ public record ReportDetail(Show response, Show request, Show assertions, boolean
     }
 
     private static boolean showSecrets(Map<String, String> args) {
-        var value = args.get("secrets");
+        var value = args.get(SECRETS);
         if (value == null || SECRETS_MASK.equals(value)) {
             return false;
         }
         if (SECRETS_SHOW.equals(value)) {
             return true;
         }
-        throw unknownValue("secrets", value, List.of(SECRETS_MASK, SECRETS_SHOW));
+        throw unknownValue(SECRETS, value, List.of(SECRETS_MASK, SECRETS_SHOW));
     }
 
     private static BratException unknownValue(String key, String value, List<String> legal) {

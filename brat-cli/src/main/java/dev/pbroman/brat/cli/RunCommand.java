@@ -9,6 +9,7 @@ import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
 import dev.pbroman.brat.core.api.listener.RunControl;
+import dev.pbroman.brat.core.api.reporting.ReportDetail;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.launch.Launch;
 import dev.pbroman.brat.core.launch.LaunchReader;
@@ -225,16 +226,16 @@ final class RunCommand implements Callable<Integer> {
     private Map<String, String> reporterArgs() {
         var args = new LinkedHashMap<String, String>();
         if (showResponse != null) {
-            args.put("response", showResponse);
+            args.put(ReportDetail.RESPONSE, showResponse);
         }
         if (showRequest != null) {
-            args.put("request", showRequest);
+            args.put(ReportDetail.REQUEST, showRequest);
         }
         if (showAssertions != null) {
-            args.put("assertions", showAssertions);
+            args.put(ReportDetail.ASSERTIONS, showAssertions);
         }
         if (showSecrets) {
-            args.put("secrets", "show");
+            args.put(ReportDetail.SECRETS, ReportDetail.SECRETS_SHOW);
         }
         return args;
     }
