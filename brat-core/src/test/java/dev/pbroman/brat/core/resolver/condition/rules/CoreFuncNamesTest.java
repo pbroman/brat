@@ -30,7 +30,10 @@ class CoreFuncNamesTest {
                         "isMediaType",
                         "startsWith",
                         "endsWith",
-                        "matches");
+                        "matches",
+                        "hasSize",
+                        "hasSizeGreaterThan",
+                        "hasSizeBetween");
     }
 
     @Test

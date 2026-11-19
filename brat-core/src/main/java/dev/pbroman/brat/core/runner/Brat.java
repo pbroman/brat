@@ -68,7 +68,6 @@ import dev.pbroman.brat.core.resolver.condition.rules.BooleanConditionResolverRu
 import dev.pbroman.brat.core.resolver.condition.rules.DateConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.FormatConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.JsonConditionResolverRule;
-import dev.pbroman.brat.core.resolver.condition.rules.NullConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.NumberConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.StringConditionResolverRule;
 import dev.pbroman.brat.core.secrets.FileSecretsProviderFactory;
@@ -136,8 +135,7 @@ public final class Brat implements AutoCloseable {
                             new BooleanConditionResolverRule(),
                             new DateConditionResolverRule(),
                             new FormatConditionResolverRule(),
-                            new JsonConditionResolverRule(),
-                            new NullConditionResolverRule()),
+                            new JsonConditionResolverRule()),
                     builder.conditionResolverRules,
                     ConditionResolverRule.class,
                     loader);

@@ -7,7 +7,6 @@ import java.util.Map;
 import dev.pbroman.brat.core.api.resolver.ConditionPredicate;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.HttpHeaderUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 
 import static dev.pbroman.brat.core.util.Constants.CONTAINS;
@@ -17,6 +16,9 @@ import static dev.pbroman.brat.core.util.Constants.EQUALS;
 import static dev.pbroman.brat.core.util.Constants.EQUALS_IGNORE_CASE;
 import static dev.pbroman.brat.core.util.Constants.EQUAL_TO;
 import static dev.pbroman.brat.core.util.Constants.EQUAL_TO_IGNORING_CASE;
+import static dev.pbroman.brat.core.util.Constants.HAS_SIZE;
+import static dev.pbroman.brat.core.util.Constants.HAS_SIZE_BETWEEN;
+import static dev.pbroman.brat.core.util.Constants.HAS_SIZE_GREATER_THAN;
 import static dev.pbroman.brat.core.util.Constants.IS_BLANK;
 import static dev.pbroman.brat.core.util.Constants.IS_EMPTY;
 import static dev.pbroman.brat.core.util.Constants.IS_NULL;
@@ -39,7 +41,14 @@ import static dev.pbroman.brat.core.util.Constants.STRING_CONDITION;
  * {@code isNull} is the one exception: a structure is never null, so it answers {@code false}, and
  * {@code isNotNull} {@code true}.
  * <p>
- * {@code b} is not checked: it is read as text whatever it is.
+ * <strong>{@code hasSize}, {@code hasSizeGreaterThan} and {@code hasSizeBetween}</strong> count the
+ * characters of the text as a reader would: in code points, so a character outside the Basic
+ * Multilingual Plane, such as an emoji, is one. {@code hasSize} and {@code hasSizeGreaterThan} take the
+ * size as {@code b}; {@code hasSizeBetween} takes {@code min} and {@code max} in {@code args}, both
+ * inclusive, and no {@code b}. A size that is not a whole number, or an unknown or missing argument,
+ * is an error.
+ * <p>
+ * {@code b} is not checked otherwise: it is read as text whatever it is.
  */
 public final class StringConditionResolverRule extends AbstractConditionResolverRule {
 
@@ -69,6 +78,12 @@ public final class StringConditionResolverRule extends AbstractConditionResolver
         predicates.put(STARTS_WITH, (a, b, args) -> parse(a).startsWith(parse(b)));
         predicates.put(ENDS_WITH, (a, b, args) -> parse(a).endsWith(parse(b)));
         predicates.put(MATCHES, (a, b, args) -> parse(a).matches(parse(b)));
+        predicates.put(HAS_SIZE, (a, b, args) -> textSize(a) == OperandUtils.size(b));
+        predicates.put(HAS_SIZE_GREATER_THAN, (a, b, args) -> textSize(a) > OperandUtils.size(b));
+        predicates.put(
+                HAS_SIZE_BETWEEN,
+                (a, b, args) ->
+                        OperandUtils.sizeBetween(textSize(a), args, subject(STRING_CONDITION, HAS_SIZE_BETWEEN)));
 
         predicates.replaceAll(
                 (function, predicate) -> IS_NULL.equals(function) ? predicate : textOnly(function, predicate));
@@ -84,26 +99,20 @@ public final class StringConditionResolverRule extends AbstractConditionResolver
      */
     private static ConditionPredicate textOnly(String function, ConditionPredicate predicate) {
         return (a, b, args) -> {
-            requireText(a, function);
+            OperandUtils.requireText(a, subject(STRING_CONDITION, function));
             return predicate.test(a, b, args);
         };
     }
 
     /**
-     * Throws if {@code a} is a sequence or a mapping, naming {@code function} and which of the two it
-     * was — never its content, which may hold a secret.
+     * The number of characters in the text of {@code value}, counted in code points.
      *
-     * @param a the subject of the condition
-     * @param function the func's canonical name
-     * @throws BratException if {@code a} is a {@link List} or a {@link Map}
+     * @param value {@code a}, a scalar
+     * @return the count
      */
-    private static void requireText(Object a, String function) {
-        if (a instanceof List || a instanceof Map) {
-            var kind = a instanceof List ? "a sequence" : "a mapping";
-            throw new BratException(
-                    StringUtils.capitalize(subject(STRING_CONDITION, function)) + " needs text, but a was " + kind
-                            + "; a JSON array or object is checked with the structural funcs");
-        }
+    private static int textSize(Object value) {
+        var text = parse(value);
+        return text.codePointCount(0, text.length());
     }
 
     private static String parse(Object value) {
@@ -126,6 +135,6 @@ public final class StringConditionResolverRule extends AbstractConditionResolver
 
     @Override
     protected List<String> ignoreBNullCheck() {
-        return List.of(IS_NULL, IS_EMPTY, IS_BLANK);
+        return List.of(IS_NULL, IS_EMPTY, IS_BLANK, HAS_SIZE_BETWEEN);
     }
 }

@@ -11,7 +11,6 @@ import dev.pbroman.brat.core.resolver.condition.rules.BooleanConditionResolverRu
 import dev.pbroman.brat.core.resolver.condition.rules.DateConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.FormatConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.JsonConditionResolverRule;
-import dev.pbroman.brat.core.resolver.condition.rules.NullConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.NumberConditionResolverRule;
 import dev.pbroman.brat.core.resolver.condition.rules.StringConditionResolverRule;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,7 +54,6 @@ class ConditionResolverIntegrationTest {
                 new FormatConditionResolverRule(),
                 new JsonConditionResolverRule(),
                 new NumberConditionResolverRule(),
-                new NullConditionResolverRule(),
                 new DateConditionResolverRule(),
                 new StringConditionResolverRule()));
     }

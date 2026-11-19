@@ -47,9 +47,9 @@ class SuiteSchemaTest {
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
-    // Mirrors the rule list in Brat's builder, minus the null rule, which lists no funcs: a rule added
-    // there belongs here too, or its funcs are accepted but not offered.
-    /** Every condition rule core ships that extends the base rule, so every core func is offered. */
+    // Mirrors the rule list in Brat's builder: a rule added there belongs here too, or its funcs are
+    // accepted but not offered.
+    /** Every condition rule core ships, so every core func is offered. */
     static List<AbstractConditionResolverRule> coreRules() {
         return List.of(
                 new StringConditionResolverRule(),

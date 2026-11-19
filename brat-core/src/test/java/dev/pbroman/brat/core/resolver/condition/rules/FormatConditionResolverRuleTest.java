@@ -1,11 +1,17 @@
 package dev.pbroman.brat.core.resolver.condition.rules;
 
+import java.util.List;
+import java.util.Map;
+
 import dev.pbroman.brat.core.data.Condition;
+import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class FormatConditionResolverRuleTest extends AbstractConditionResolverRuleTest {
 
@@ -68,5 +74,26 @@ class FormatConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
 
         // then
         assertThat(result).contains(true);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"isUuid", "isEmail", "isIsoDateTime", "isUrl"})
+    void resolve_throwsForASequenceNamingTheFuncButNotTheContent(String func) {
+        // when / then
+        assertThatThrownBy(() -> resolver.resolve(new Condition(func, List.of("s3cr3t"))))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("'" + func + "'")
+                .hasMessageContaining("a sequence")
+                .hasMessageNotContaining("s3cr3t");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"isNotUuid", "isNotEmail", "isNotIsoDateTime", "isNotUrl"})
+    void resolve_throwsForAMappingEvenNegated(String func) {
+        // when / then
+        assertThatThrownBy(() -> resolver.resolve(new Condition(func, Map.of("key", "s3cr3t"))))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("a mapping")
+                .hasMessageNotContaining("s3cr3t");
     }
 }

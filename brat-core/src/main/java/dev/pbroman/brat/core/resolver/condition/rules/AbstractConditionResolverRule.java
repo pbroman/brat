@@ -14,16 +14,21 @@ import dev.pbroman.brat.core.exception.BratException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 
+import static dev.pbroman.brat.core.util.Constants.IS_NULL;
 import static dev.pbroman.brat.core.util.Constants.IS_PREFIX;
 import static dev.pbroman.brat.core.util.Constants.NEGATION_PATTERN;
 import static dev.pbroman.brat.core.util.Require.nonNull;
 
 /**
- * Abstract implementation of the {@link ConditionResolverRule} providing basic functionality.
+ * Abstract implementation of the {@link ConditionResolverRule} providing basic functionality: func
+ * names matched in every spelling, negation, the check that {@code b} is given, and the answer for a
+ * null {@code a}.
  */
 public abstract class AbstractConditionResolverRule implements ConditionResolverRule {
 
     private final Map<String, ConditionPredicate> predicateMap;
+
+    private static final String IS_NOT_PREFIX = IS_PREFIX + "not";
 
     /** The canonical name of each func, keyed by its normalised form. */
     private final Map<String, String> canonicalNames;
@@ -88,12 +93,33 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
         return predicateMap.keySet();
     }
 
+    /**
+     * Resolves {@code condition} if its func is one of this rule's keys, in any spelling, and declines
+     * it otherwise.
+     * <p>
+     * <strong>A null {@code a} is only for {@code isNull}</strong>, and is dealt with here, before
+     * {@link #accepts} is asked and without calling a predicate, so neither ever sees one:
+     * {@code isNull} is {@code true} and {@code isNotNull} {@code false}; every other func of this
+     * rule's, negated or not, throws. A func this rule does not know is declined, null {@code a} or not,
+     * so an unknown name is never answered here.
+     *
+     * @param condition the condition to resolve; never {@code null}
+     * @return the verdict, or {@link Optional#empty()} if the func is not this rule's, or {@link #accepts}
+     *         declines the operands
+     * @throws BratException if {@code condition} is {@code null}; if {@code a} is null and the func is
+     *         one of this rule's other than {@code isNull} — the message names the func, says {@code a}
+     *         is null and points at {@code isNull}/{@code isNotNull}; if {@code a} is not null, the func
+     *         needs a {@code b} and none is given; or if the predicate fails
+     */
     @Override
     public Optional<Boolean> resolve(Condition condition) {
         nonNull(condition, "The condition may not be null");
         var prepared = prepare(condition.getFunc());
-        var func = canonicalNames.get(prepared.function());
+        var func = canonicalNames.getOrDefault(prepared.function(), canonicalNames.get(prepared.unstripped()));
         if (func != null) {
+            if (condition.getA() == null) {
+                return Optional.of(answerForNull(func, prepared.negate()));
+            }
             if (!accepts(condition, func)) {
                 return Optional.empty();
             }
@@ -108,6 +134,22 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * The answer for a null {@code a}, as {@link #resolve} documents it.
+     *
+     * @param func the func's canonical name
+     * @param negate whether the author negated it
+     * @return the verdict, for {@code isNull}
+     * @throws BratException for any other func
+     */
+    private boolean answerForNull(String func, boolean negate) {
+        if (IS_NULL.equalsIgnoreCase(func)) {
+            return !negate;
+        }
+        throw new BratException(
+                String.format("The 'a' value for the func '%s' is null; check it with isNull or isNotNull", func));
     }
 
     /**
@@ -144,22 +186,29 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
     }
 
     /**
-     * Normalises a func name: lowercased and trimmed, then a leading {@code not}/{@code !} taken as
-     * negation, with an optional {@code is} prefix stripped on either side of it.
+     * Normalises a func name: lowercased and trimmed, the negation read off first — a leading
+     * {@code isNot} stands for {@code is} negated, a leading {@code not} or {@code !} for what follows
+     * it negated — and then one optional {@code is} stripped from what remains.
      * <p>
-     * Stripping {@code is} both before and after the negation is what lets all four spellings reach
-     * the same predicate: {@code isNotNull} and {@code notIsNull} negated, {@code isNull} and
-     * {@code null} not.
+     * Reading the negation first is what keeps a func whose own name starts with {@code Is} reachable:
+     * {@code isNotIsoDateTime} is {@code isIsoDateTime} negated, normalised once to {@code isodatetime}.
+     * Its {@code is}-less spellings ({@code IsoDateTime}, {@code notIsoDateTime}) lose an {@code is}
+     * that was part of the name, which is why the lookup falls back to the unstripped form.
      */
     private static PreparedFunction prepare(String func) {
-        var f = stripIsPrefix(func.toLowerCase().trim());
-        var matches = NEGATION_PATTERN.matcher(f);
-        boolean negate = false;
-        if (matches.find()) {
-            f = stripIsPrefix(matches.group(2));
+        var f = func.toLowerCase().trim();
+        var negate = false;
+        if (f.startsWith(IS_NOT_PREFIX)) {
+            f = IS_PREFIX + f.substring(IS_NOT_PREFIX.length());
             negate = true;
+        } else {
+            var matches = NEGATION_PATTERN.matcher(f);
+            if (matches.find()) {
+                f = matches.group(2);
+                negate = true;
+            }
         }
-        return new PreparedFunction(f, negate);
+        return new PreparedFunction(stripIsPrefix(f), f, negate);
     }
 
     private static String stripIsPrefix(String func) {
@@ -213,5 +262,13 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
         return "the " + category + " func '" + func + "'";
     }
 
-    record PreparedFunction(String function, boolean negate) {}
+    /**
+     * A func name as the author wrote it, negation read off.
+     *
+     * @param function the normalised name, one {@code is} stripped — what a key normalises to
+     * @param unstripped the same before stripping {@code is}, tried when {@code function} matches no
+     *        key, so the {@code is}-less spelling of a name like {@code isIsoDateTime} is reached
+     * @param negate whether the author negated it
+     */
+    record PreparedFunction(String function, String unstripped, boolean negate) {}
 }

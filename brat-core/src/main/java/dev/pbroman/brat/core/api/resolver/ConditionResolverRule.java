@@ -19,10 +19,11 @@ public interface ConditionResolverRule {
      * Resolves a {@link Condition} if it is this rule's to resolve.
      * <p>
      * <strong>Func names are normalised before matching</strong>, so one predicate answers to several
-     * spellings: matching is case-insensitive, a leading {@code is} is optional, and a leading
-     * {@code not} or {@code !} negates the result. The {@code is} prefix is stripped on either side
-     * of the negation, so {@code isNotEqualTo} and {@code notIsEqualTo} both reach the
-     * {@code isEqualTo} predicate negated.
+     * spellings: matching is case-insensitive, a leading {@code isNot}, {@code not} or {@code !} negates
+     * the result, and one leading {@code is} is optional. The negation is read first: {@code isNotEqualTo}
+     * and {@code notIsEqualTo} both reach the {@code isEqualTo} predicate negated, and
+     * {@code isNotIsoDateTime} reaches {@code isIsoDateTime}. Only one negation is read, so
+     * {@code !isNotEqualTo} matches nothing.
      * <p>
      * <strong>An implementation declines by returning an empty {@link Optional}</strong>, in either
      * of two cases: it does not know the func at all, or it knows the func but the operands do not
@@ -31,6 +32,9 @@ public interface ConditionResolverRule {
      * one AssertJ-style name usable across categories. The type-tagged spellings ({@code =} numeric,
      * {@code equals} string, {@code equal} date) stay available for an author who needs to force one
      * comparison.
+     * <p>
+     * <strong>{@code a} may be null</strong> — a JSON {@code null} in a response reaches a rule as
+     * {@code null}. What a func answers for it is the rule's to decide.
      * <p>
      * Declining is not error handling: throw when the func is one this rule owns and resolving it
      * genuinely failed, or the failure will be silently passed to the next rule.
@@ -48,7 +52,7 @@ public interface ConditionResolverRule {
      * Priorities 0-100 are reserved for the core code.
      * <p>
      * Priority also decides which rule gets first refusal on a func that several categories answer
-     * to, such as {@code isEqualTo}. The core order is null, date, number, string — string last,
+     * to, such as {@code isEqualTo}. The core order is date, number, string — string last,
      * since every value has a string form and it would otherwise never decline.
      *
      * @return the priority

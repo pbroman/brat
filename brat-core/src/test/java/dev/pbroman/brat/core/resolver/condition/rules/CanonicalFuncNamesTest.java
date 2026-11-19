@@ -77,6 +77,43 @@ class CanonicalFuncNamesTest {
         assertThat(result).contains(false);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"isNotIsolated", "notIsolated", "notIsIsolated", "!isIsolated"})
+    void constructor_keyWhoseNameStartsWithIsIsReachedNegatedInEverySpelling(String spelling) {
+        // given — "isIsolated" is "is" + "Isolated", like isIsoDateTime
+        var rule = new RecordingRule(Map.of("isIsolated", A_EQUALS_B));
+
+        // when
+        var result = rule.resolve(new Condition(spelling, "x", "x"));
+
+        // then
+        assertThat(result).contains(false);
+    }
+
+    @Test
+    void constructor_keyWhoseNameStartsWithIsIsReachedWithoutItsIs() {
+        // given — "Isolated" is isIsolated with its optional "is" left off
+        var rule = new RecordingRule(Map.of("isIsolated", A_EQUALS_B));
+
+        // when
+        var result = rule.resolve(new Condition("Isolated", "x", "x"));
+
+        // then
+        assertThat(result).contains(true);
+    }
+
+    @Test
+    void constructor_readsOnlyOneNegation() {
+        // given
+        var rule = new RecordingRule(Map.of("isWithin", A_EQUALS_B));
+
+        // when
+        var result = rule.resolve(new Condition("!isNotWithin", "x", "x"));
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
     @Test
     void constructor_keyWithoutIsPrefixIsReachedWithOne() {
         // given

@@ -27,6 +27,9 @@ import static dev.pbroman.brat.core.util.Constants.FORMAT_UUID;
  * question rather than a value question, which is why they are worth having over {@code matches}
  * with a handwritten regex at every call site.
  * <p>
+ * {@code a} is read as text: a sequence or a mapping is an error naming the func and which of the
+ * two it was, never a quiet {@code false}.
+ * <p>
  * This rule declares no priority: priorities order the decline chain for a func name several
  * categories answer to, and these four names are its alone.
  */
@@ -53,15 +56,18 @@ public final class FormatConditionResolverRule extends AbstractConditionResolver
     private static Map<String, ConditionPredicate> predicates() {
         var predicates = new HashMap<String, ConditionPredicate>();
         predicates.put(
-                FORMAT_UUID, (a, b, args) -> UUID_PATTERN.matcher(parse(a)).matches());
+                FORMAT_UUID,
+                (a, b, args) -> UUID_PATTERN.matcher(parse(a, FORMAT_UUID)).matches());
         predicates.put(
-                FORMAT_EMAIL, (a, b, args) -> EMAIL_PATTERN.matcher(parse(a)).matches());
-        predicates.put(FORMAT_ISO_DATE_TIME, (a, b, args) -> isIsoDateTime(parse(a)));
-        predicates.put(FORMAT_URL, (a, b, args) -> isUrl(parse(a)));
+                FORMAT_EMAIL,
+                (a, b, args) -> EMAIL_PATTERN.matcher(parse(a, FORMAT_EMAIL)).matches());
+        predicates.put(FORMAT_ISO_DATE_TIME, (a, b, args) -> isIsoDateTime(parse(a, FORMAT_ISO_DATE_TIME)));
+        predicates.put(FORMAT_URL, (a, b, args) -> isUrl(parse(a, FORMAT_URL)));
         return predicates;
     }
 
-    private static String parse(Object value) {
+    private static String parse(Object value, String func) {
+        OperandUtils.requireText(value, subject(FORMAT_CONDITION, func));
         return String.valueOf(value);
     }
 
