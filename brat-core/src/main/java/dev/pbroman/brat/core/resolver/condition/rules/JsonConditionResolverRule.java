@@ -25,11 +25,11 @@ import static dev.pbroman.brat.core.util.Constants.CONTAINS_EXACTLY_IN_ANY_ORDER
 import static dev.pbroman.brat.core.util.Constants.CONTAINS_KEY;
 import static dev.pbroman.brat.core.util.Constants.CONTAINS_ONLY;
 import static dev.pbroman.brat.core.util.Constants.DOES_NOT_HAVE_DUPLICATES;
-import static dev.pbroman.brat.core.util.Constants.EMPTY;
 import static dev.pbroman.brat.core.util.Constants.EQUAL_TO;
 import static dev.pbroman.brat.core.util.Constants.HAS_SIZE;
 import static dev.pbroman.brat.core.util.Constants.HAS_SIZE_BETWEEN;
 import static dev.pbroman.brat.core.util.Constants.HAS_SIZE_GREATER_THAN;
+import static dev.pbroman.brat.core.util.Constants.IS_EMPTY;
 import static dev.pbroman.brat.core.util.Constants.JSON_CONDITION;
 import static dev.pbroman.brat.core.util.Constants.ONE_OF;
 import static dev.pbroman.brat.core.util.Constants.SORTED;
@@ -109,8 +109,8 @@ public final class JsonConditionResolverRule extends AbstractConditionResolverRu
             var elements = elements(a);
             return new HashSet<>(elements).size() == elements.size();
         });
-        predicates.put(EMPTY, (a, b, args) -> {
-            rejectUnknownArgs(args, JSON_CONDITION, EMPTY);
+        predicates.put(IS_EMPTY, (a, b, args) -> {
+            rejectUnknownArgs(args, JSON_CONDITION, IS_EMPTY);
             return sizeOf(a) == 0;
         });
         predicates.put(SORTED, (a, b, args) -> isOrdered(asList(a), true));
@@ -354,6 +354,6 @@ public final class JsonConditionResolverRule extends AbstractConditionResolverRu
      */
     @Override
     protected List<String> ignoreBNullCheck() {
-        return List.of(EMPTY, HAS_SIZE_BETWEEN, DOES_NOT_HAVE_DUPLICATES, SORTED, SORTED_DESCENDING);
+        return List.of(IS_EMPTY, HAS_SIZE_BETWEEN, DOES_NOT_HAVE_DUPLICATES, SORTED, SORTED_DESCENDING);
     }
 }

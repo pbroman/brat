@@ -141,7 +141,7 @@ class StringConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
         // when / then
         assertThatThrownBy(() -> resolver.resolve(condition))
                 .isInstanceOf(BratException.class)
-                .hasMessageContaining("startswith")
+                .hasMessageContaining("'startsWith'")
                 .hasMessageContaining("sequence");
     }
 
@@ -153,7 +153,7 @@ class StringConditionResolverRuleTest extends AbstractConditionResolverRuleTest 
         // when / then
         assertThatThrownBy(() -> resolver.resolve(condition))
                 .isInstanceOf(BratException.class)
-                .hasMessageContaining("blank")
+                .hasMessageContaining("'isBlank'")
                 .hasMessageContaining("mapping");
     }
 

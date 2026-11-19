@@ -1,10 +1,6 @@
 package dev.pbroman.brat.core.util;
 
-import java.util.List;
 import java.util.regex.Pattern;
-
-import static org.apache.commons.lang3.BooleanUtils.FALSE;
-import static org.apache.commons.lang3.BooleanUtils.TRUE;
 
 /**
  * The string literals shared across {@code brat-core}: interpolation namespaces, condition func
@@ -66,10 +62,10 @@ public final class Constants {
     /** The namespace of {@code ${response.json.<jsonPath>}}, whose key is the JSONPath. */
     public static final String RESPONSE_JSON = RESPONSE + "." + JSON;
 
-    public static final String FORMAT_UUID = "uuid";
-    public static final String FORMAT_EMAIL = "email";
-    public static final String FORMAT_ISO_DATE_TIME = "isodatetime";
-    public static final String FORMAT_URL = "url";
+    public static final String FORMAT_UUID = "isUuid";
+    public static final String FORMAT_EMAIL = "isEmail";
+    public static final String FORMAT_ISO_DATE_TIME = "isIsoDateTime";
+    public static final String FORMAT_URL = "isUrl";
 
     public static final String NUMBER_CONDITION = "Number";
     public static final String STRING_CONDITION = "String";
@@ -93,45 +89,49 @@ public final class Constants {
     public static final String PATH_DELIMITER = "/";
 
     // Condition constants
+    // Func names are the canonical spelling a suite author is offered; matching normalises them.
     public static final String NULL = "null";
-    public static final String EMPTY = "empty";
-    public static final String BLANK = "blank";
-    public static final String EQUAL_TO_IGNORING_CASE = "equaltoignoringcase";
+    public static final String IS_NULL = "isNull";
+    public static final String IS_EMPTY = "isEmpty";
+    public static final String IS_BLANK = "isBlank";
+    public static final String IS_TRUE = "isTrue";
+    public static final String IS_FALSE = "isFalse";
+    public static final String EQUAL_TO_IGNORING_CASE = "isEqualToIgnoringCase";
     public static final String EQUALS = "equals";
-    public static final String EQUALS_IGNORE_CASE = "equalsignorecase";
+    public static final String EQUALS_IGNORE_CASE = "equalsIgnoreCase";
     public static final String CONTAINS = "contains";
-    public static final String CONTAINS_IGNORING_CASE = "containsignoringcase";
-    public static final String MEDIA_TYPE = "mediatype";
-    public static final String STARTS_WITH = "startswith";
-    public static final String ENDS_WITH = "endswith";
+    public static final String CONTAINS_IGNORING_CASE = "containsIgnoringCase";
+    public static final String MEDIA_TYPE = "isMediaType";
+    public static final String STARTS_WITH = "startsWith";
+    public static final String ENDS_WITH = "endsWith";
     public static final String MATCHES = "matches";
 
-    public static final String HAS_SIZE = "hassize";
-    public static final String HAS_SIZE_GREATER_THAN = "hassizegreaterthan";
-    public static final String HAS_SIZE_BETWEEN = "hassizebetween";
-    public static final String DOES_NOT_HAVE_DUPLICATES = "doesnothaveduplicates";
-    public static final String SORTED = "sorted";
-    public static final String SORTED_DESCENDING = "sorteddescending";
+    public static final String HAS_SIZE = "hasSize";
+    public static final String HAS_SIZE_GREATER_THAN = "hasSizeGreaterThan";
+    public static final String HAS_SIZE_BETWEEN = "hasSizeBetween";
+    public static final String DOES_NOT_HAVE_DUPLICATES = "doesNotHaveDuplicates";
+    public static final String SORTED = "isSorted";
+    public static final String SORTED_DESCENDING = "isSortedDescending";
 
-    public static final String CONTAINS_KEY = "containskey";
-    public static final String CONTAINS_ONLY = "containsonly";
-    public static final String CONTAINS_ANY_OF = "containsanyof";
-    public static final String CONTAINS_EXACTLY = "containsexactly";
-    public static final String CONTAINS_EXACTLY_IN_ANY_ORDER = "containsexactlyinanyorder";
-    public static final String ONE_OF = "oneof";
+    public static final String CONTAINS_KEY = "containsKey";
+    public static final String CONTAINS_ONLY = "containsOnly";
+    public static final String CONTAINS_ANY_OF = "containsAnyOf";
+    public static final String CONTAINS_EXACTLY = "containsExactly";
+    public static final String CONTAINS_EXACTLY_IN_ANY_ORDER = "containsExactlyInAnyOrder";
+    public static final String ONE_OF = "isOneOf";
     public static final String ARG_IGNORE = "ignore";
 
-    public static final String BETWEEN = "between";
-    public static final String CLOSE_TO = "closeto";
+    public static final String BETWEEN = "isBetween";
+    public static final String CLOSE_TO = "isCloseTo";
     public static final String ARG_MIN = "min";
     public static final String ARG_MAX = "max";
     public static final String ARG_OFFSET = "offset";
 
-    public static final String EQUAL_TO = "equalto";
-    public static final String GREATER_THAN = "greaterthan";
-    public static final String LESS_THAN = "lessthan";
-    public static final String GREATER_THAN_OR_EQUAL_TO = "greaterthanorequalto";
-    public static final String LESS_THAN_OR_EQUAL_TO = "lessthanorequalto";
+    public static final String EQUAL_TO = "isEqualTo";
+    public static final String GREATER_THAN = "isGreaterThan";
+    public static final String LESS_THAN = "isLessThan";
+    public static final String GREATER_THAN_OR_EQUAL_TO = "isGreaterThanOrEqualTo";
+    public static final String LESS_THAN_OR_EQUAL_TO = "isLessThanOrEqualTo";
 
     public static final String SYMBOL_EQUAL_TO = "=";
     public static final String SYMBOL_GREATER_THAN_OR_EQUAL_TO = ">=";
@@ -139,18 +139,16 @@ public final class Constants {
     public static final String SYMBOL_GREATER_THAN = ">";
     public static final String SYMBOL_LESS_THAN = "<";
 
-    public static final String BEFORE = "before";
-    public static final String AFTER = "after";
-    public static final String EQUAL = "equal";
-    public static final String PAST = "past";
-    public static final String FUTURE = "future";
+    public static final String BEFORE = "isBefore";
+    public static final String AFTER = "isAfter";
+    public static final String EQUAL = "isEqual";
+    public static final String PAST = "isPast";
+    public static final String FUTURE = "isFuture";
 
     public static final String IS_PREFIX = "is";
 
     public static final String NEGATION_REGEX = "^(not|!)(.+)";
     public static final Pattern NEGATION_PATTERN = Pattern.compile(NEGATION_REGEX);
-
-    public static final List<String> SINGLE_VALUE_OPERATIONS = List.of(NULL, EMPTY, BLANK, TRUE, FALSE);
 
     // COLORS
     public static final String COLOR_RESET = "\033[0m";

@@ -22,14 +22,14 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import static dev.pbroman.brat.core.util.Constants.AFTER;
 import static dev.pbroman.brat.core.util.Constants.BEFORE;
-import static dev.pbroman.brat.core.util.Constants.BLANK;
 import static dev.pbroman.brat.core.util.Constants.CONTAINS;
-import static dev.pbroman.brat.core.util.Constants.EMPTY;
 import static dev.pbroman.brat.core.util.Constants.ENDS_WITH;
 import static dev.pbroman.brat.core.util.Constants.EQUAL;
 import static dev.pbroman.brat.core.util.Constants.EQUALS;
 import static dev.pbroman.brat.core.util.Constants.EQUALS_IGNORE_CASE;
 import static dev.pbroman.brat.core.util.Constants.FUTURE;
+import static dev.pbroman.brat.core.util.Constants.IS_BLANK;
+import static dev.pbroman.brat.core.util.Constants.IS_EMPTY;
 import static dev.pbroman.brat.core.util.Constants.MATCHES;
 import static dev.pbroman.brat.core.util.Constants.NULL;
 import static dev.pbroman.brat.core.util.Constants.PAST;
@@ -79,7 +79,7 @@ class ConditionResolverIntegrationTest {
                 Arguments.of(new Condition("isnull", null, null)),
                 Arguments.of(new Condition("notNull", "a", null)),
                 Arguments.of(new Condition("notisNull", "", null)),
-                Arguments.of(new Condition(EMPTY, "", null)),
+                Arguments.of(new Condition(IS_EMPTY, "", null)),
                 Arguments.of(new Condition("isEmpty", "", null)),
                 Arguments.of(new Condition("notEmpty", "a", null)),
                 Arguments.of(new Condition("!empty", "a", null)),
@@ -97,7 +97,7 @@ class ConditionResolverIntegrationTest {
                 Arguments.of(new Condition("notContains", "foo", "a")),
                 Arguments.of(new Condition("!contains", "foo", "a")),
                 Arguments.of(new Condition(EQUALS_IGNORE_CASE, "foo", "fOO")),
-                Arguments.of(new Condition(BLANK, "   ", null)),
+                Arguments.of(new Condition(IS_BLANK, "   ", null)),
                 Arguments.of(new Condition("ISBLANK", "   ", null)),
                 Arguments.of(new Condition("!blank", "foo", null)),
                 Arguments.of(new Condition("notblank", "foo", null)),

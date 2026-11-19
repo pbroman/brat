@@ -1,0 +1,292 @@
+{
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "$defs" : {
+    "Assertion" : {
+      "type" : "object",
+      "properties" : {
+        "a" : { },
+        "args" : {
+          "$ref" : "#/$defs/Map(String,String)"
+        },
+        "b" : { },
+        "chain" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/$defs/ChainedCondition"
+          }
+        },
+        "func" : {
+          "anyOf" : [ {
+            "enum" : [ "<", "<=", "=", ">", ">=", "contains", "containsAnyOf", "containsExactly", "containsExactlyInAnyOrder", "containsIgnoringCase", "containsKey", "containsOnly", "doesNotHaveDuplicates", "endsWith", "equals", "equalsIgnoreCase", "hasSize", "hasSizeBetween", "hasSizeGreaterThan", "isAfter", "isBefore", "isBetween", "isBlank", "isCloseTo", "isEmail", "isEmpty", "isEqual", "isEqualTo", "isEqualToIgnoringCase", "isFalse", "isFuture", "isGreaterThan", "isGreaterThanOrEqualTo", "isIsoDateTime", "isLessThan", "isLessThanOrEqualTo", "isMediaType", "isNotAfter", "isNotBefore", "isNotBetween", "isNotBlank", "isNotCloseTo", "isNotEmail", "isNotEmpty", "isNotEqual", "isNotEqualTo", "isNotEqualToIgnoringCase", "isNotFalse", "isNotFuture", "isNotGreaterThan", "isNotGreaterThanOrEqualTo", "isNotIsoDateTime", "isNotLessThan", "isNotLessThanOrEqualTo", "isNotMediaType", "isNotNull", "isNotOneOf", "isNotPast", "isNotSorted", "isNotSortedDescending", "isNotTrue", "isNotUrl", "isNotUuid", "isNull", "isOneOf", "isPast", "isSorted", "isSortedDescending", "isTrue", "isUrl", "isUuid", "matches", "notContains", "notContainsAnyOf", "notContainsExactly", "notContainsExactlyInAnyOrder", "notContainsIgnoringCase", "notContainsKey", "notContainsOnly", "notEndsWith", "notEquals", "notEqualsIgnoreCase", "notHasSize", "notHasSizeBetween", "notHasSizeGreaterThan", "notMatches", "notStartsWith", "startsWith" ]
+          }, {
+            "type" : "string"
+          } ],
+          "additionalProperties" : false
+        },
+        "message" : {
+          "type" : [ "string", "number", "boolean" ]
+        },
+        "severity" : {
+          "enum" : [ "warn", "WARN", "fail", "FAIL" ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "Auth" : {
+      "type" : "object",
+      "properties" : {
+        "args" : {
+          "$ref" : "#/$defs/Map(String,String)"
+        },
+        "type" : {
+          "type" : [ "string", "number", "boolean" ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "ChainedCondition" : {
+      "type" : "object",
+      "properties" : {
+        "args" : {
+          "$ref" : "#/$defs/Map(String,String)"
+        },
+        "b" : { },
+        "func" : {
+          "anyOf" : [ {
+            "enum" : [ "<", "<=", "=", ">", ">=", "contains", "containsAnyOf", "containsExactly", "containsExactlyInAnyOrder", "containsIgnoringCase", "containsKey", "containsOnly", "doesNotHaveDuplicates", "endsWith", "equals", "equalsIgnoreCase", "hasSize", "hasSizeBetween", "hasSizeGreaterThan", "isAfter", "isBefore", "isBetween", "isBlank", "isCloseTo", "isEmail", "isEmpty", "isEqual", "isEqualTo", "isEqualToIgnoringCase", "isFalse", "isFuture", "isGreaterThan", "isGreaterThanOrEqualTo", "isIsoDateTime", "isLessThan", "isLessThanOrEqualTo", "isMediaType", "isNotAfter", "isNotBefore", "isNotBetween", "isNotBlank", "isNotCloseTo", "isNotEmail", "isNotEmpty", "isNotEqual", "isNotEqualTo", "isNotEqualToIgnoringCase", "isNotFalse", "isNotFuture", "isNotGreaterThan", "isNotGreaterThanOrEqualTo", "isNotIsoDateTime", "isNotLessThan", "isNotLessThanOrEqualTo", "isNotMediaType", "isNotNull", "isNotOneOf", "isNotPast", "isNotSorted", "isNotSortedDescending", "isNotTrue", "isNotUrl", "isNotUuid", "isNull", "isOneOf", "isPast", "isSorted", "isSortedDescending", "isTrue", "isUrl", "isUuid", "matches", "notContains", "notContainsAnyOf", "notContainsExactly", "notContainsExactlyInAnyOrder", "notContainsIgnoringCase", "notContainsKey", "notContainsOnly", "notEndsWith", "notEquals", "notEqualsIgnoreCase", "notHasSize", "notHasSizeBetween", "notHasSizeGreaterThan", "notMatches", "notStartsWith", "startsWith" ]
+          }, {
+            "type" : "string"
+          } ],
+          "additionalProperties" : false
+        },
+        "message" : {
+          "type" : [ "string", "number", "boolean" ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "Condition" : {
+      "type" : "object",
+      "properties" : {
+        "a" : { },
+        "args" : {
+          "$ref" : "#/$defs/Map(String,String)"
+        },
+        "b" : { },
+        "func" : {
+          "anyOf" : [ {
+            "enum" : [ "<", "<=", "=", ">", ">=", "contains", "containsAnyOf", "containsExactly", "containsExactlyInAnyOrder", "containsIgnoringCase", "containsKey", "containsOnly", "doesNotHaveDuplicates", "endsWith", "equals", "equalsIgnoreCase", "hasSize", "hasSizeBetween", "hasSizeGreaterThan", "isAfter", "isBefore", "isBetween", "isBlank", "isCloseTo", "isEmail", "isEmpty", "isEqual", "isEqualTo", "isEqualToIgnoringCase", "isFalse", "isFuture", "isGreaterThan", "isGreaterThanOrEqualTo", "isIsoDateTime", "isLessThan", "isLessThanOrEqualTo", "isMediaType", "isNotAfter", "isNotBefore", "isNotBetween", "isNotBlank", "isNotCloseTo", "isNotEmail", "isNotEmpty", "isNotEqual", "isNotEqualTo", "isNotEqualToIgnoringCase", "isNotFalse", "isNotFuture", "isNotGreaterThan", "isNotGreaterThanOrEqualTo", "isNotIsoDateTime", "isNotLessThan", "isNotLessThanOrEqualTo", "isNotMediaType", "isNotNull", "isNotOneOf", "isNotPast", "isNotSorted", "isNotSortedDescending", "isNotTrue", "isNotUrl", "isNotUuid", "isNull", "isOneOf", "isPast", "isSorted", "isSortedDescending", "isTrue", "isUrl", "isUuid", "matches", "notContains", "notContainsAnyOf", "notContainsExactly", "notContainsExactlyInAnyOrder", "notContainsIgnoringCase", "notContainsKey", "notContainsOnly", "notEndsWith", "notEquals", "notEqualsIgnoreCase", "notHasSize", "notHasSizeBetween", "notHasSizeGreaterThan", "notMatches", "notStartsWith", "startsWith" ]
+          }, {
+            "type" : "string"
+          } ],
+          "additionalProperties" : false
+        }
+      },
+      "additionalProperties" : false
+    },
+    "FlowControl" : {
+      "type" : "object",
+      "properties" : {
+        "repeatUntil" : {
+          "$ref" : "#/$defs/RepeatUntil"
+        },
+        "waitAfter" : {
+          "type" : [ "string", "number", "boolean" ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "HttpBody" : {
+      "type" : "object",
+      "properties" : {
+        "file" : {
+          "type" : [ "string", "number", "boolean" ]
+        },
+        "form" : {
+          "$ref" : "#/$defs/Map(String,String)"
+        },
+        "raw" : {
+          "type" : [ "string", "number", "boolean" ]
+        }
+      },
+      "additionalProperties" : false,
+      "oneOf" : [ {
+        "required" : [ "raw" ]
+      }, {
+        "required" : [ "file" ]
+      }, {
+        "required" : [ "form" ]
+      } ]
+    },
+    "HttpRequestDefinition" : {
+      "type" : "object",
+      "properties" : {
+        "args" : {
+          "$ref" : "#/$defs/Map(String,String)"
+        },
+        "body" : {
+          "$ref" : "#/$defs/HttpBody"
+        },
+        "headers" : {
+          "$ref" : "#/$defs/Map(String,String)"
+        },
+        "method" : {
+          "type" : [ "string", "number", "boolean" ]
+        },
+        "url" : {
+          "type" : [ "string", "number", "boolean" ]
+        },
+        "protocol" : {
+          "const" : "http"
+        }
+      },
+      "additionalProperties" : false
+    },
+    "Map(String,Object)" : {
+      "type" : "object"
+    },
+    "Map(String,String)" : {
+      "type" : "object",
+      "additionalProperties" : {
+        "type" : [ "string", "number", "boolean" ]
+      }
+    },
+    "RepeatUntil" : {
+      "type" : "object",
+      "properties" : {
+        "condition" : {
+          "$ref" : "#/$defs/Condition"
+        },
+        "maxAttempts" : {
+          "type" : [ "string", "number", "boolean" ]
+        },
+        "messageOnFail" : {
+          "type" : [ "string", "number", "boolean" ]
+        },
+        "waitBetweenAttempts" : {
+          "type" : [ "string", "number", "boolean" ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "Request" : {
+      "type" : "object",
+      "properties" : {
+        "auth" : {
+          "$ref" : "#/$defs/Auth"
+        },
+        "description" : {
+          "type" : [ "string", "number", "boolean" ]
+        },
+        "flowControl" : {
+          "$ref" : "#/$defs/FlowControl"
+        },
+        "followRedirects" : {
+          "type" : [ "string", "number", "boolean" ]
+        },
+        "id" : {
+          "type" : [ "string", "number", "boolean" ]
+        },
+        "name" : {
+          "type" : [ "string", "number", "boolean" ]
+        },
+        "phase" : {
+          "enum" : [ "setup", "SETUP", "main", "MAIN", "teardown", "TEARDOWN" ]
+        },
+        "requestDefinition" : {
+          "$ref" : "#/$defs/RequestDefinition"
+        },
+        "requestHandlers" : {
+          "$ref" : "#/$defs/Map(String,String)"
+        },
+        "responseActions" : {
+          "$ref" : "#/$defs/ResponseActions"
+        },
+        "skipCondition" : {
+          "$ref" : "#/$defs/Condition"
+        },
+        "timeout" : {
+          "type" : [ "string", "number", "boolean" ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "RequestDefinition" : {
+      "if" : {
+        "required" : [ "protocol" ],
+        "properties" : {
+          "protocol" : {
+            "not" : {
+              "const" : "http"
+            }
+          }
+        }
+      },
+      "then" : {
+        "type" : "object"
+      },
+      "else" : {
+        "$ref" : "#/$defs/HttpRequestDefinition"
+      }
+    },
+    "ResponseActions" : {
+      "type" : "object",
+      "properties" : {
+        "assertions" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/$defs/Assertion"
+          }
+        },
+        "setVars" : {
+          "$ref" : "#/$defs/Map(String,String)"
+        }
+      },
+      "additionalProperties" : false
+    }
+  },
+  "type" : "object",
+  "properties" : {
+    "auth" : {
+      "$ref" : "#/$defs/Auth"
+    },
+    "constants" : {
+      "$ref" : "#/$defs/Map(String,Object)"
+    },
+    "description" : {
+      "type" : [ "string", "number", "boolean" ]
+    },
+    "followRedirects" : {
+      "type" : [ "string", "number", "boolean" ]
+    },
+    "name" : {
+      "type" : [ "string", "number", "boolean" ]
+    },
+    "requestHandlers" : {
+      "$ref" : "#/$defs/Map(String,String)"
+    },
+    "requests" : {
+      "type" : "array",
+      "items" : {
+        "$ref" : "#/$defs/Request"
+      }
+    },
+    "setVars" : {
+      "$ref" : "#/$defs/Map(String,String)"
+    },
+    "skipCondition" : {
+      "$ref" : "#/$defs/Condition"
+    },
+    "subSuites" : {
+      "type" : "array",
+      "items" : {
+        "$ref" : "#"
+      }
+    },
+    "timeout" : {
+      "type" : [ "string", "number", "boolean" ]
+    }
+  },
+  "additionalProperties" : false,
+  "title" : "BRAT suite"
+}
