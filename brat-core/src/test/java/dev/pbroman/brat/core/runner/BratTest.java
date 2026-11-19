@@ -32,6 +32,7 @@ import dev.pbroman.brat.core.api.secrets.SecretsProviderFactory;
 import dev.pbroman.brat.core.data.Auth;
 import dev.pbroman.brat.core.data.Condition;
 import dev.pbroman.brat.core.data.FlowControl;
+import dev.pbroman.brat.core.data.HttpBody;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.Phase;
 import dev.pbroman.brat.core.data.RepeatUntil;
@@ -51,7 +52,6 @@ import dev.pbroman.brat.core.secrets.SecretsSource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -1340,7 +1340,7 @@ class BratTest {
     void run_failsAtLaunchWhenABodyFileIsNotThere() {
         // given - a token-free path is knowable before anything runs
         var definition =
-                new HttpRequestDefinition("http://url", "POST", Map.of("file", "file:/no/such/body.json"), null);
+                new HttpRequestDefinition("http://url", "POST", HttpBody.file("file:/no/such/body.json"), null);
         var request = new Request("create", null, null, null, null, null, null, null, definition, null, null);
 
         // then - and it throws rather than reporting, because no run ever started
@@ -1401,7 +1401,7 @@ class BratTest {
         // then
         assertThat(capturing.sent)
                 .singleElement()
-                .satisfies(sent -> assertThat(sent.getBody()).containsEntry(BODY_STRING, "{\"item\": \"widget\"}"));
+                .satisfies(sent -> assertThat(sent.getBody().getPayload()).isEqualTo("{\"item\": \"widget\"}"));
     }
 
     @Test

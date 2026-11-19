@@ -1,0 +1,31 @@
+# A form body, sent to an endpoint that echoes back what the server decoded. The values come from env,
+# so a value holding & = + % and a space proves each is encoded after it is resolved.
+name: form body
+description: sends a form and checks the server read every field as written
+
+requests:
+  - name: echo a form
+    requestDefinition:
+      url: "${env.baseUrl}/form/echo"
+      method: POST
+      body:
+        form:
+          grant_type: client_credentials
+          tricky: "${env.tricky}"   # resolved first, then encoded
+          empty: ""
+    responseActions:
+      assertions:
+        - a: "${response.json.$.form.grant_type}"
+          func: isEqualTo
+          b: client_credentials
+        - a: "${response.json.$.form.tricky}"
+          func: isEqualTo
+          b: "${env.tricky}"
+          message: the server must read the value exactly as it resolved
+        - a: "${response.json.$.form.empty}"
+          func: isEqualTo
+          b: ""
+        - a: "${response.json.$.contentType}"
+          func: startsWith
+          b: application/x-www-form-urlencoded
+          message: BRAT must set the form's Content-Type

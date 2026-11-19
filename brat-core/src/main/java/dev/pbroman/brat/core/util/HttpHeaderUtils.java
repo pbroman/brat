@@ -1,10 +1,12 @@
 package dev.pbroman.brat.core.util;
 
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 
 import dev.pbroman.brat.core.exception.BratException;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Static helpers for reading HTTP headers that were authored as a plain map.
@@ -107,5 +109,19 @@ public final class HttpHeaderUtils {
         return headers.entrySet().stream()
                 .filter(entry -> name.equalsIgnoreCase(entry.getKey()))
                 .findFirst();
+    }
+
+    /**
+     * The media type of a {@code Content-Type} value: the part before its parameters, trimmed and in
+     * lower case — so {@code Application/JSON; charset=UTF-8} and {@code application/json} have the same
+     * one. Media types are case-insensitive, and their parameters are not part of them.
+     *
+     * @param contentType a {@code Content-Type} value; must not be {@code null}
+     * @return the media type; empty when {@code contentType} is blank or begins with {@code ;}
+     * @throws BratException if {@code contentType} is {@code null}
+     */
+    public static String mediaType(String contentType) {
+        Require.nonNull(contentType, "The Content-Type to read a media type from must not be null");
+        return StringUtils.substringBefore(contentType, ";").trim().toLowerCase(Locale.ROOT);
     }
 }

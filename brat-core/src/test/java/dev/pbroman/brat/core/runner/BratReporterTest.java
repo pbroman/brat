@@ -21,6 +21,7 @@ import dev.pbroman.brat.core.api.rendering.OutcomeRendererRule;
 import dev.pbroman.brat.core.api.rendering.RenderTarget;
 import dev.pbroman.brat.core.api.reporting.ReporterContext;
 import dev.pbroman.brat.core.api.reporting.RunReporter;
+import dev.pbroman.brat.core.data.HttpBody;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.Request;
 import dev.pbroman.brat.core.data.RequestOptions;
@@ -572,7 +573,7 @@ class BratReporterTest {
     void run_deliversNoEventWhenItFailsAtLaunch() {
         // given - a missing body file fails before RunStarted
         var definition =
-                new HttpRequestDefinition("http://url", "POST", Map.of("file", "file:/no/such/body.json"), null);
+                new HttpRequestDefinition("http://url", "POST", HttpBody.file("file:/no/such/body.json"), null);
         var request = new Request("create", null, null, null, null, null, null, null, definition, null, null);
         var failing = new TestSuite("suite", null, null, null, null, null, null, null, List.of(request), null);
         var mine = new RecordingListener();

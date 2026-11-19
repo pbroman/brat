@@ -3,7 +3,6 @@ package dev.pbroman.brat.core.data;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import dev.pbroman.brat.core.api.data.RequestDefinition;
@@ -11,13 +10,10 @@ import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.HttpHeaderUtils;
 import lombok.Getter;
-import org.apache.commons.lang3.Strings;
 
-import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
 import static dev.pbroman.brat.core.util.Constants.DEFAULT_METHOD;
-import static dev.pbroman.brat.core.util.Constants.FILE_BODY;
 import static dev.pbroman.brat.core.util.Constants.HTTP;
-import static dev.pbroman.brat.core.util.Constants.RAW_BODY;
+import static dev.pbroman.brat.core.util.Constants.TOKEN_PREFIX;
 import static org.apache.hc.core5.http.ContentType.APPLICATION_FORM_URLENCODED;
 import static org.apache.hc.core5.http.HttpHeaders.CONTENT_TYPE;
 
@@ -36,7 +32,7 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
 
     private final String url;
     private final String method;
-    private final Map<String, String> body;
+    private final HttpBody body;
     private final Map<String, String> headers;
     private final Map<String, String> args;
 
@@ -46,18 +42,19 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
     }
 
     /**
-     * Constructs a request definition, deriving the body's {@code _bodyString} form where it can be
-     * derived without I/O.
+     * Constructs a request definition.
      * <p>
-     * {@code body} is not mutated: the instance holds a copy carrying any derived
-     * {@code _bodyString} entry. A {@code file} body is <em>not</em> read here — it is resolved
-     * while the definition is interpolated, so that both the path and the file's content may hold
-     * {@code ${...}} tokens.
+     * <strong>A form body and its {@code Content-Type}.</strong> A form is sent as
+     * {@code application/x-www-form-urlencoded}. When {@code body} is a form and {@code headers} declare
+     * a {@code Content-Type} holding no {@code ${…}} token, its media type — compared ignoring case and
+     * any parameters such as {@code ; charset=UTF-8} — must be that one. A {@code Content-Type} holding a
+     * token is not checked here; it is checked on the interpolated copy, which is constructed with the
+     * resolved value. An absent {@code Content-Type} is left absent: interpolation adds it.
      *
      * @param url the request URL, possibly holding {@code ${...}} tokens
      * @param method the HTTP method, or {@code null} for {@code GET} — the convention every
      *        comparable tool follows, and better than binding a null that fails at request time
-     * @param body the body, keyed by one of the well-known body keys, or {@code null}
+     * @param body the body, or {@code null} for none
      * @param headers the request headers, or {@code null}
      * @param args extra arguments for the handler that performs this request, or {@code null} for
      *        none. Their keys belong to that handler, not to HTTP — which is why they are a bag and
@@ -67,13 +64,13 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
      * @throws BratException if two header names differ only in case. They are one header to HTTP and
      *         two keys to YAML, so declaring both states two values for one header, and it fails
      *         whether or not anything reads that header
-     * @throws BratException if {@code body} declares both {@code raw} and {@code file}, which states
-     *         two payloads for one request. The message quotes neither of them
+     * @throws BratException if {@code body} is a form and a token-free {@code Content-Type} names another
+     *         media type. The message names the type that was declared
      */
     public HttpRequestDefinition(
             String url,
             String method,
-            Map<String, String> body,
+            HttpBody body,
             Map<String, String> headers,
             Map<String, String> args,
             Map<String, InterpolationOutcome> outcomes) {
@@ -84,7 +81,10 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
         this.method = method == null ? DEFAULT_METHOD : method;
         this.headers = headers == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(headers));
         this.args = args == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(args));
-        this.body = prepared(body, this.headers);
+        this.body = body;
+        if (body != null && body.getForm() != null) {
+            requireFormContentType(this.headers);
+        }
     }
 
     /**
@@ -93,17 +93,13 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
      *
      * @param url the request URL
      * @param method the HTTP method
-     * @param body the request body entries
+     * @param body the request body, or {@code null}
      * @param headers the request headers
      * @param args extra arguments for the handler, or {@code null} for none
      */
     @JsonCreator
     public HttpRequestDefinition(
-            String url,
-            String method,
-            Map<String, String> body,
-            Map<String, String> headers,
-            Map<String, String> args) {
+            String url, String method, HttpBody body, Map<String, String> headers, Map<String, String> args) {
         this(url, method, body, headers, args, null);
     }
 
@@ -113,80 +109,28 @@ public final class HttpRequestDefinition extends ConfigData implements RequestDe
      *
      * @param url the request URL
      * @param method the HTTP method
-     * @param body the request body entries
+     * @param body the request body, or {@code null}
      * @param headers the request headers
      */
-    public HttpRequestDefinition(String url, String method, Map<String, String> body, Map<String, String> headers) {
+    public HttpRequestDefinition(String url, String method, HttpBody body, Map<String, String> headers) {
         this(url, method, body, headers, null, null);
     }
 
     /**
-     * Returns the body with its {@code _bodyString} entry derived, where deriving it needs no I/O.
-     * <p>
-     * Three cases, in order: a {@code raw} body becomes {@code _bodyString} verbatim; otherwise, if
-     * the request's {@code Content-Type} is form-encoded (matched case-insensitively, since a suite
-     * may spell the header any way) and no {@code _bodyString} is present yet, the remaining entries
-     * are joined as {@code k=v&k=v}; otherwise the body is returned unchanged. A {@code file} body
-     * falls into the third case: its {@code _bodyString} is written while the definition is
-     * interpolated, which is the only point holding both the resolved path and an interpolator.
+     * Rejects a token-free {@code Content-Type} that is not the form media type.
      *
-     * @param body the authored body, or {@code null}
      * @param headers the request headers, already copied, or {@code null}
-     * @return an unmodifiable copy of {@code body} with any derivable {@code _bodyString} added, or
-     *         {@code null} if {@code body} is {@code null}. Never throws for an absent or
-     *         differently-spelled {@code Content-Type}, nor for {@code null} headers
-     * @throws BratException if {@code body} declares both {@code raw} and {@code file}. Each names a
-     *         whole payload, so the two together state two bodies for one request. The message names
-     *         neither value
+     * @throws BratException if a token-free {@code Content-Type} names another media type
      */
-    private static Map<String, String> prepared(Map<String, String> body, Map<String, String> headers) {
-        if (body == null) {
-            return null;
+    private static void requireFormContentType(Map<String, String> headers) {
+        var declared = HttpHeaderUtils.get(headers, CONTENT_TYPE);
+        if (declared == null || declared.contains(TOKEN_PREFIX)) {
+            return;
         }
-        // Rejected rather than ordered: raw is derived here and file is resolved during
-        // interpolation, so whichever won would be decided by which step ran last.
-        if (body.get(RAW_BODY) != null && body.get(FILE_BODY) != null) {
-            throw new BratException("The request declares both a 'raw' and a 'file' body, which states two payloads "
-                    + "for one request. Declare one or the other.");
+        if (!APPLICATION_FORM_URLENCODED.getMimeType().equals(HttpHeaderUtils.mediaType(declared))) {
+            throw new BratException("A form body is sent as " + APPLICATION_FORM_URLENCODED.getMimeType()
+                    + ", but the request declares the Content-Type '" + declared
+                    + "'. Leave the header out, or send the body as raw");
         }
-        var prepared = new LinkedHashMap<>(body);
-        if (body.get(RAW_BODY) != null) {
-            prepared.put(BODY_STRING, body.get(RAW_BODY));
-        } else if (body.get(FILE_BODY) == null
-                && body.get(BODY_STRING) == null
-                && !body.isEmpty()
-                && isFormUrlEncoded(headers)) {
-            prepared.put(BODY_STRING, formEncoded(body));
-        }
-        return Collections.unmodifiableMap(prepared);
-    }
-
-    /**
-     * Whether the request declares a form-encoded content type.
-     *
-     * @param headers the request headers, or {@code null}
-     * @return {@code true} only if a {@code Content-Type} header is present under any capitalisation
-     *         and its value starts with the form-urlencoded mime type; {@code false} for {@code null}
-     *         headers, an absent header, or a {@code null} value
-     */
-    private static boolean isFormUrlEncoded(Map<String, String> headers) {
-        // Strings.CS rather than the deprecated StringUtils.startsWith, and CS rather than CI to keep
-        // the behaviour this method already had. Whether the *value* should match case-insensitively
-        // is a separate question - media types are case-insensitive per RFC 9110 - and changing it
-        // here would smuggle a behaviour change into a deprecation fix.
-        return Strings.CS.startsWith(
-                HttpHeaderUtils.get(headers, CONTENT_TYPE), APPLICATION_FORM_URLENCODED.getMimeType());
-    }
-
-    /**
-     * Joins the body's entries into an {@code application/x-www-form-urlencoded} payload.
-     *
-     * @param body the body entries, none of which is a well-known body key at this point
-     * @return the entries joined as {@code k=v&k=v}, in the body's iteration order
-     */
-    private static String formEncoded(Map<String, String> body) {
-        return body.entrySet().stream()
-                .map(entry -> entry.getKey() + "=" + entry.getValue())
-                .collect(Collectors.joining("&"));
     }
 }

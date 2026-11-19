@@ -9,7 +9,6 @@ import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.Require;
 import dev.pbroman.brat.core.util.ResourceReader;
 
-import static dev.pbroman.brat.core.util.Constants.FILE_BODY;
 import static dev.pbroman.brat.core.util.Constants.PATH_DELIMITER;
 import static dev.pbroman.brat.core.util.Constants.TOKEN_PREFIX;
 
@@ -91,7 +90,7 @@ final class BodyFileChecks {
         if (body == null) {
             return;
         }
-        var location = body.get(FILE_BODY);
+        var location = body.getFile();
         // A path holding a token may name a different file per environment, so its unresolved text
         // proves nothing: that one is left to the request that uses it.
         if (location == null || location.contains(TOKEN_PREFIX)) {

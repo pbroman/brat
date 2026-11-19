@@ -33,7 +33,6 @@ import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.support.ClassicRequestBuilder;
 import org.apache.hc.core5.util.Timeout;
 
-import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
 import static dev.pbroman.brat.core.util.Constants.DEFAULT_TIMEOUT_MS;
 import static org.apache.hc.core5.http.HttpHeaders.CONTENT_TYPE;
 
@@ -169,10 +168,10 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
      *   <li><strong>url</strong> — sent as given, once it parses as a URI</li>
      *   <li><strong>headers</strong> — sent as given. Names differing only in case were already
      *       rejected when the definition was constructed</li>
-     *   <li><strong>body</strong> — the {@code _bodyString} entry is sent as the payload, UTF-8
-     *       encoded. It was derived at construction for a {@code raw} body and for form-encoded
-     *       entries; a {@code file} body is resolved <em>here</em>, after interpolation, so that both
-     *       the path and the file's content may hold {@code ${…}} tokens. A body is sent on whatever
+     *   <li><strong>body</strong> — the body's payload is sent, UTF-8 encoded: a {@code raw} text as it
+     *       is, a {@code file} body as it was read during interpolation, a {@code form} URL-encoded, with
+     *       the {@code Content-Type} interpolation added. A {@code file} body that was never read fails.
+     *       A body is sent on whatever
      *       method declares one, rather than only on POST/PUT/PATCH — silently dropping a body an
      *       author wrote is worse than letting the server reject it</li>
      *   <li><strong>timeout</strong> — {@code options}' {@link RequestOptions#timeoutMs()}, applied to
@@ -194,9 +193,8 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
      * @return the response: its status, every value of every header it carried, and its body, which
      *         is {@code null} when the response had none. Never {@code null}
      * @throws BratException if {@code requestDefinition} or {@code options} is {@code null}; if
-     *         {@code url} is absent or not a valid URI; if a body is declared but holds nothing to
-     *         send, which means entries with neither a {@code raw} nor a {@code file} key
-     *         nor a form-encoded {@code Content-Type} to join them under; or if the request cannot be
+     *         {@code url} is absent or not a valid URI; if a {@code file} body was never read, which only
+     *         a definition that was never interpolated can carry; or if the request cannot be
      *         completed at all — connection refused, unknown host, failed TLS handshake, or the
      *         timeout elapsing
      */
@@ -276,24 +274,24 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
     /**
      * The text to send as the body, or {@code null} when the request declares none.
      * <p>
-     * The payload is taken from {@code _bodyString} and nothing is read from disk: a {@code file}
-     * body has already been resolved and interpolated into that entry before the definition reaches
-     * any handler. Every handler therefore reads one key, whatever the body was authored as.
+     * The payload is the body's own, and nothing is read from disk: a {@code file} body has already
+     * been read and interpolated before the definition reaches any handler.
      *
      * @param definition the interpolated request
      * @return the payload, or {@code null}
-     * @throws BratException if a body is declared with nothing to send
+     * @throws BratException if a {@code file} body arrives unread, which only a definition that was
+     *         never interpolated can be
      */
     private static String payloadOf(HttpRequestDefinition definition) {
         var body = definition.getBody();
-        if (body == null || body.isEmpty()) {
+        if (body == null) {
             return null;
         }
-        if (body.get(BODY_STRING) != null) {
-            return body.get(BODY_STRING);
+        var payload = body.getPayload();
+        if (payload == null) {
+            throw new BratException("The request's body file '" + body.getFile() + "' was never read");
         }
-        throw new BratException("The request declares a body with nothing to send. Entries other than 'raw' or 'file' "
-                + "are only joined into a payload under a form-urlencoded 'Content-Type'");
+        return payload;
     }
 
     /**

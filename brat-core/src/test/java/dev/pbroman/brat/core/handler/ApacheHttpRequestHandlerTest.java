@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 import dev.pbroman.brat.core.api.handler.HttpResponseVars;
+import dev.pbroman.brat.core.data.HttpBody;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.RequestOptions;
 import dev.pbroman.brat.core.data.result.HttpResponse;
@@ -16,9 +17,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import static dev.pbroman.brat.core.util.Constants.BODY_STRING;
-import static dev.pbroman.brat.core.util.Constants.FILE_BODY;
-import static dev.pbroman.brat.core.util.Constants.RAW_BODY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -177,7 +175,7 @@ class ApacheHttpRequestHandlerTest {
     void performRequest_sendsARawBody() {
         // given
         var definition =
-                new HttpRequestDefinition(stub.baseUrl() + "/orders", "POST", Map.of(RAW_BODY, "{\"a\": 1}"), null);
+                new HttpRequestDefinition(stub.baseUrl() + "/orders", "POST", HttpBody.raw("{\"a\": 1}"), null);
 
         // when
         underTest.performRequest(definition, OPTIONS);
@@ -189,8 +187,8 @@ class ApacheHttpRequestHandlerTest {
     @Test
     void performRequest_sendsABodyOnAnyMethodThatDeclaresOne() {
         // given - restricting bodies to POST/PUT/PATCH would silently drop what an author wrote
-        var definition = new HttpRequestDefinition(
-                stub.baseUrl() + "/orders", "DELETE", Map.of(RAW_BODY, "reason=cleanup"), null);
+        var definition =
+                new HttpRequestDefinition(stub.baseUrl() + "/orders", "DELETE", HttpBody.raw("reason=cleanup"), null);
 
         // when
         underTest.performRequest(definition, OPTIONS);
@@ -200,14 +198,12 @@ class ApacheHttpRequestHandlerTest {
     }
 
     @Test
-    void performRequest_sendsAFileBodyFromBodyStringWithoutReadingIt(@TempDir Path dir) throws Exception {
-        // given - the interpolator resolved the file already; the handler reads one key and no disk.
+    void performRequest_sendsAFileBodysContentWithoutReadingIt(@TempDir Path dir) throws Exception {
+        // given - the interpolator read the file already; the handler sends the payload and reads no disk.
         // The file exists and holds something else entirely, so a handler that read it would fail here.
         var file = dir.resolve("payload.json");
         Files.writeString(file, "{\"from\": \"the file on disk\"}");
-        var body = new LinkedHashMap<String, String>();
-        body.put(FILE_BODY, "file:" + file);
-        body.put(BODY_STRING, "{\"from\": \"the interpolator\"}");
+        var body = new HttpBody(null, "file:" + file, null, "{\"from\": \"the interpolator\"}");
         var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "POST", body, null);
 
         // when
@@ -218,45 +214,40 @@ class ApacheHttpRequestHandlerTest {
     }
 
     @Test
-    void performRequest_throwsWhenAFileBodyWasNeverResolved(@TempDir Path dir) throws Exception {
-        // given - a file entry with no _bodyString means nothing resolved it, which is a wiring fault
+    void performRequest_throwsWhenAFileBodyWasNeverRead(@TempDir Path dir) throws Exception {
+        // given - a file body with no content means nothing interpolated it, which is a wiring fault
         // rather than an authoring one. The file deliberately **exists**: a handler that still reads
-        // from disk would succeed here, so this fails until the read leaves the handler.
+        // from disk would succeed here.
         var file = dir.resolve("payload.json");
         Files.writeString(file, "{\"from\": \"the file on disk\"}");
         var definition =
-                new HttpRequestDefinition(stub.baseUrl() + "/orders", "POST", Map.of(FILE_BODY, "file:" + file), null);
+                new HttpRequestDefinition(stub.baseUrl() + "/orders", "POST", HttpBody.file("file:" + file), null);
 
-        // then
-        assertThatThrownBy(() -> underTest.performRequest(definition, OPTIONS)).isInstanceOf(BratException.class);
+        // when / then
+        assertThatThrownBy(() -> underTest.performRequest(definition, OPTIONS))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("payload.json");
     }
 
     @Test
-    void performRequest_sendsFormFieldsJoinedUnderAFormContentType() {
-        // given - a LinkedHashMap, because the payload is joined in the body's iteration order and
-        // Map.of has none. The definition derives _bodyString; this asserts the handler sends it
-        var body = new LinkedHashMap<String, String>();
-        body.put("field", "value");
-        body.put("other", "second");
+    void performRequest_sendsAFormEncodedUnderItsContentType() {
+        // given - as interpolation leaves it: the form resolved and its Content-Type added
+        var form = new LinkedHashMap<String, String>();
+        form.put("field", "a value");
+        form.put("other", "x&y");
         var definition = new HttpRequestDefinition(
-                stub.baseUrl() + "/orders", "POST", body, Map.of("Content-Type", "application/x-www-form-urlencoded"));
+                stub.baseUrl() + "/orders",
+                "POST",
+                HttpBody.form(form),
+                Map.of("Content-Type", "application/x-www-form-urlencoded"));
 
         // when
         underTest.performRequest(definition, OPTIONS);
 
-        // then - the one path where the payload is neither authored nor read from a file
-        assertThat(stub.lastRequest().body()).isEqualTo("field=value&other=second");
+        // then
+        assertThat(stub.lastRequest().body()).isEqualTo("field=a+value&other=x%26y");
         assertThat(stub.lastRequest().headers().get("Content-type"))
                 .containsExactly("application/x-www-form-urlencoded");
-    }
-
-    @Test
-    void performRequest_throwsWhenABodyHoldsNothingToSend() {
-        // given - form fields with no form Content-Type to join them under, so nothing was derived
-        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "POST", Map.of("field", "value"), null);
-
-        // then - sending an empty body would let a broken request pass green
-        assertThatThrownBy(() -> underTest.performRequest(definition, OPTIONS)).isInstanceOf(BratException.class);
     }
 
     @Test
@@ -266,7 +257,7 @@ class ApacheHttpRequestHandlerTest {
         var definition = new HttpRequestDefinition(
                 stub.baseUrl() + "/orders",
                 "POST",
-                Map.of(RAW_BODY, "{\"a\": 1}"),
+                HttpBody.raw("{\"a\": 1}"),
                 Map.of("Content-Type", "application/json"));
 
         // when
@@ -279,7 +270,7 @@ class ApacheHttpRequestHandlerTest {
     @Test
     void performRequest_sendsABodyWithNoContentTypeWhenNoneWasDeclared() {
         // given - nothing is invented on the author's behalf
-        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "POST", Map.of(RAW_BODY, "plain"), null);
+        var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "POST", HttpBody.raw("plain"), null);
 
         // when
         underTest.performRequest(definition, OPTIONS);
@@ -294,7 +285,7 @@ class ApacheHttpRequestHandlerTest {
         var definition = new HttpRequestDefinition(
                 stub.baseUrl() + "/orders",
                 "POST",
-                Map.of(RAW_BODY, "x"),
+                HttpBody.raw("x"),
                 Map.of("Content-Type", "text/plain; charset=NOPE"));
 
         // then

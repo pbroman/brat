@@ -9,6 +9,7 @@ import java.util.TreeMap;
 import dev.pbroman.brat.core.api.data.RequestDefinition;
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.reporting.ValueMask;
+import dev.pbroman.brat.core.data.HttpBody;
 import dev.pbroman.brat.core.data.HttpRequestDefinition;
 import dev.pbroman.brat.core.data.Phase;
 import dev.pbroman.brat.core.data.result.RequestCoordinates;
@@ -204,6 +205,77 @@ class SensitiveValuesTest {
 
         // then
         assertThat(masked("abcd1234")).isFalse();
+    }
+
+    // --- a form body ---
+
+    /** A sent request whose form holds one entry, its outcome secret-bearing or not. */
+    private static HttpRequestDefinition sentWithForm(String key, String value, boolean fromSecret) {
+        var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
+        outcomes.put("body.form." + key, new InterpolationOutcome(value, key + " → " + value, fromSecret));
+        return new HttpRequestDefinition(
+                "http://h/token", "POST", HttpBody.form(Map.of(key, value)), null, null, outcomes);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"client_secret", "password", "refresh_token", "clientSecret", "Client-Secret"})
+    void addTo_addsASensitiveFormEntryTypedInClearAsGuessed(String key) {
+        // when
+        SensitiveValues.addTo(mask, result(sentWithForm(key, "value-1234", false), jsonResponse("{}")));
+
+        // then
+        assertThat(masked("value-1234")).isTrue();
+        assertThat(mask.mask("value-1234", true)).isEqualTo("value-1234");
+    }
+
+    @Test
+    void addTo_addsASensitiveFormEntryBuiltFromASecretAsASecret() {
+        // when
+        SensitiveValues.addTo(mask, result(sentWithForm("client_secret", "value-1234", true), jsonResponse("{}")));
+
+        // then
+        assertThat(maskedAsSecret("value-1234")).isTrue();
+    }
+
+    @Test
+    void addTo_addsASensitiveFormEntryWithNoOutcomeAsGuessed() {
+        // given - interpolated, but carrying no outcome for the entry
+        var sent = new HttpRequestDefinition(
+                "http://h/token",
+                "POST",
+                HttpBody.form(Map.of("password", "value-1234")),
+                null,
+                null,
+                new LinkedHashMap<>());
+
+        // when
+        SensitiveValues.addTo(mask, result(sent, jsonResponse("{}")));
+
+        // then
+        assertThat(masked("value-1234")).isTrue();
+        assertThat(mask.mask("value-1234", true)).isEqualTo("value-1234");
+    }
+
+    @Test
+    void addTo_leavesAFormEntryWhoseNameIsNotSensitive() {
+        // when
+        SensitiveValues.addTo(mask, result(sentWithForm("client_id", "orders-tests", false), jsonResponse("{}")));
+
+        // then
+        assertThat(masked("orders-tests")).isFalse();
+    }
+
+    @Test
+    void addTo_takesNothingFromTheFormOfADefinitionThatWasNeverInterpolated() {
+        // given
+        var authored = new HttpRequestDefinition(
+                "http://h/token", "POST", HttpBody.form(Map.of("client_secret", "value-1234")), null);
+
+        // when
+        SensitiveValues.addTo(mask, errored(authored));
+
+        // then
+        assertThat(masked("value-1234")).isFalse();
     }
 
     // --- the response ---

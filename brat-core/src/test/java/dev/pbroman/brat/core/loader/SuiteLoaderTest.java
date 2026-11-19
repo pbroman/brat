@@ -481,6 +481,138 @@ class SuiteLoaderTest {
                 .hasMessageContaining("line");
     }
 
+    // ---------- the body ----------
+
+    private static String requestWithBody(String body) {
+        return """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      url: http://x
+                      method: POST
+                      body:
+                """ + body.indent(8);
+    }
+
+    @Test
+    void load_bindsAFormInTheOrderWritten() {
+        // given
+        var yaml = requestWithBody("""
+                form:
+                  grant_type: client_credentials
+                  client_id: 123
+                  client_secret: "${secrets.clientSecret}"
+                """);
+
+        // when
+        var suite = underTest.load(yaml);
+
+        // then - a YAML number binds as text
+        var body = ((HttpRequestDefinition) suite.requests().getFirst().requestDefinition()).getBody();
+        assertThat(body.getForm())
+                .containsExactly(
+                        Map.entry("grant_type", "client_credentials"),
+                        Map.entry("client_id", "123"),
+                        Map.entry("client_secret", "${secrets.clientSecret}"));
+    }
+
+    @Test
+    void load_bindsARawAndAFileBody() {
+        // when
+        var raw = underTest.load(requestWithBody("raw: '{\"a\": 1}'\n"));
+        var file = underTest.load(requestWithBody("file: bodies/order.json\n"));
+
+        // then
+        assertThat(((HttpRequestDefinition) raw.requests().getFirst().requestDefinition())
+                        .getBody()
+                        .getRaw())
+                .isEqualTo("{\"a\": 1}");
+        assertThat(((HttpRequestDefinition) file.requests().getFirst().requestDefinition())
+                        .getBody()
+                        .getFile())
+                .isEqualTo("bodies/order.json");
+    }
+
+    @Test
+    void load_rejectsAnUnknownBodyKeyWithItsPosition() {
+        // when / then - beside a valid kind, the unknown key is named
+        assertThatThrownBy(() -> underTest.load(requestWithBody("raw: x\nfomr:\n  a: 1\n")))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("fomr")
+                .hasMessageContaining("line");
+    }
+
+    @Test
+    void load_pointsAtTheSpellingWhenABodyHoldsOnlyUnknownKeys() {
+        // when / then - the body is checked before the unknown key is reported, so it says what to look
+        // for, and where. The key core used to derive is one of these: a suite can no longer write it
+        assertThatThrownBy(() -> underTest.load(requestWithBody("fomr:\n  a: 1\n")))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("spelling")
+                .hasMessageContaining("line 7");
+        assertThatThrownBy(() -> underTest.load(requestWithBody("_bodyString: a=1\n")))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("spelling");
+    }
+
+    @Test
+    void load_rejectsABodyDeclaringTwoKinds() {
+        // when / then
+        assertThatThrownBy(() -> underTest.load(requestWithBody("raw: x\nform:\n  a: 1\n")))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("raw and form")
+                .hasMessageContaining("line");
+    }
+
+    @Test
+    void load_rejectsAnEmptyBody() {
+        // when / then
+        assertThatThrownBy(() -> underTest.load(requestWithBody("{}\n")))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("none of raw, file or form");
+    }
+
+    @Test
+    void load_rejectsAFormEntryWithNoValueNamingIt() {
+        // when / then - `client_id:` with nothing after it
+        assertThatThrownBy(() -> underTest.load(requestWithBody("form:\n  client_id:\n")))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("client_id");
+    }
+
+    @Test
+    void load_bindsAnEmptyFormValueAsEmptyText() {
+        // when
+        var suite = underTest.load(requestWithBody("form:\n  client_id: \"\"\n"));
+
+        // then
+        var body = ((HttpRequestDefinition) suite.requests().getFirst().requestDefinition()).getBody();
+        assertThat(body.getForm()).containsEntry("client_id", "");
+    }
+
+    @Test
+    void load_rejectsAFormUnderAnotherContentType() {
+        // given
+        var yaml = """
+                name: s
+                requests:
+                  - name: r
+                    requestDefinition:
+                      url: http://x
+                      headers:
+                        Content-Type: application/json
+                      body:
+                        form:
+                          a: 1
+                """;
+
+        // when / then
+        assertThatThrownBy(() -> underTest.load(yaml))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("application/json");
+    }
+
     @Test
     void load_rejectsAnEmptyDocument() {
         assertThatThrownBy(() -> underTest.load("")).isInstanceOf(BratException.class);
