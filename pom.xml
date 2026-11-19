@@ -28,6 +28,7 @@
 
     <modules>
         <module>brat-core</module>
+        <module>brat-openapi</module>
         <module>brat-cli</module>
         <module>brat-integration-tests</module>
     </modules>
