@@ -147,6 +147,17 @@
                 <artifactId>mockito-junit-jupiter</artifactId>
                 <version>${mockito.version}</version>
             </dependency>
+            <!-- Test scope only: generating the suite schema and validating documents against it. -->
+            <dependency>
+                <groupId>com.github.victools</groupId>
+                <artifactId>jsonschema-generator</artifactId>
+                <version>5.0.0</version>
+            </dependency>
+            <dependency>
+                <groupId>com.networknt</groupId>
+                <artifactId>json-schema-validator</artifactId>
+                <version>3.0.9</version>
+            </dependency>
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-simple</artifactId>
@@ -272,6 +283,11 @@
                     <!-- One element only: Maven keeps the last <argLine> and silently drops the
                          rest. @{argLine} is where jacoco:prepare-agent injects its agent. -->
                     <argLine>@{argLine} -Dfile.encoding=UTF-8 -XX:+EnableDynamicAgentLoading</argLine>
+                    <!-- Lets a test find every module's fixtures, e.g. to validate each suite file
+                         in the repository against the schema. -->
+                    <systemPropertyVariables>
+                        <brat.repository.root>${maven.multiModuleProjectDirectory}</brat.repository.root>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
         </plugins>

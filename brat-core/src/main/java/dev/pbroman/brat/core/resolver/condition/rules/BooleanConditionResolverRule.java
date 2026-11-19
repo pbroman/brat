@@ -7,8 +7,8 @@ import java.util.Map;
 import dev.pbroman.brat.core.api.resolver.ConditionPredicate;
 
 import static dev.pbroman.brat.core.util.Constants.BOOLEAN_CONDITION;
-import static org.apache.commons.lang3.BooleanUtils.FALSE;
-import static org.apache.commons.lang3.BooleanUtils.TRUE;
+import static dev.pbroman.brat.core.util.Constants.IS_FALSE;
+import static dev.pbroman.brat.core.util.Constants.IS_TRUE;
 
 /**
  * Core resolver for boolean conditions.
@@ -24,8 +24,8 @@ public final class BooleanConditionResolverRule extends AbstractConditionResolve
 
     private static Map<String, ConditionPredicate> predicates() {
         var predicates = new HashMap<String, ConditionPredicate>();
-        predicates.put(TRUE, (a, b, args) -> parse(a));
-        predicates.put(FALSE, (a, b, args) -> !parse(a));
+        predicates.put(IS_TRUE, (a, b, args) -> parse(a));
+        predicates.put(IS_FALSE, (a, b, args) -> !parse(a));
         return predicates;
     }
 
@@ -40,6 +40,6 @@ public final class BooleanConditionResolverRule extends AbstractConditionResolve
 
     @Override
     protected List<String> ignoreBNullCheck() {
-        return List.of(TRUE, FALSE);
+        return List.of(IS_TRUE, IS_FALSE);
     }
 }

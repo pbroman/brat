@@ -26,7 +26,7 @@ import picocli.CommandLine.Spec;
         mixinStandardHelpOptions = true,
         versionProvider = BratVersion.class,
         description = "The Better REST-API Tester.",
-        subcommands = {RunCommand.class, HelpCommand.class})
+        subcommands = {RunCommand.class, SchemaCommand.class, HelpCommand.class})
 public final class BratCli implements Callable<Integer> {
 
     private CommandSpec spec;

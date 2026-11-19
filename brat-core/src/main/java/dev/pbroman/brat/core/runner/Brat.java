@@ -127,6 +127,8 @@ public final class Brat implements AutoCloseable {
             var loader = builder.classLoader;
             var functions =
                     PluginDiscovery.collect(StandardFunctions.all(), builder.functions, BratFunction.class, loader);
+            // SuiteSchemaTest.coreRules() lists these too, to offer their funcs in the suite schema:
+            // a rule added here belongs there as well.
             var conditionRules = PluginDiscovery.collect(
                     List.of(
                             new StringConditionResolverRule(),

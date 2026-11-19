@@ -10,15 +10,16 @@ import dev.pbroman.brat.core.util.HttpHeaderUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 
-import static dev.pbroman.brat.core.util.Constants.BLANK;
 import static dev.pbroman.brat.core.util.Constants.CONTAINS;
 import static dev.pbroman.brat.core.util.Constants.CONTAINS_IGNORING_CASE;
-import static dev.pbroman.brat.core.util.Constants.EMPTY;
 import static dev.pbroman.brat.core.util.Constants.ENDS_WITH;
 import static dev.pbroman.brat.core.util.Constants.EQUALS;
 import static dev.pbroman.brat.core.util.Constants.EQUALS_IGNORE_CASE;
 import static dev.pbroman.brat.core.util.Constants.EQUAL_TO;
 import static dev.pbroman.brat.core.util.Constants.EQUAL_TO_IGNORING_CASE;
+import static dev.pbroman.brat.core.util.Constants.IS_BLANK;
+import static dev.pbroman.brat.core.util.Constants.IS_EMPTY;
+import static dev.pbroman.brat.core.util.Constants.IS_NULL;
 import static dev.pbroman.brat.core.util.Constants.MATCHES;
 import static dev.pbroman.brat.core.util.Constants.MEDIA_TYPE;
 import static dev.pbroman.brat.core.util.Constants.NULL;
@@ -51,15 +52,15 @@ public final class StringConditionResolverRule extends AbstractConditionResolver
 
     private static Map<String, ConditionPredicate> predicates() {
         var predicates = new HashMap<String, ConditionPredicate>();
-        predicates.put(NULL, (a, b, args) -> NULL.equals(parse(a)));
+        predicates.put(IS_NULL, (a, b, args) -> NULL.equals(parse(a)));
         ConditionPredicate equalTo = (a, b, args) -> parse(a).equals(parse(b));
         ConditionPredicate equalToIgnoringCase = (a, b, args) -> parse(a).equalsIgnoreCase(parse(b));
         predicates.put(EQUAL_TO, equalTo);
         predicates.put(EQUALS, equalTo);
         predicates.put(EQUAL_TO_IGNORING_CASE, equalToIgnoringCase);
         predicates.put(EQUALS_IGNORE_CASE, equalToIgnoringCase);
-        predicates.put(BLANK, (a, b, args) -> parse(a).isBlank());
-        predicates.put(EMPTY, (a, b, args) -> parse(a).isEmpty());
+        predicates.put(IS_BLANK, (a, b, args) -> parse(a).isBlank());
+        predicates.put(IS_EMPTY, (a, b, args) -> parse(a).isEmpty());
         predicates.put(CONTAINS, (a, b, args) -> parse(a).contains(parse(b)));
         predicates.put(CONTAINS_IGNORING_CASE, (a, b, args) -> Strings.CI.contains(parse(a), parse(b)));
         predicates.put(
@@ -70,14 +71,14 @@ public final class StringConditionResolverRule extends AbstractConditionResolver
         predicates.put(MATCHES, (a, b, args) -> parse(a).matches(parse(b)));
 
         predicates.replaceAll(
-                (function, predicate) -> NULL.equals(function) ? predicate : textOnly(function, predicate));
+                (function, predicate) -> IS_NULL.equals(function) ? predicate : textOnly(function, predicate));
         return predicates;
     }
 
     /**
      * Wraps a predicate so that it refuses a structured {@code a} before reading it as text.
      *
-     * @param function the normalised func, named in the error
+     * @param function the func's canonical name, named in the error
      * @param predicate the predicate to guard
      * @return the guarded predicate
      */
@@ -93,7 +94,7 @@ public final class StringConditionResolverRule extends AbstractConditionResolver
      * was — never its content, which may hold a secret.
      *
      * @param a the subject of the condition
-     * @param function the normalised func
+     * @param function the func's canonical name
      * @throws BratException if {@code a} is a {@link List} or a {@link Map}
      */
     private static void requireText(Object a, String function) {
@@ -125,6 +126,6 @@ public final class StringConditionResolverRule extends AbstractConditionResolver
 
     @Override
     protected List<String> ignoreBNullCheck() {
-        return List.of(NULL, EMPTY, BLANK);
+        return List.of(IS_NULL, IS_EMPTY, IS_BLANK);
     }
 }

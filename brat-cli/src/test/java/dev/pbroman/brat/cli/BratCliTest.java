@@ -129,6 +129,6 @@ class BratCliTest {
         underTest.execute("--help");
 
         // then
-        assertThat(out.toString()).contains("help  Display help").doesNotContain("Usage: brat help");
+        assertThat(out.toString()).containsPattern("help +Display help").doesNotContain("Usage: brat help");
     }
 }

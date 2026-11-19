@@ -22,7 +22,7 @@ public interface ConditionResolverRule {
      * spellings: matching is case-insensitive, a leading {@code is} is optional, and a leading
      * {@code not} or {@code !} negates the result. The {@code is} prefix is stripped on either side
      * of the negation, so {@code isNotEqualTo} and {@code notIsEqualTo} both reach the
-     * {@code equalTo} predicate negated.
+     * {@code isEqualTo} predicate negated.
      * <p>
      * <strong>An implementation declines by returning an empty {@link Optional}</strong>, in either
      * of two cases: it does not know the func at all, or it knows the func but the operands do not

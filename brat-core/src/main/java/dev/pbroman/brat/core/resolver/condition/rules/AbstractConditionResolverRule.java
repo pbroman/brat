@@ -1,8 +1,10 @@
 package dev.pbroman.brat.core.resolver.condition.rules;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import dev.pbroman.brat.core.api.resolver.ConditionPredicate;
 import dev.pbroman.brat.core.api.resolver.ConditionResolverRule;
@@ -23,30 +25,82 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
 
     private final Map<String, ConditionPredicate> predicateMap;
 
+    /** The canonical name of each func, keyed by its normalised form. */
+    private final Map<String, String> canonicalNames;
+
     /**
      * Constructor receiving a predicate map from extending classes.
+     * <p>
+     * Each key is a func's <strong>canonical spelling</strong>, the one a suite author is offered:
+     * {@code isEqualTo}, {@code containsKey}, {@code >=}. The rule then answers to every spelling that
+     * normalises like it (see {@link ConditionResolverRule#resolve}), and its own code — the
+     * predicates, {@link #accepts}, {@link #ignoreBNullCheck()}, its messages — only ever sees the
+     * canonical one.
      *
-     * @param predicates the predicate for each func this rule answers to, keyed by the normalised
-     *        func name
+     * @param predicates the predicate for each func this rule answers to, keyed by its canonical
+     *        spelling; must not be {@code null}, nor hold a {@code null} key or predicate
+     * @throws BratException if two keys normalise to the same func ({@code isEqualTo} and
+     *         {@code equalTo}), so one of them could never be reached; or if a key normalises to a
+     *         negation ({@code notarize}, read as {@code arize} negated), so the func it names could
+     *         never be reached un-negated
      */
     protected AbstractConditionResolverRule(Map<String, ConditionPredicate> predicates) {
+        // Checked while the arguments are evaluated, before any object exists, so a rejected map never
+        // leaves a partly constructed rule behind.
+        this(predicates, canonicalNames(predicates));
+    }
+
+    private AbstractConditionResolverRule(
+            Map<String, ConditionPredicate> predicates, Map<String, String> canonicalNames) {
         this.predicateMap = Map.copyOf(predicates);
+        this.canonicalNames = canonicalNames;
+    }
+
+    /** Maps each key's normalised form to the key, rejecting a key no spelling could reach. */
+    private static Map<String, String> canonicalNames(Map<String, ConditionPredicate> predicates) {
+        var names = new HashMap<String, String>();
+        for (var func : predicates.keySet()) {
+            var prepared = prepare(func);
+            if (prepared.negate()) {
+                throw new BratException("The func '" + func + "' reads as a negation of '" + prepared.function()
+                        + "', so it could never be reached un-negated. Name it without a leading 'not' or '!'");
+            }
+            var clash = names.put(prepared.function(), func);
+            if (clash != null) {
+                throw new BratException("The funcs '" + clash + "' and '" + func
+                        + "' are the same func spelled two ways, so one of them could never be reached");
+            }
+        }
+        return Map.copyOf(names);
+    }
+
+    /**
+     * Returns the canonical spelling of every func this rule answers to — the keys its constructor was
+     * given, which is what an editor offers for completion.
+     * <p>
+     * The rule may still decline one of these for operands outside its category: being listed means
+     * the rule knows the name, not that it answers every condition using it. Negated spellings are not
+     * listed, since every func can be negated.
+     *
+     * @return the canonical func names, unmodifiable, in no particular order; never {@code null}
+     */
+    public Set<String> funcs() {
+        return predicateMap.keySet();
     }
 
     @Override
     public Optional<Boolean> resolve(Condition condition) {
         nonNull(condition, "The condition may not be null");
         var prepared = prepare(condition.getFunc());
-        if (predicateMap.containsKey(prepared.function())) {
-            if (!accepts(condition, prepared.function())) {
+        var func = canonicalNames.get(prepared.function());
+        if (func != null) {
+            if (!accepts(condition, func)) {
                 return Optional.empty();
             }
-            nullCheckB(condition, prepared.function());
+            nullCheckB(condition, func);
             try {
                 return Optional.of(prepared.negate()
-                        != predicateMap
-                                .get(prepared.function())
-                                .test(condition.getA(), condition.getB(), condition.getArgs()));
+                        != predicateMap.get(func).test(condition.getA(), condition.getB(), condition.getArgs()));
             } catch (BratException be) {
                 throw be;
             } catch (RuntimeException re) {
@@ -66,7 +120,8 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
 
     /**
      * Override this to return a list of functions that do not require the b argument.
-     * @return a list of function names skipped by the null check
+     *
+     * @return the canonical names of the funcs skipped by the null check
      */
     protected List<String> ignoreBNullCheck() {
         return List.of();
@@ -78,8 +133,8 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
      * fallback rule of a category chain wants.
      *
      * @param condition the condition about to be resolved, its func already matched
-     * @param function the func, normalised the way the predicate map is keyed — lower case, with the
-     *         {@code is} prefix and any negation removed — so a rule can accept some of its funcs for
+     * @param function the func's canonical spelling, as this rule keyed its predicate — whatever
+     *         spelling or negation the author wrote — so a rule can accept some of its funcs for
      *         operands it declines for others
      * @return {@code true} if this rule should resolve {@code condition}, {@code false} to decline
      *         it and let the dispatcher try the next rule
@@ -96,7 +151,7 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
      * the same predicate: {@code isNotNull} and {@code notIsNull} negated, {@code isNull} and
      * {@code null} not.
      */
-    private PreparedFunction prepare(String func) {
+    private static PreparedFunction prepare(String func) {
         var f = stripIsPrefix(func.toLowerCase().trim());
         var matches = NEGATION_PATTERN.matcher(f);
         boolean negate = false;
@@ -107,7 +162,7 @@ public abstract class AbstractConditionResolverRule implements ConditionResolver
         return new PreparedFunction(f, negate);
     }
 
-    private String stripIsPrefix(String func) {
+    private static String stripIsPrefix(String func) {
         return Strings.CI.startsWith(func, IS_PREFIX) ? StringUtils.substring(func, IS_PREFIX.length()) : func;
     }
 
