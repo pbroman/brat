@@ -9,23 +9,23 @@ import java.util.stream.Collectors;
 
 import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.rendering.OutcomeRendererRule;
+import dev.pbroman.brat.core.api.rendering.RenderKinds;
 import dev.pbroman.brat.core.api.rendering.RenderTarget;
 
 /**
- * The core {@code "verbose-cli"} {@link OutcomeRendererRule} — outcomes grouped into sections by the
- * prefix before the first {@code "."} in each key (e.g. {@code "header."}, {@code "auth."}),
- * ungrouped fields printed first, under the target's label where it has one.
+ * The core {@code "verbose-cli"} ({@link RenderKinds#VERBOSE_CLI}) {@link OutcomeRendererRule} —
+ * outcomes grouped into sections by the prefix before the first {@code "."} in each key (e.g.
+ * {@code "header."}, {@code "auth."}), ungrouped fields printed first, under the target's label
+ * where it has one.
  * <p>
  * A target with no outcomes renders as its label alone, or as the empty string when it has no label
  * either — never as a header followed by nothing.
  */
 public final class VerboseCliOutcomeRendererRule implements OutcomeRendererRule {
 
-    private static final String KIND = "verbose-cli";
-
     @Override
     public Optional<String> render(String kind, RenderTarget target) {
-        if (!KIND.equals(kind)) {
+        if (!RenderKinds.VERBOSE_CLI.equals(kind)) {
             return Optional.empty();
         }
 

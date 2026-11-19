@@ -26,9 +26,34 @@ import static org.apache.hc.core5.http.HttpHeaders.CONTENT_TYPE;
  * <p>
  * It holds only what is sent. How long to wait for the answer is the request's {@code timeout}, which
  * reaches the handler resolved in {@link RequestOptions}.
+ * <p>
+ * <strong>Its outcome keys</strong> — the keys of {@link #getOutcomes()} on an interpolated copy, one per
+ * interpolated value — are the constants below. A handler's {@code args} use the prefix every
+ * {@code args} bag shares, {@code args.}.
  */
 @Getter
 public final class HttpRequestDefinition extends ConfigData implements RequestDefinition {
+
+    /** The outcome key of the url. */
+    public static final String OUTCOME_URL = "url";
+
+    /** The outcome key of the method. */
+    public static final String OUTCOME_METHOD = "method";
+
+    /** The prefix of a header's outcome key, followed by the header's name as written. */
+    public static final String OUTCOME_HEADER_PREFIX = "header.";
+
+    /** The outcome key of a {@code raw} body. */
+    public static final String OUTCOME_BODY_RAW = "body.raw";
+
+    /** The outcome key of a {@code file} body's path. */
+    public static final String OUTCOME_BODY_FILE = "body.file";
+
+    /** The outcome key of a {@code file} body's content, read from that path. */
+    public static final String OUTCOME_BODY_FILE_CONTENT = "body.fileContent";
+
+    /** The prefix of a {@code form} entry's outcome key, followed by the entry's name. */
+    public static final String OUTCOME_FORM_PREFIX = "body.form.";
 
     private final String url;
     private final String method;

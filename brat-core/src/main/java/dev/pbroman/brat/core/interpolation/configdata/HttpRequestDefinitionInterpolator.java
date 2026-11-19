@@ -12,6 +12,13 @@ import dev.pbroman.brat.core.data.runtime.RuntimeData;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.HttpHeaderUtils;
 
+import static dev.pbroman.brat.core.data.HttpRequestDefinition.OUTCOME_BODY_FILE;
+import static dev.pbroman.brat.core.data.HttpRequestDefinition.OUTCOME_BODY_FILE_CONTENT;
+import static dev.pbroman.brat.core.data.HttpRequestDefinition.OUTCOME_BODY_RAW;
+import static dev.pbroman.brat.core.data.HttpRequestDefinition.OUTCOME_FORM_PREFIX;
+import static dev.pbroman.brat.core.data.HttpRequestDefinition.OUTCOME_HEADER_PREFIX;
+import static dev.pbroman.brat.core.data.HttpRequestDefinition.OUTCOME_METHOD;
+import static dev.pbroman.brat.core.data.HttpRequestDefinition.OUTCOME_URL;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.checkNotInterpolated;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolateMapWithOutcomes;
 import static dev.pbroman.brat.core.interpolation.configdata.InterpolatorUtils.interpolatedBodyFile;
@@ -75,17 +82,17 @@ public final class HttpRequestDefinitionInterpolator implements RequestDefinitio
         var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
 
         var urlOutcome = interpolation.outcome(target.getUrl(), runtimeData);
-        outcomes.put("url", urlOutcome);
+        outcomes.put(OUTCOME_URL, urlOutcome);
 
         var methodOutcome = interpolation.outcome(target.getMethod(), runtimeData);
-        outcomes.put("method", methodOutcome);
+        outcomes.put(OUTCOME_METHOD, methodOutcome);
 
         var body = target.getBody() == null
                 ? null
                 : interpolatedBody(target.getBody(), interpolation, runtimeData, outcomes);
 
         var headerOutcomes = interpolateMapWithOutcomes(interpolation, runtimeData, target.getHeaders());
-        putPrefixed(outcomes, "header.", headerOutcomes);
+        putPrefixed(outcomes, OUTCOME_HEADER_PREFIX, headerOutcomes);
         var headers = resolveOrNull(target.getHeaders(), headerOutcomes);
         if (body != null && body.getForm() != null) {
             headers = withFormContentType(headers, outcomes);
@@ -94,7 +101,7 @@ public final class HttpRequestDefinitionInterpolator implements RequestDefinitio
         // The handler's own arguments, interpolated like everything else so a ${secrets.…} inside one
         // resolves and is masked in the report. What the keys mean is the handler's business.
         var argOutcomes = interpolateMapWithOutcomes(interpolation, runtimeData, target.getArgs());
-        putPrefixed(outcomes, "args.", argOutcomes);
+        putPrefixed(outcomes, InterpolatorUtils.ARGS_PREFIX, argOutcomes);
 
         return new HttpRequestDefinition(
                 urlOutcome.asString(),
@@ -121,14 +128,14 @@ public final class HttpRequestDefinitionInterpolator implements RequestDefinitio
             Map<String, InterpolationOutcome> outcomes) {
         if (body.getRaw() != null) {
             var raw = interpolation.outcome(body.getRaw(), runtimeData);
-            outcomes.put("body.raw", raw);
+            outcomes.put(OUTCOME_BODY_RAW, raw);
             return HttpBody.raw(raw.asString());
         }
         if (body.getFile() != null) {
             var path = interpolation.outcome(body.getFile(), runtimeData);
-            outcomes.put("body.file", path);
+            outcomes.put(OUTCOME_BODY_FILE, path);
             var content = interpolatedBodyFile(path.asString(), interpolation, runtimeData);
-            outcomes.put("body.fileContent", content);
+            outcomes.put(OUTCOME_BODY_FILE_CONTENT, content);
             return new HttpBody(null, path.asString(), null, content.asString());
         }
         return interpolatedForm(body.getForm(), interpolation, runtimeData, outcomes);
@@ -151,7 +158,7 @@ public final class HttpRequestDefinitionInterpolator implements RequestDefinitio
         var resolved = new LinkedHashMap<String, String>();
         for (var entry : form.entrySet()) {
             var outcome = interpolation.outcome(entry.getValue(), runtimeData);
-            outcomes.put("body.form." + entry.getKey(), outcome);
+            outcomes.put(OUTCOME_FORM_PREFIX + entry.getKey(), outcome);
             resolved.put(entry.getKey(), outcome.asString());
         }
         return HttpBody.form(resolved);
@@ -173,7 +180,7 @@ public final class HttpRequestDefinitionInterpolator implements RequestDefinitio
         var form = APPLICATION_FORM_URLENCODED.getMimeType();
         var withContentType = headers == null ? new LinkedHashMap<String, String>() : new LinkedHashMap<>(headers);
         withContentType.put(CONTENT_TYPE, form);
-        outcomes.put("header." + CONTENT_TYPE, new InterpolationOutcome(form, "body form → " + form));
+        outcomes.put(OUTCOME_HEADER_PREFIX + CONTENT_TYPE, new InterpolationOutcome(form, "body form → " + form));
         return withContentType;
     }
 

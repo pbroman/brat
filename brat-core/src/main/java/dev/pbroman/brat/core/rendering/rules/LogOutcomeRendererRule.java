@@ -4,12 +4,13 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import dev.pbroman.brat.core.api.rendering.OutcomeRendererRule;
+import dev.pbroman.brat.core.api.rendering.RenderKinds;
 import dev.pbroman.brat.core.api.rendering.RenderTarget;
 
 /**
- * The core {@code "log"} {@link OutcomeRendererRule} — a single {@code logfmt}-style line
- * ({@code key="value"} pairs, space-separated, quote-escaped), meant for log aggregators
- * rather than a human reader.
+ * The core {@code "log"} ({@link RenderKinds#LOG}) {@link OutcomeRendererRule} — a single {@code
+ * logfmt}-style line ({@code key="value"} pairs, space-separated, quote-escaped), meant for log
+ * aggregators rather than a human reader.
  * <p>
  * A label is emitted as a leading {@code _label="…"} pair. The underscore marks it as
  * renderer-supplied metadata and keeps it out of the key space the outcomes occupy, which holds
@@ -21,13 +22,11 @@ import dev.pbroman.brat.core.api.rendering.RenderTarget;
  */
 public final class LogOutcomeRendererRule implements OutcomeRendererRule {
 
-    private static final String KIND = "log";
-
     private static final String LABEL_KEY = "_label";
 
     @Override
     public Optional<String> render(String kind, RenderTarget target) {
-        if (!KIND.equals(kind)) {
+        if (!RenderKinds.LOG.equals(kind)) {
             return Optional.empty();
         }
         var pairs = target.outcomes().entrySet().stream()

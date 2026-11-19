@@ -16,6 +16,8 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+import static dev.pbroman.brat.core.data.HttpRequestDefinition.OUTCOME_FORM_PREFIX;
+import static dev.pbroman.brat.core.data.HttpRequestDefinition.OUTCOME_HEADER_PREFIX;
 import static dev.pbroman.brat.core.util.Constants.HEADERS;
 import static dev.pbroman.brat.core.util.Constants.JSON;
 import static dev.pbroman.brat.core.util.Require.nonNull;
@@ -52,8 +54,6 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  */
 public final class SensitiveValues {
 
-    private static final String HEADER_PREFIX = "header.";
-    private static final String FORM_PREFIX = "body.form.";
     private static final String SET_COOKIE = "set-cookie";
     private static final Set<String> SCHEME_HEADERS = Set.of("authorization", "proxy-authorization");
     private static final String COOKIE = "cookie";
@@ -95,7 +95,7 @@ public final class SensitiveValues {
             if (header.getValue() == null || !(SCHEME_HEADERS.contains(name) || COOKIE.equals(name))) {
                 continue;
             }
-            var outcome = sent.getOutcomes().get(HEADER_PREFIX + header.getKey());
+            var outcome = sent.getOutcomes().get(OUTCOME_HEADER_PREFIX + header.getKey());
             var fromSecret = outcome != null && outcome.containsSecret();
             for (var credential : credentials(name, header.getValue())) {
                 if (fromSecret) {
@@ -119,7 +119,7 @@ public final class SensitiveValues {
             if (!isSensitiveName(entry.getKey())) {
                 continue;
             }
-            var outcome = sent.getOutcomes().get(FORM_PREFIX + entry.getKey());
+            var outcome = sent.getOutcomes().get(OUTCOME_FORM_PREFIX + entry.getKey());
             if (outcome != null && outcome.containsSecret()) {
                 mask.addSecret(entry.getValue());
             } else {

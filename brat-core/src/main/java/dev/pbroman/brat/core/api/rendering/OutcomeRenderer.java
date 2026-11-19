@@ -18,7 +18,7 @@ public interface OutcomeRenderer {
      * {@link InterpolationOutcome#reportingString()
      * reportingString}, never by its value, so a secret appears masked.
      *
-     * @param kind the render kind (e.g. {@code "console"}, {@code "verbose-cli"}, {@code "log"});
+     * @param kind the render kind — core's are the {@link RenderKinds};
      *        must not be {@code null}
      * @param target what to render: the named outcomes, and an optional label naming them; must not
      *        be {@code null}

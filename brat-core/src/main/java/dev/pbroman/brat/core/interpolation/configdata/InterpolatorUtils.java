@@ -24,7 +24,8 @@ public final class InterpolatorUtils {
      * Outcomes for the func's arguments are keyed by dotted path, so an argument never collides with
      * a field outcome of the enclosing type.
      */
-    private static final String ARGS_PREFIX = "args.";
+    /** The prefix of an {@code args} entry's outcome key, followed by the entry's name. */
+    static final String ARGS_PREFIX = "args.";
 
     private InterpolatorUtils() {
         // utility class
