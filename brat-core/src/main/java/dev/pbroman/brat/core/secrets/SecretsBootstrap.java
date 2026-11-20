@@ -117,7 +117,7 @@ public final class SecretsBootstrap {
      * independent providers and the earlier one wins a key both define. The environment-variable
      * provider is appended last, whether or not {@code config} configures {@code sysenv}: with a
      * {@code prefix} argument it uses that prefix, with an explicitly empty one it uses none, and
-     * with no arguments at all it uses {@link EnvVarSecretsProvider#DEFAULT_PREFIX}. Its own
+     * with no arguments at all it uses {@link SecretsUtils#DEFAULT_ENV_PREFIX}. Its own
      * arguments resolve without any secret being available, since nothing precedes it.
      * <p>
      * A type's arguments are interpolated once, when the first source of that type is reached, and
@@ -199,7 +199,7 @@ public final class SecretsBootstrap {
     private EnvVarSecretsProvider createSysenvSecretsProvider(SecretsProviderConfig config) {
         var prefix = config.argsFor(SYSENV_TYPE).get(PREFIX_ARG);
         return new EnvVarSecretsProvider(
-                Objects.requireNonNullElse(prefix, EnvVarSecretsProvider.DEFAULT_PREFIX), envLookup);
+                Objects.requireNonNullElse(prefix, SecretsUtils.DEFAULT_ENV_PREFIX), envLookup);
     }
 
     private void buildProviders(

@@ -18,7 +18,7 @@ class EnvVarSecretsProviderTest {
             "CUSTOM_API_KEY", "fromCustomPrefix");
 
     private final EnvVarSecretsProvider underTest =
-            new EnvVarSecretsProvider(EnvVarSecretsProvider.DEFAULT_PREFIX, environment::get);
+            new EnvVarSecretsProvider(SecretsUtils.DEFAULT_ENV_PREFIX, environment::get);
 
     @Test
     void getSecret_readsThePrefixedUpperSnakeCaseVariable() {
@@ -97,7 +97,7 @@ class EnvVarSecretsProviderTest {
     void getSecret_treatsAnEmptyVariableAsUnset() {
         // given
         var withEmptyValue =
-                new EnvVarSecretsProvider(EnvVarSecretsProvider.DEFAULT_PREFIX, Map.of("BRAT_SECRET_API_KEY", "")::get);
+                new EnvVarSecretsProvider(SecretsUtils.DEFAULT_ENV_PREFIX, Map.of("BRAT_SECRET_API_KEY", "")::get);
 
         // when
         var result = withEmptyValue.getSecret("apiKey");

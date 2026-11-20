@@ -4,27 +4,20 @@ import java.util.Optional;
 import java.util.function.UnaryOperator;
 
 import dev.pbroman.brat.core.api.secrets.SecretsProvider;
-import dev.pbroman.brat.core.util.Require;
 import org.apache.commons.lang3.StringUtils;
 
 /**
  * A {@link SecretsProvider} backed by operating-system environment variables.
  * <p>
- * A logical key is transformed into an environment variable name by upper-snake-casing it and
- * applying a prefix, so {@code apiKey} is read from {@code BRAT_SECRET_API_KEY}. This is the one
- * provider that needs no configuration document and no backend, which is why it is the always-on
- * default of the provider chain.
+ * A logical key is read from the variable {@link SecretsUtils#envVarName} names, so {@code apiKey}
+ * is read from {@code BRAT_SECRET_API_KEY}. This is the one provider that needs no configuration
+ * document and no backend, which is why it is the always-on default of the provider chain.
  * <p>
  * A variable that is set but empty counts as absent, so the chain falls through to the next
  * provider rather than resolving a credential to the empty string — an empty variable is far more
  * often an unset CI variable that expanded to nothing than a deliberately empty secret.
  */
 final class EnvVarSecretsProvider implements SecretsProvider {
-
-    /**
-     * The prefix applied when none is given.
-     */
-    public static final String DEFAULT_PREFIX = "BRAT_SECRET_";
 
     private final String prefix;
 
@@ -43,48 +36,7 @@ final class EnvVarSecretsProvider implements SecretsProvider {
 
     @Override
     public Optional<String> getSecret(String key) {
-        Require.nonBlank(key, "The secret key must not be null or blank");
-        var value = lookup.apply(prefix + toUpperSnakeCase(key));
+        var value = lookup.apply(SecretsUtils.envVarName(prefix, key));
         return StringUtils.isEmpty(value) ? Optional.empty() : Optional.of(value);
-    }
-
-    /**
-     * Converts a logical key to the upper-snake-case form used in environment variable names.
-     * <p>
-     * A separator is inserted before an upper-case character when the preceding character is
-     * lower-case or a digit, or when the preceding character is upper-case and the following one is
-     * lower-case — so an acronym stays intact ({@code apiURL} becomes {@code API_URL}, not
-     * {@code API_U_R_L}). Dots and hyphens become separators, making the flattened key
-     * {@code db.password}, the hyphenated key {@code db-password} and the camel-case key
-     * {@code dbPassword} deliberately equivalent — and keeping every name one a shell can export, which
-     * a {@code -} is not.
-     *
-     * @param key the logical key
-     * @return the upper-snake-case form, unchanged if {@code key} is already in that form
-     */
-    private static String toUpperSnakeCase(String key) {
-        var result = new StringBuilder(key.length() + 8);
-        for (var i = 0; i < key.length(); i++) {
-            var current = key.charAt(i);
-            if (current == '.' || current == '-') {
-                result.append('_');
-            } else {
-                if (i > 0 && Character.isUpperCase(current) && needsSeparator(key, i)) {
-                    result.append('_');
-                }
-                result.append(Character.toUpperCase(current));
-            }
-        }
-        return result.toString();
-    }
-
-    private static boolean needsSeparator(String key, int index) {
-        var previous = key.charAt(index - 1);
-        if (Character.isLowerCase(previous) || Character.isDigit(previous)) {
-            return true;
-        }
-        return Character.isUpperCase(previous)
-                && index + 1 < key.length()
-                && Character.isLowerCase(key.charAt(index + 1));
     }
 }

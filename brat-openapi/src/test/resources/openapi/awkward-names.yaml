@@ -1,0 +1,78 @@
+# Names and values that YAML, a file system or the suite loader would trip over if written naively.
+openapi: 3.1.0
+info:
+  title: "Yes: the API/v2 #1"
+servers:
+  - url: https://{tenant}.example.com/{base}
+    description: "Production: EU"
+    variables:
+      tenant:
+        default: acme
+      base:
+        default: api/
+  - url: https://{region}.example.com
+    description: bodies
+  - url: /relative
+paths:
+  /:
+    get:
+      responses:
+        "200":
+          description: root
+  /things/{id}:
+    get:
+      summary: "no"
+      tags: ["a/b", "ignored"]
+      parameters:
+        - name: id
+          in: path
+          example: "two words"
+        - name: "on"
+          in: query
+          required: true
+          example: "yes"
+        - name: X-Colon
+          in: header
+          required: true
+          example: "a: b #c"
+        - name: Accept
+          in: header
+          required: true
+          example: text/plain
+        - name: session
+          in: cookie
+          required: true
+      responses:
+        "204":
+          description: none
+    delete:
+      summary: "no"
+      tags: ["a b"]
+      parameters:
+        - name: id
+          in: path
+          example: 4711
+    put:
+      summary: "~"
+      tags: [a b]
+      parameters:
+        - name: id
+          in: path
+          example: "${vars.id}"
+      requestBody:
+        content:
+          application/json:
+            example: {"template": "${vars.name}"}
+  /things:
+    post:
+      summary: "a b"
+      requestBody:
+        content:
+          application/json:
+            example: '{"quoted": "it''s \"fine\"", "multi": "line\nbreak", "hash": "# not a comment"}'
+    patch:
+      summary: "- dash"
+      requestBody:
+        content:
+          application/json:
+            example: "not json: at all"

@@ -1,0 +1,82 @@
+# The spec the suite-author walkthrough of `brat import` imports.
+openapi: 3.0.3
+info:
+  title: Orders API
+servers:
+  - url: http://localhost:8080
+    description: local
+  - url: https://orders.staging.example.com
+    description: staging
+security:
+  - clientCredentials: [orders.read, orders.write]
+components:
+  securitySchemes:
+    clientCredentials:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://login.example.com/oauth/token
+          scopes:
+            orders.read: read orders
+            orders.write: create orders
+paths:
+  /health:
+    get:
+      summary: health check
+      security: []
+      responses:
+        "200":
+          description: up
+  /orders:
+    post:
+      tags: [orders]
+      summary: create an order
+      requestBody:
+        content:
+          application/json:
+            example:
+              item: book
+              quantity: 2
+              currency: EUR
+      responses:
+        "201":
+          description: created
+        "400":
+          description: invalid
+    get:
+      tags: [orders]
+      operationId: listOrders
+      parameters:
+        - name: status
+          in: query
+          required: true
+          example: OPEN
+        - name: limit
+          in: query
+          required: false
+      responses:
+        "200":
+          description: the orders
+  /orders/{orderId}:
+    get:
+      tags: [orders]
+      summary: read an order
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          example: "4711"
+      responses:
+        "200":
+          description: the order
+  /orders/import:
+    post:
+      tags: [bulk]
+      summary: import orders
+      requestBody:
+        content:
+          application/json:
+            example: {"source":"legacy","orders":[{"item":"book","quantity":2},{"item":"pen","quantity":10},{"item":"lamp","quantity":1}],"dryRun":false,"notify":["ops@example.com"]}
+      responses:
+        "202":
+          description: accepted

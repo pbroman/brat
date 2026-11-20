@@ -1,0 +1,131 @@
+# Every kind of security scheme, each used by one operation, plus overrides and shared keys.
+openapi: 3.1.0
+info:
+  title: Auth kinds
+servers:
+  - url: https://api.example.com
+    description: prod
+security:
+  - clientCredentials: [read]
+components:
+  securitySchemes:
+    clientCredentials:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://login.example.com/token
+          scopes:
+            read: read
+    partner:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://partner.example.com/token
+          scopes: {}
+    bearer:
+      type: http
+      scheme: bearer
+    other-bearer:
+      type: http
+      scheme: bearer
+    basic:
+      type: http
+      scheme: basic
+    digest:
+      type: http
+      scheme: digest
+    headerKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    queryKey:
+      type: apiKey
+      in: query
+      name: api_key
+    oidc:
+      type: openIdConnect
+      openIdConnectUrl: https://login.example.com/.well-known/openid-configuration
+paths:
+  /token:
+    get:
+      summary: get a token
+      responses:
+        "200":
+          description: a clash with the setup request's name
+  /public:
+    get:
+      summary: public
+      security: []
+      responses:
+        "200":
+          description: ok
+  /partner:
+    get:
+      summary: partner
+      security:
+        - partner: []
+      responses:
+        "200":
+          description: ok
+  /bearer:
+    get:
+      summary: bearer
+      security:
+        - bearer: []
+      responses:
+        "200":
+          description: ok
+  /other-bearer:
+    get:
+      summary: other bearer
+      security:
+        - other-bearer: []
+      responses:
+        "200":
+          description: ok
+  /basic:
+    get:
+      summary: basic
+      security:
+        - basic: []
+          headerKey: []
+      responses:
+        "200":
+          description: ok
+  /digest:
+    get:
+      summary: digest
+      security:
+        - digest: []
+      responses:
+        "200":
+          description: ok
+  /header-key:
+    get:
+      summary: header key
+      security:
+        - headerKey: []
+      responses:
+        "200":
+          description: ok
+  /query-key:
+    get:
+      summary: query key
+      security:
+        - queryKey: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          example: x
+      responses:
+        "200":
+          description: ok
+  /oidc:
+    get:
+      summary: oidc
+      security:
+        - oidc: []
+      responses:
+        "200":
+          description: ok

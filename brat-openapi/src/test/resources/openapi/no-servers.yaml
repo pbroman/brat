@@ -1,0 +1,2 @@
+# The least a spec can be: no title, no servers, no paths.
+openapi: 3.1.0
