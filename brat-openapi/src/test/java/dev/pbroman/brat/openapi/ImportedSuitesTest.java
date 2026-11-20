@@ -66,7 +66,13 @@ class ImportedSuitesTest {
         var specs = specs().toList();
 
         // then
-        assertThat(specs).contains("orders-openapi.yaml", "awkward-names.yaml", "bodies.json", "no-servers.yaml");
+        assertThat(specs)
+                .contains(
+                        "orders-openapi.yaml",
+                        "awkward-names.yaml",
+                        "bodies.json",
+                        "no-servers.yaml",
+                        "auth-kinds.yaml");
     }
 
     @ParameterizedTest

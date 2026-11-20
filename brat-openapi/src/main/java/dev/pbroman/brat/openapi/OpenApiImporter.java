@@ -16,7 +16,6 @@ public final class OpenApiImporter {
         // static entry point only
     }
 
-    // Maps the spec's security to auth and adds the token setup request once auth is imported.
     /**
      * Imports {@code content} and returns the files it becomes.
      * <p>
@@ -24,8 +23,7 @@ public final class OpenApiImporter {
      * {@link Scaffold#directory()}: the spec's {@code info.title} made into a file name, or
      * {@code imported} when there is no title or nothing of it is left. Its {@code name} is the title,
      * each {@code /} a space, or {@code imported}. The first line is a comment naming
-     * {@code sourceName} and the title. The spec's {@code security} is not mapped: the suite declares
-     * no {@code auth}, and {@link Scaffold#setupRequests()} is {@code 0}.
+     * {@code sourceName} and the title.
      * <p>
      * <strong>Requests.</strong> One per operation. An operation's first tag puts it in the sub-suite for
      * that tag as written, named by the tag; one without a tag, or whose first tag leaves no name, stays
@@ -94,6 +92,41 @@ public final class OpenApiImporter {
      * gets {@code -2}, {@code -3}…. A url that is relative (it names no scheme, like {@code /api}) or that
      * keeps a variable with no default gives {@code baseUrl: ""}, with a comment giving the url and a
      * note. A spec without servers gives one directory, {@code local}, likewise empty.
+     * <p>
+     * <strong>Auth.</strong> The document's {@code security} becomes the suite's {@code auth}; a
+     * request whose operation's security maps to a different one carries its own, and one that maps to
+     * none where the suite declares one carries {@code type: none}. Of a security's alternatives the
+     * first is used, and of its schemes the first; one the spec requires as well gets a comment and a
+     * note — on the url, for an api key in the query, which has no {@code auth} to carry it. Each
+     * {@code auth} carries a comment naming the scheme it came from.
+     * <ul>
+     *   <li>{@code http} {@code bearer}: {@code bearer} with {@code ${secrets.token}};</li>
+     *   <li>{@code http} {@code basic}: {@code basic} with {@code ${secrets.username}} and
+     *       {@code ${secrets.password}};</li>
+     *   <li>{@code apiKey} in a header: {@code apikey} with {@code ${secrets.apiKey}} and that header;</li>
+     *   <li>{@code apiKey} in the query: no {@code auth}, and {@code <name>=${secrets.apiKey}} added to the
+     *       url's query, percent-encoding the name as a query parameter's;</li>
+     *   <li>{@code oauth2} with a client-credentials flow: {@code bearer} with {@code ${vars.accessToken}},
+     *       set by a setup request named {@code get a token}, the first request of the suite. It carries
+     *       {@code type: none}, posts a {@code form} of {@code grant_type: client_credentials},
+     *       {@code client_id: ${env.clientId}}, {@code client_secret: ${secrets.clientSecret}} and
+     *       {@code scope} — every scope the spec's uses of the scheme name, in the order first named,
+     *       left out if there is none — to {@code ${env.tokenUrl}}, asserts status {@code 200} and sets
+     *       {@code accessToken} from {@code ${response.json.$.access_token}}. Every environment gets
+     *       {@code tokenUrl}, the spec's, and {@code clientId: ""} with a comment and a note;</li>
+     *   <li>{@code oauth2} without a client-credentials flow, and {@code openIdConnect}: {@code bearer}
+     *       with {@code ${secrets.token}}, with a comment and a note saying to obtain the token;</li>
+     *   <li>anything else — another {@code http} scheme, {@code apiKey} in a cookie or without a
+     *       {@code name}, {@code mutualTLS}, or a scheme the document does not define: {@code type: none},
+     *       with a comment and a note saying the scheme is not imported.</li>
+     * </ul>
+     * {@code security: []}, or a first alternative naming no scheme, maps to none. Two schemes that would
+     * use the same {@code secrets}, {@code env} or {@code vars} key do not share it: the one the spec uses
+     * first keeps it, each later one gets its own name in front ({@code ${secrets.admin.token}}), and its
+     * token request is named {@code get a token for <scheme>}. A scheme no security maps to adds nothing.
+     * Where a {@code ${secrets.…}} is first written, a comment names the environment variable it is read
+     * from by default ({@code BRAT_SECRET_CLIENT_SECRET}) and a note carries its key in
+     * {@link Scaffold.Note#secret()}. {@link Scaffold#setupRequests()} counts the token requests.
      * <p>
      * <strong>The text.</strong> Every suite and environment file loads with {@code SuiteLoader} and
      * {@code FlatYamlLoader} respectively and means what the spec said: a value taken from the spec is

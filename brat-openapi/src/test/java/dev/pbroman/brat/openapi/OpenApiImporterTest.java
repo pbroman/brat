@@ -181,29 +181,6 @@ class OpenApiImporterTest {
     }
 
     @Test
-    void scaffold_declaresNoAuthAndNoSetupRequest() {
-        // given
-        var spec = HEAD + """
-                security:
-                  - token: []
-                components:
-                  securitySchemes:
-                    token:
-                      type: http
-                      scheme: bearer
-                paths:
-                """ + GET_HEALTH.indent(2);
-
-        // when
-        var scaffold = scaffold(spec);
-
-        // then
-        assertThat(suite(scaffold).has("auth")).isFalse();
-        assertThat(onlyRequest(scaffold).has("auth")).isFalse();
-        assertThat(scaffold.setupRequests()).isZero();
-    }
-
-    @Test
     void scaffold_endsEveryFileInANewline() {
         // when
         var scaffold = withPaths("""

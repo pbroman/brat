@@ -8,11 +8,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import dev.pbroman.brat.core.secrets.SecretsUtils;
 import dev.pbroman.brat.openapi.OpenApiDocument.MediaType;
 import dev.pbroman.brat.openapi.OpenApiDocument.Operation;
 import dev.pbroman.brat.openapi.OpenApiDocument.Parameter;
@@ -39,6 +41,8 @@ final class SuiteEmitter {
     private static final String ENV_FILE = "/env.yaml";
     private static final String LOCAL = "local";
     private static final String PLACEHOLDER = "${";
+    private static final String SECRETS_TOKEN = "${secrets.";
+    private static final ImportAuth.Block NONE_BLOCK = new ImportAuth.Block(ImportAuth.NONE, Map.of());
 
     private static final Set<String> IGNORED_HEADERS = Set.of("accept", "content-type", "authorization");
     private static final String FORM = "application/x-www-form-urlencoded";
@@ -88,6 +92,9 @@ final class SuiteEmitter {
         private final Map<String, String> bodies = new LinkedHashMap<>();
         private final List<Note> suiteNotes = new ArrayList<>();
         private final List<Note> envNotes = new ArrayList<>();
+        private final Set<String> notedSecrets = new HashSet<>();
+        private final List<String> tokenRequestNames = new ArrayList<>();
+        private ImportAuth.Plan auth;
         private String suiteFile;
 
         Emission(OpenApiDocument document, String sourceName, ImportOptions options) {
@@ -109,6 +116,7 @@ final class SuiteEmitter {
                     tagged.computeIfAbsent(tag, key -> new ArrayList<>()).add(operation);
                 }
             }
+            auth = ImportAuth.declaresSecurity(document) ? ImportAuth.plan(document) : undeclared();
             var subSuites = nameGroups(top, tagged);
             collectConstants();
 
@@ -127,8 +135,16 @@ final class SuiteEmitter {
                     environments,
                     document.operations().size(),
                     subSuites.size(),
-                    0,
+                    auth.tokenRequests().size(),
                     notes);
+        }
+
+        private ImportAuth.Plan undeclared() {
+            var requests = new IdentityHashMap<Operation, ImportAuth.Auth>();
+            for (var operation : document.operations()) {
+                requests.put(operation, ImportAuth.Auth.UNDECLARED);
+            }
+            return new ImportAuth.Plan(ImportAuth.Auth.UNDECLARED, requests, List.of());
         }
 
         // --- names ---
@@ -136,6 +152,9 @@ final class SuiteEmitter {
         /** Names every request and sub-suite, and returns the sub-suites with their final names. */
         private List<Group> nameGroups(List<Operation> top, Map<String, List<Operation>> tagged) {
             var topNames = new ArrayList<String>();
+            for (var tokenRequest : auth.tokenRequests()) {
+                topNames.add(tokenRequest.name());
+            }
             for (var operation : top) {
                 topNames.add(ImportNames.requestName(operation));
             }
@@ -143,11 +162,13 @@ final class SuiteEmitter {
                 topNames.add(ImportNames.nodeName(tag));
             }
             var unique = ImportNames.unique(topNames, " ", Set.of());
-            for (var i = 0; i < top.size(); i++) {
-                requestNames.put(top.get(i), unique.get(i));
+            var tokenCount = auth.tokenRequests().size();
+            tokenRequestNames.addAll(unique.subList(0, tokenCount));
+            var index = tokenCount;
+            for (var operation : top) {
+                requestNames.put(operation, unique.get(index++));
             }
             var groups = new ArrayList<Group>();
-            var index = top.size();
             for (var operations : tagged.values()) {
                 var names = new ArrayList<String>();
                 for (var operation : operations) {
@@ -283,8 +304,13 @@ final class SuiteEmitter {
             lines.add("name: " + YamlText.scalar(orFallback(ImportNames.nodeName(document.title()))));
             lines.blank();
             writeConstants(lines);
-            if (!top.isEmpty()) {
+            writeSuiteAuth(lines);
+            if (!top.isEmpty() || !auth.tokenRequests().isEmpty()) {
                 lines.add("requests:");
+                for (var i = 0; i < auth.tokenRequests().size(); i++) {
+                    writeTokenRequest(lines, auth.tokenRequests().get(i), tokenRequestNames.get(i));
+                    lines.blank();
+                }
                 writeRequests(lines, top, "");
             }
             if (!subSuites.isEmpty()) {
@@ -314,9 +340,29 @@ final class SuiteEmitter {
         private void writeRequest(Lines lines, Operation operation, String indent) {
             var name = requestNames.get(operation);
             var in = indent + "    ";
+            var own = auth.requests().get(operation);
             lines.add(indent + "  - name: " + YamlText.scalar(name));
+            if (carriesOwnAuth(own)) {
+                var block = own.block() == null ? NONE_BLOCK : own.block();
+                var source = "security: []".equals(own.source())
+                        ? "security: [] in the spec"
+                        : "the spec's security: " + own.source();
+                writeAuth(lines, in, block, source, own.todo(), "\"" + name + "\"");
+            }
             lines.add(in + "requestDefinition:");
-            lines.add(in + "  url: " + YamlText.scalar(url(operation)), urlComment(operation, name));
+            var url = url(operation);
+            if (own.queryName() != null) {
+                url += (url.contains("?") ? "&" : "?") + percentEncoded(own.queryName()) + "=${secrets."
+                        + own.querySecret() + "}";
+            }
+            lines.add(in + "  url: " + YamlText.scalar(url), urlComment(operation, name));
+            if (own.queryName() != null) {
+                noteSecret(lines, own.querySecret());
+                if (own.todo() != null && !carriesOwnAuth(own)) {
+                    lines.comment(YamlText.commentText(own.todo()));
+                    note(suiteNotes, "\"" + name + "\": " + own.todo());
+                }
+            }
             if (!"GET".equals(operation.method())) {
                 lines.add(in + "  method: " + operation.method());
             }
@@ -352,6 +398,131 @@ final class SuiteEmitter {
                 lines.add(in + "# the spec documents no success status: add an assertion");
                 note(suiteNotes, "\"" + name + "\": the spec documents no success status; add an assertion");
             }
+        }
+
+        // --- auth ---
+
+        /**
+         * Whether a request writes its own {@code auth:}: where its block differs from the suite's, except
+         * a plain {@code none} under a suite declaring no auth, which would cancel nothing.
+         */
+        private boolean carriesOwnAuth(ImportAuth.Auth own) {
+            var suiteBlock = auth.suite().block();
+            if (Objects.equals(own.block(), suiteBlock)) {
+                return false;
+            }
+            // A suite without a block means own's is not null: the two differ.
+            return suiteBlock != null || !ImportAuth.NONE.equals(own.block().type()) || own.todo() != null;
+        }
+
+        private void writeSuiteAuth(Lines lines) {
+            var suite = auth.suite();
+            if (suite.block() == null) {
+                return;
+            }
+            writeAuth(
+                    lines,
+                    "",
+                    suite.block(),
+                    "the spec's default security: " + suite.source(),
+                    suite.todo(),
+                    "the suite");
+            lines.blank();
+        }
+
+        /** Writes an {@code auth:} block at {@code in}, with its comment, its todo and its secrets' notes. */
+        private void writeAuth(
+                Lines lines, String in, ImportAuth.Block block, String source, String todo, String owner) {
+            lines.add(in + "auth:", YamlText.commentText(source));
+            lines.add(in + "  type: " + block.type());
+            if (todo != null) {
+                lines.comment(YamlText.commentText(todo));
+                note(suiteNotes, owner + ": " + todo);
+            }
+            if (block.args().isEmpty()) {
+                return;
+            }
+            lines.add(in + "  args:");
+            for (var arg : block.args().entrySet()) {
+                var key = in + "    " + YamlText.scalar(arg.getKey()) + ": " + YamlText.scalar(arg.getValue());
+                var secret = secretIn(arg.getValue());
+                var setBy = setterOf(arg.getValue());
+                if (secret != null && notedSecrets.add(secret)) {
+                    lines.add(key, secretComment(secret));
+                    note(suiteNotes, secretMessage(secret), secret);
+                } else if (setBy != null) {
+                    lines.add(
+                            key,
+                            "set by \"" + YamlText.commentText(setBy) + "\" " + (in.isEmpty() ? "below" : "above"));
+                } else {
+                    lines.add(key);
+                }
+            }
+        }
+
+        private void writeTokenRequest(Lines lines, ImportAuth.TokenRequest request, String name) {
+            lines.add("  - name: " + YamlText.scalar(name));
+            lines.add("    phase: setup", "runs first; if it fails, nothing else runs");
+            lines.add("    auth:");
+            lines.add("      type: none", "the token request must not send the token it fetches");
+            lines.add("    requestDefinition:");
+            lines.add("      url: " + YamlText.scalar("${env." + request.tokenUrlKey() + "}"));
+            lines.add("      method: POST");
+            lines.add("      body:");
+            lines.add("        form:");
+            lines.add("          grant_type: client_credentials");
+            lines.add("          client_id: " + YamlText.scalar("${env." + request.clientIdKey() + "}"));
+            var secret = request.clientSecretKey();
+            var clientSecret = "          client_secret: " + YamlText.scalar("${secrets." + secret + "}");
+            // A client secret's key is its scheme's alone, and its token request is where it is first written.
+            notedSecrets.add(secret);
+            lines.add(clientSecret, secretComment(secret));
+            note(suiteNotes, secretMessage(secret), secret);
+            if (!request.scope().isEmpty()) {
+                lines.add("          scope: " + YamlText.scalar(request.scope()));
+            }
+            lines.add("    responseActions:");
+            lines.add("      assertions:");
+            lines.add("        - a: \"${response.statusCode}\"");
+            lines.add("          func: isEqualTo");
+            lines.add("          b: 200");
+            lines.add("      setVars:");
+            lines.add("        " + YamlText.scalar(request.accessTokenVar()) + ": \"${response.json.$.access_token}\"");
+        }
+
+        /** Notes a secret on the line just written, the first time it is written. */
+        private void noteSecret(Lines lines, String secret) {
+            if (notedSecrets.add(secret)) {
+                lines.comment(secretComment(secret));
+                note(suiteNotes, secretMessage(secret), secret);
+            }
+        }
+
+        /** The secret key a value reads, if it is exactly {@code ${secrets.<key>}}. */
+        private static String secretIn(String value) {
+            return value.startsWith(SECRETS_TOKEN) && value.endsWith("}")
+                    ? value.substring(SECRETS_TOKEN.length(), value.length() - 1)
+                    : null;
+        }
+
+        /** The name of the token request setting a {@code ${vars.<key>}} value, if one does. */
+        private String setterOf(String value) {
+            for (var i = 0; i < auth.tokenRequests().size(); i++) {
+                if (value.equals("${vars." + auth.tokenRequests().get(i).accessTokenVar() + "}")) {
+                    return tokenRequestNames.get(i);
+                }
+            }
+            return null;
+        }
+
+        private static String secretComment(String secret) {
+            return SecretsUtils.envVarName(SecretsUtils.DEFAULT_ENV_PREFIX, secret) + ", or a secrets file";
+        }
+
+        private static String secretMessage(String secret) {
+            return "provide the secret " + secret + ": set "
+                    + SecretsUtils.envVarName(SecretsUtils.DEFAULT_ENV_PREFIX, secret)
+                    + ", or put it in a secrets file";
         }
 
         private static String url(Operation operation) {
@@ -545,9 +716,11 @@ final class SuiteEmitter {
             var servers = document.servers();
             if (servers.isEmpty()) {
                 var lines = new Lines();
+                var file = LOCAL + ENV_FILE;
                 lines.add("baseUrl: \"\"", "the spec names no server: fill in its url");
-                files.put(LOCAL + ENV_FILE, lines.text());
-                note(envNotes, LOCAL + ENV_FILE, "baseUrl: the spec names no server; fill in its url");
+                noteIn(envNotes, file, "baseUrl: the spec names no server; fill in its url");
+                writeTokenEnv(lines, file);
+                files.put(file, lines.text());
                 return List.of(LOCAL);
             }
             var wanted = new ArrayList<String>();
@@ -557,12 +730,24 @@ final class SuiteEmitter {
             var names = ImportNames.unique(wanted, "-", Set.of(BODIES));
             for (var i = 0; i < servers.size(); i++) {
                 var file = names.get(i) + ENV_FILE;
-                files.put(file, envText(servers.get(i), file));
+                var lines = envLines(servers.get(i), file);
+                writeTokenEnv(lines, file);
+                files.put(file, lines.text());
             }
             return names;
         }
 
-        private String envText(Server server, String file) {
+        private void writeTokenEnv(Lines lines, String file) {
+            for (var request : auth.tokenRequests()) {
+                lines.add(YamlText.scalar(request.tokenUrlKey()) + ": " + YamlText.scalar(request.tokenUrl()));
+                lines.add(
+                        YamlText.scalar(request.clientIdKey()) + ": \"\"",
+                        "your client's id; empty counts as missing, so a run fails naming it until you fill it in");
+                noteIn(envNotes, file, request.clientIdKey() + ": fill in your client's id");
+            }
+        }
+
+        private Lines envLines(Server server, String file) {
             var url = server.url();
             var resolved = VARIABLE.matcher(url).replaceAll(match -> {
                 var value = server.variableDefaults().get(match.group(1));
@@ -577,11 +762,11 @@ final class SuiteEmitter {
             var lines = new Lines();
             if (reason != null) {
                 lines.add("baseUrl: \"\"", YamlText.commentText(reason) + ": fill in");
-                note(envNotes, file, "baseUrl: " + reason + "; fill in the url");
+                noteIn(envNotes, file, "baseUrl: " + reason + "; fill in the url");
             } else {
                 lines.add("baseUrl: " + YamlText.scalar(StringUtils.removeEnd(resolved, "/")));
             }
-            return lines.text();
+            return lines;
         }
 
         // --- helpers ---
@@ -590,7 +775,11 @@ final class SuiteEmitter {
             notes.add(new Note(suiteFile, message));
         }
 
-        private static void note(List<Note> notes, String file, String message) {
+        private void note(List<Note> notes, String message, String secret) {
+            notes.add(new Note(suiteFile, message, secret));
+        }
+
+        private static void noteIn(List<Note> notes, String file, String message) {
             notes.add(new Note(file, message));
         }
     }

@@ -62,6 +62,19 @@ public record Scaffold(
      *
      * @param file the path of the file the place is in, a key of {@link Scaffold#files()}
      * @param message what to do there, naming the key or the request it concerns
+     * @param secret for a note asking for a secret to be provided, the secret's key as the suite reads it
+     *        ({@code clientSecret} for {@code ${secrets.clientSecret}}); otherwise {@code null}
      */
-    public record Note(String file, String message) {}
+    public record Note(String file, String message, String secret) {
+
+        /**
+         * Constructs a note that asks for no secret.
+         *
+         * @param file the path of the file the place is in
+         * @param message what to do there
+         */
+        public Note(String file, String message) {
+            this(file, message, null);
+        }
+    }
 }
