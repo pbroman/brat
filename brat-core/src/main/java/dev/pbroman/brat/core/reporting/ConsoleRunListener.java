@@ -2,20 +2,15 @@ package dev.pbroman.brat.core.reporting;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.Locale;
 
-import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.listener.AttemptFinished;
 import dev.pbroman.brat.core.api.listener.RunEvent;
 import dev.pbroman.brat.core.api.listener.RunListener;
 import dev.pbroman.brat.core.api.rendering.OutcomeRenderer;
-import dev.pbroman.brat.core.api.rendering.RenderKinds;
-import dev.pbroman.brat.core.api.rendering.RenderTarget;
 import dev.pbroman.brat.core.api.reporting.ReportDetail;
 import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.data.AssertionSeverity;
-import dev.pbroman.brat.core.data.ConfigData;
 import dev.pbroman.brat.core.data.Phase;
 import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.result.RequestResult;
@@ -23,7 +18,7 @@ import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.data.result.RunResult;
 import dev.pbroman.brat.core.data.result.SuiteStatus;
 import dev.pbroman.brat.core.rendering.ReportText;
-import dev.pbroman.brat.core.rendering.ResponseRenderer;
+import dev.pbroman.brat.core.rendering.RequestRenderer;
 
 /**
  * Prints one run for {@link ConsoleRunReporter}, whose Javadoc describes the output.
@@ -134,40 +129,15 @@ final class ConsoleRunListener implements RunListener {
             line.append(DASH).append(shown(reason));
         }
         out.println(line);
-        ResponseRenderer.redirectNotice(result, mask, detail.showSecrets())
-                .ifPresent(notice -> out.println(indent(depth(coordinates.path())) + DETAIL_INDENT + notice));
+        var detailIndent = indent(depth(coordinates.path())) + DETAIL_INDENT;
+        for (var detailLine : RequestRenderer.lines(result, detail, mask, renderer)) {
+            out.println(detailIndent + detailLine);
+        }
 
         for (var assertion : result.responseActionsResult().assertionResults()) {
             count(assertion);
         }
         capturesFailed += result.responseActionsResult().captureFailures().size();
-        printDetail(result, indent(depth(coordinates.path())) + DETAIL_INDENT);
-    }
-
-    /**
-     * Prints the detail under a request: the assertions {@code detail} shows, every capture failure, then
-     * the request as sent and the response where {@code detail} shows them.
-     *
-     * @param result the request's result
-     * @param detailIndent the indent the detail is printed at
-     */
-    private void printDetail(RequestResult result, String detailIndent) {
-        for (var assertion : result.responseActionsResult().assertionResults()) {
-            if (detail.showsAssertion(assertion)) {
-                printAssertion(assertion, detailIndent);
-            }
-        }
-        for (var capture : result.responseActionsResult().captureFailures()) {
-            out.println(detailIndent + "CAPTURE " + capture.name() + DASH + shown(capture.message()));
-        }
-        if (detail.showsRequest(result)) {
-            printSent(result, detailIndent);
-        }
-        if (detail.showsResponse(result)) {
-            for (var line : ResponseRenderer.lines(result, mask, detail.showSecrets())) {
-                out.println(detailIndent + line);
-            }
-        }
     }
 
     private void count(RequestStatus status, boolean failed) {
@@ -190,54 +160,6 @@ final class ConsoleRunListener implements RunListener {
         } else {
             assertionsFailed++;
         }
-    }
-
-    private void printAssertion(AssertionResult assertion, String detailIndent) {
-        String mark;
-        if (assertion.passed()) {
-            mark = "PASS";
-        } else {
-            mark = assertion.severity() == AssertionSeverity.WARN ? "WARN" : "FAIL";
-        }
-        var condition = assertion.condition();
-        var header = detailIndent + String.format("%-6s", mark) + condition.getFunc();
-        out.println(assertion.message() == null ? header : header + DASH + shown(assertion.message()));
-        if (condition.isInterpolated()) {
-            var outcomes = new LinkedHashMap<>(condition.getOutcomes());
-            outcomes.remove("message");
-            printRendered(new RenderTarget(outcomes), detailIndent + INDENT);
-        }
-    }
-
-    private void printSent(RequestResult result, String detailIndent) {
-        if (result.requestDefinition() instanceof ConfigData sent) {
-            RenderTarget.of(sent).ifPresent(target -> {
-                out.println(detailIndent + "request:");
-                printRendered(new RenderTarget(target.outcomes()), detailIndent + INDENT);
-            });
-        }
-    }
-
-    /**
-     * Renders {@code target} with every outcome's reporting string shown through {@link ReportText}, so it
-     * is masked and cut before the renderer lays it out.
-     *
-     * @param target the outcomes to print
-     * @param indent the indent of every line
-     */
-    private void printRendered(RenderTarget target, String indent) {
-        var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
-        for (var entry : target.outcomes().entrySet()) {
-            var outcome = entry.getValue();
-            outcomes.put(
-                    entry.getKey(),
-                    new InterpolationOutcome(
-                            outcome.value(), shown(outcome.reportingString()), outcome.containsSecret()));
-        }
-        renderer.render(RenderKinds.CONSOLE, new RenderTarget(target.label(), outcomes))
-                .lines()
-                .map(line -> indent + line)
-                .forEach(out::println);
     }
 
     /**
