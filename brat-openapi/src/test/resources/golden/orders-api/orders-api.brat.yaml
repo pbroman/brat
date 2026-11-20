@@ -1,0 +1,100 @@
+# Imported from orders-openapi.yaml (Orders API). A starting point: edit freely.
+name: Orders API
+
+constants:
+  status: OPEN                             # example from the spec
+  orderId: "4711"                          # example from the spec
+
+auth:                                      # the spec's default security: clientCredentials
+  type: bearer
+  args:
+    token: "${vars.accessToken}"           # set by "get a token" below
+
+requests:
+  - name: get a token
+    phase: setup                           # runs first; if it fails, nothing else runs
+    auth:
+      type: none                           # the token request must not send the token it fetches
+    requestDefinition:
+      url: "${env.tokenUrl}"
+      method: POST
+      body:
+        form:
+          grant_type: client_credentials
+          client_id: "${env.clientId}"
+          client_secret: "${secrets.clientSecret}"  # BRAT_SECRET_CLIENT_SECRET, or a secrets file
+          scope: orders.read orders.write
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: 200
+      setVars:
+        accessToken: "${response.json.$.access_token}"
+
+  - name: health check
+    auth:                                  # security: [] in the spec
+      type: none
+    requestDefinition:
+      url: "${env.baseUrl}/health"
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: 200
+
+subSuites:
+  - name: orders
+    requests:
+      - name: create an order
+        requestDefinition:
+          url: "${env.baseUrl}/orders"
+          method: POST
+          headers:
+            Content-Type: application/json
+          body:
+            raw: |
+              {
+                "item": "book",
+                "quantity": 2,
+                "currency": "EUR"
+              }
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 201
+
+      - name: listOrders
+        requestDefinition:
+          url: "${env.baseUrl}/orders?status=${constants.status}"  # optional: limit
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 200
+
+      - name: read an order
+        requestDefinition:
+          url: "${env.baseUrl}/orders/${constants.orderId}"
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 200
+
+  - name: bulk
+    requests:
+      - name: import orders
+        requestDefinition:
+          url: "${env.baseUrl}/orders/import"
+          method: POST
+          headers:
+            Content-Type: application/json
+          body:
+            file: bodies/import-orders.json  # 21 lines: longer than --body-file-lines (10)
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 202

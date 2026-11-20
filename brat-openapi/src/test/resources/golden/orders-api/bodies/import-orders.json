@@ -1,0 +1,21 @@
+{
+  "source": "legacy",
+  "orders": [
+    {
+      "item": "book",
+      "quantity": 2
+    },
+    {
+      "item": "pen",
+      "quantity": 10
+    },
+    {
+      "item": "lamp",
+      "quantity": 1
+    }
+  ],
+  "dryRun": false,
+  "notify": [
+    "ops@example.com"
+  ]
+}

@@ -107,6 +107,33 @@ class ImportCommandTest {
     }
 
     @Test
+    void call_printsWhatTheWalkthroughShowsForItsSpec() throws IOException {
+        // given
+        var root = System.getProperty("brat.repository.root");
+        assertThat(root)
+                .as("the system property brat.repository.root, set by surefire")
+                .isNotBlank();
+        Files.copy(
+                Path.of(root, "brat-openapi/src/test/resources/openapi/orders-openapi.yaml"),
+                temp.resolve("walkthrough.yaml"));
+
+        // when
+        var exitCode = underTest.execute("walkthrough.yaml", "--out", "orders-api");
+
+        // then
+        assertThat(exitCode).isZero();
+        assertThat(out.toString().lines().toList())
+                .containsExactly(
+                        "brat import walkthrough.yaml → orders-api",
+                        "  wrote orders-api/orders-api.brat.yaml   (5 requests in 2 sub-suites, 1 setup request)",
+                        "  wrote orders-api/bodies/import-orders.json",
+                        "  wrote orders-api/local/env.yaml",
+                        "  wrote orders-api/staging/env.yaml",
+                        "next: fill in local/env.yaml, set BRAT_SECRET_CLIENT_SECRET, then",
+                        "  brat run orders-api -e local");
+    }
+
+    @Test
     void call_writesIntoTheDirectoryTheImportSuggestsWithoutOut() {
         // when
         var exitCode = underTest.execute("orders-openapi.yaml");
