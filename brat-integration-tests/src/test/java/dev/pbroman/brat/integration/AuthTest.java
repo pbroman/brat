@@ -45,6 +45,36 @@ class AuthTest extends EndToEndTestBase {
     }
 
     @Test
+    void run_logsInWhenNoTokenIsHandedOver() {
+        // given
+        var suite = suite("suites/auth/handed-over-token.brat.yaml");
+
+        // when
+        var result = BRAT.run(suite, withSecrets());
+
+        // then
+        assertPassed(result, suite);
+        assertThat(result.requestResults().get(0).status()).isInstanceOf(RequestStatus.Completed.class);
+    }
+
+    @Test
+    void run_skipsTheLoginAndSendsATokenHandedOverAtLaunch() {
+        // given - no secrets at all: the login could not run if it tried
+        var suite = suite("suites/auth/handed-over-token.brat.yaml");
+        var environment = Environment.of(Map.of("baseUrl", baseUrl()), Map.of("vars.accessToken", "admin-token"));
+
+        // when
+        var result = BRAT.run(suite, environment);
+
+        // then
+        assertThat(result.failed()).isFalse();
+        assertThat(result.suiteErrors()).isEmpty();
+        assertThat(result.requestResults().get(0).status()).isInstanceOf(RequestStatus.Skipped.class);
+        assertThat(result.requestResults().get(1).status()).isInstanceOf(RequestStatus.Completed.class);
+        assertThat(result.requestResults().get(1).failed()).isFalse();
+    }
+
+    @Test
     void run_sendsBasicAuthTheServerAccepts() {
         // given
         var suite = suite("suites/auth/basic.brat.yaml");

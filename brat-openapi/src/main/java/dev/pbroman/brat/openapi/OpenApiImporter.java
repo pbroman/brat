@@ -107,7 +107,10 @@ public final class OpenApiImporter {
      *   <li>{@code apiKey} in the query: no {@code auth}, and {@code <name>=${secrets.apiKey}} added to the
      *       url's query, percent-encoding the name as a query parameter's;</li>
      *   <li>{@code oauth2} with a client-credentials flow: {@code bearer} with {@code ${vars.accessToken}},
-     *       set by a setup request named {@code get a token}, the first request of the suite. It carries
+     *       set by a setup request named {@code get a token}, the first request of the suite. It is
+     *       skipped when the run starts with a token already there — {@code skipCondition}
+     *       {@code ${vars.accessToken}} {@code isNotBlank}, with a comment saying so — so a launch passing
+     *       {@code vars.accessToken} sends that token instead of fetching one. It carries
      *       {@code type: none}, posts a {@code form} of {@code grant_type: client_credentials},
      *       {@code client_id: ${env.clientId}}, {@code client_secret: ${secrets.clientSecret}} and
      *       {@code scope} — every scope the spec's uses of the scheme name, in the order first named,
