@@ -1,0 +1,12 @@
+# The smallest suite worth running as a test: one request against the url the test hands over.
+name: health
+
+requests:
+  - name: health check
+    requestDefinition:
+      url: "${env.baseUrl}/health"
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: 200

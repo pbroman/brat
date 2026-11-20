@@ -24,12 +24,15 @@
         <bytebuddy.version>1.18.17</bytebuddy.version>
         <mockito.version>5.24.0</mockito.version>
         <slf4j.version>2.0.20</slf4j.version>
+        <!-- One version for Jupiter and the Platform, which JUnit releases together. -->
+        <junit.version>6.1.3</junit.version>
     </properties>
 
     <modules>
         <module>brat-core</module>
         <module>brat-openapi</module>
         <module>brat-cli</module>
+        <module>brat-junit</module>
         <module>brat-integration-tests</module>
     </modules>
 
@@ -131,7 +134,17 @@
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter</artifactId>
-                <version>6.1.3</version>
+                <version>${junit.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-api</artifactId>
+                <version>${junit.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.junit.platform</groupId>
+                <artifactId>junit-platform-testkit</artifactId>
+                <version>${junit.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.assertj</groupId>
