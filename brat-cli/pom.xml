@@ -26,6 +26,12 @@
             <artifactId>brat-core</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- `brat import`; shaded into the jar like core. -->
+        <dependency>
+            <groupId>dev.pbroman</groupId>
+            <artifactId>brat-openapi</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>info.picocli</groupId>
             <artifactId>picocli</artifactId>
