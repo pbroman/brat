@@ -1,0 +1,60 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "Bodies" },
+  "paths": {
+    "/form": {
+      "post": {
+        "summary": "send a form",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": { "$ref": "#/components/schemas/Login" },
+              "example": { "user": "alice", "nested": { "x": 1 } }
+            }
+          }
+        },
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/empty-form": {
+      "post": {
+        "summary": "send an empty form",
+        "requestBody": { "content": { "application/x-www-form-urlencoded": {} } }
+      }
+    },
+    "/pdf": {
+      "put": {
+        "summary": "upload a pdf",
+        "requestBody": { "content": { "application/pdf": {} } },
+        "responses": { "201": { "description": "stored" } }
+      }
+    },
+    "/long": {
+      "post": {
+        "summary": "a long body",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "first": { "value": { "a": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "b": { "c": { "d": [] } } } }
+              }
+            }
+          }
+        },
+        "responses": { "202": { "description": "accepted" } }
+      }
+    },
+    "/scalar": {
+      "post": {
+        "summary": "a scalar body",
+        "requestBody": { "content": { "application/json": { "example": "\"just text\"" } } },
+        "responses": { "200": { "description": "ok" } }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Login": { "properties": { "user": {}, "password": {}, "nested": {} } }
+    }
+  }
+}
