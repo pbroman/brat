@@ -1,0 +1,10 @@
+# A body file that is not there: the suite loads, and the run fails before its first request.
+name: missing body
+
+requests:
+  - name: send it
+    requestDefinition:
+      url: "${env.baseUrl}/ok"
+      method: POST
+      body:
+        file: bodies/not-there.json

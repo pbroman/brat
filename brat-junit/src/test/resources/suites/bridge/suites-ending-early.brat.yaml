@@ -1,0 +1,34 @@
+# A sub-suite whose setup fails, and one that is skipped, between two that run.
+name: suites ending early
+
+subSuites:
+  - name: checkout
+    requests:
+      - name: open a basket
+        phase: setup
+        requestDefinition:
+          url: "${env.baseUrl}/status/503"
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 200
+      - name: pay
+        requestDefinition:
+          url: "${env.baseUrl}/ok?pay"
+
+  - name: later
+    skipCondition:
+      a: "later"
+      func: isEqualTo
+      b: "later"
+    requests:
+      - name: not yet
+        requestDefinition:
+          url: "${env.baseUrl}/ok?not-yet"
+
+  - name: still runs
+    requests:
+      - name: after both
+        requestDefinition:
+          url: "${env.baseUrl}/ok?after-both"

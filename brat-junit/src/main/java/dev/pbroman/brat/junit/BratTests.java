@@ -9,7 +9,6 @@ import java.util.stream.Stream;
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.launch.Launch;
 import dev.pbroman.brat.core.launch.LaunchReader;
-import dev.pbroman.brat.core.runner.Brat;
 import dev.pbroman.brat.core.util.Require;
 import org.junit.jupiter.api.DynamicNode;
 
@@ -144,7 +143,35 @@ public final class BratTests {
      * <strong>Reading it happens now</strong>: the suite is loaded and the environment read before this
      * method returns, so a mistake in either fails the factory method itself. The returned stream runs
      * nothing until JUnit takes the first test from it. Each call builds a runner of its own, with the
-     * plugins on the classpath, and that runner is closed when its run ends.
+     * plugins on the classpath, and that runner is closed when its run ends — or when the stream is
+     * closed before its run started.
+     * <p>
+     * <strong>The tests.</strong> The suite runs once, on a thread of its own, while JUnit executes the
+     * tests; a request's test is handed to JUnit when the request starts and ends when it finishes. JUnit
+     * may execute them one after another or in parallel, as its configuration has it: each test waits for
+     * its own request's result, and the run's order is the suite's either way. The
+     * suite's own requests and sub-suites are the stream's elements, in the order they run; each sub-suite
+     * is a {@link org.junit.jupiter.api.DynamicContainer} named after it, holding its own the same way. A
+     * request's test is named as the console names it: its name, followed by {@code [setup]} or
+     * {@code [teardown]} for those phases. A request that
+     * <ul>
+     *   <li>passed — a failed {@code WARN} assertion included — passes;</li>
+     *   <li>failed an assertion or a capture, errored, or gave up polling, fails with an
+     *       {@code AssertionFailedError}: a first line naming the request, followed by {@code — } and the
+     *       reason where its status gives one, then what the console prints beneath a failed request, each
+     *       line indented by two spaces — secrets masked, as there;</li>
+     *   <li>was skipped is aborted with the skip's reason, which JUnit reports as skipped.</li>
+     * </ul>
+     * A suite that was aborted ends with one more test, {@code <suite name>: aborted}, failing with the
+     * reason; a suite that was skipped holds just one test, {@code <suite name>: skipped}, skipped with
+     * the reason. For the suite itself these stand last in the stream. A run that ends in an error —
+     * one a suite file cannot cause, such as a missing request handler — ends the stream with a failing
+     * test {@code <suite name>: run failed}, carrying the error.
+     * <p>
+     * <strong>Stopping.</strong> If the thread executing a request's test is interrupted, or the stream is
+     * closed before it has been read to its end, the run is stopped as Ctrl-C stops {@code brat run} —
+     * no new request starts, and the teardown of what has started runs — and waited for. The interrupted
+     * test fails, saying so; no further test is handed to JUnit for that run, teardown's included.
      *
      * @return the suite's tests: one container per sub-suite, one test per request, in the order they
      *         run
@@ -153,7 +180,7 @@ public final class BratTests {
      *         read — each as {@code brat run} reports it
      */
     public Stream<DynamicNode> tests() {
-        var brat = Brat.builder().build();
+        var brat = RunBridge.newBrat();
         try {
             var prepared = new LaunchReader(brat.loader(), brat.environmentReader())
                     .read(launch(Path.of("").toAbsolutePath()));

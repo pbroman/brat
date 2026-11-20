@@ -1,0 +1,17 @@
+# The suite's own setup fails, so nothing else in it runs.
+name: root aborted
+
+requests:
+  - name: log in
+    phase: setup
+    requestDefinition:
+      url: "${env.baseUrl}/status/401"
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: 200
+
+  - name: never runs
+    requestDefinition:
+      url: "${env.baseUrl}/ok?never"

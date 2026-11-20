@@ -1,0 +1,12 @@
+# The suite itself is skipped.
+name: root skipped
+
+skipCondition:
+  a: "skip"
+  func: isEqualTo
+  b: "skip"
+
+requests:
+  - name: never runs
+    requestDefinition:
+      url: "${env.baseUrl}/ok?never"
