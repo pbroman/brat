@@ -6,7 +6,7 @@ servers:
   - url: http://localhost:8080
     description: local
   - url: https://orders.staging.example.com
-    description: staging
+    description: The staging server, reset nightly
 security:
   - clientCredentials: [orders.read, orders.write]
 components:
@@ -19,6 +19,36 @@ components:
           scopes:
             orders.read: read orders
             orders.write: create orders
+    bulkKey:
+      type: apiKey
+      in: header
+      name: X-Bulk-Key
+  parameters:
+    orderId:
+      name: orderId
+      in: path
+      required: true
+      schema:
+        type: string
+        example: "4711"
+  schemas:
+    Order:
+      type: object
+      required: [item, quantity, customerRef]
+      properties:
+        item:
+          type: string
+          example: book
+        quantity:
+          type: integer
+          example: 2
+        currency:
+          type: string
+          example: EUR
+        customerRef:
+          type: string
+        note:
+          type: string
 paths:
   /health:
     get:
@@ -50,7 +80,10 @@ paths:
         - name: status
           in: query
           required: true
-          example: OPEN
+          schema:
+            type: string
+            enum: [OPEN, SHIPPED, CANCELLED]
+            example: OPEN
         - name: limit
           in: query
           required: false
@@ -58,21 +91,62 @@ paths:
         "200":
           description: the orders
   /orders/{orderId}:
+    parameters:
+      - $ref: "#/components/parameters/orderId"
     get:
       tags: [orders]
       summary: read an order
-      parameters:
-        - name: orderId
-          in: path
-          required: true
-          example: "4711"
       responses:
         "200":
           description: the order
+    put:
+      tags: [orders]
+      summary: update an order
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Order"
+      responses:
+        "200":
+          description: updated
+  /orders/{orderId}/shipments:
+    get:
+      tags: [orders]
+      summary: list an order's shipments
+      parameters:
+        - $ref: "#/components/parameters/orderId"
+        - name: status
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [IN_TRANSIT, DELIVERED]
+      responses:
+        "200":
+          description: the shipments
+  /orders/{orderId}/items/{itemId}:
+    delete:
+      tags: [orders]
+      summary: remove an item
+      parameters:
+        - $ref: "#/components/parameters/orderId"
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: removed
   /orders/import:
+    servers:
+      - url: https://bulk.example.com
     post:
       tags: [bulk]
       summary: import orders
+      security:
+        - bulkKey: []
       requestBody:
         content:
           application/json:
@@ -80,3 +154,19 @@ paths:
       responses:
         "202":
           description: accepted
+  /orders/import/{jobId}:
+    servers:
+      - url: https://bulk.example.com
+    get:
+      tags: [bulk]
+      summary: read an import job
+      security:
+        - bulkKey: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          example: job-1
+      responses:
+        "200":
+          description: the job

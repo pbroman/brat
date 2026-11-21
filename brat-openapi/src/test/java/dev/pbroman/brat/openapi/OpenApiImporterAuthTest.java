@@ -108,10 +108,23 @@ class OpenApiImporterAuthTest {
         return YAML.readTree(suiteText(scaffold));
     }
 
+    /** The request of that name, at the top of the suite or in a sub-suite. */
     private static JsonNode request(Scaffold scaffold, String name) {
-        for (var request : suite(scaffold).get("requests")) {
-            if (request.get("name").asString().equals(name)) {
-                return request;
+        var suite = suite(scaffold);
+        var lists = new ArrayList<JsonNode>();
+        if (suite.has("requests")) {
+            lists.add(suite.get("requests"));
+        }
+        if (suite.has("subSuites")) {
+            for (var subSuite : suite.get("subSuites")) {
+                lists.add(subSuite.get("requests"));
+            }
+        }
+        for (var requests : lists) {
+            for (var request : requests) {
+                if (request.get("name").asString().equals(name)) {
+                    return request;
+                }
             }
         }
         throw new AssertionError("no request " + name);

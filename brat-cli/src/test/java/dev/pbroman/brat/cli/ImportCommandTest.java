@@ -125,11 +125,12 @@ class ImportCommandTest {
         assertThat(out.toString().lines().toList())
                 .containsExactly(
                         "brat import walkthrough.yaml → orders-api",
-                        "  wrote orders-api/orders-api.brat.yaml   (5 requests in 2 sub-suites, 1 setup request)",
+                        "  wrote orders-api/orders-api.brat.yaml   (9 requests in 2 sub-suites," + " 1 setup request)",
                         "  wrote orders-api/bodies/import-orders.json",
                         "  wrote orders-api/local/env.yaml",
-                        "  wrote orders-api/staging/env.yaml",
-                        "next: fill in local/env.yaml, set BRAT_SECRET_CLIENT_SECRET, then",
+                        "  wrote orders-api/staging-server-reset-nightly/env.yaml",
+                        "next: fill in orders-api.brat.yaml, local/env.yaml, set BRAT_SECRET_CLIENT_SECRET,"
+                                + " BRAT_SECRET_API_KEY, then",
                         "  brat run orders-api -e local");
     }
 
