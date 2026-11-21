@@ -26,7 +26,7 @@ import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
 /**
- * The {@code brat import} command: turns an OpenAPI 3.0 or 3.1 spec into a starting-point suite, its
+ * The {@code brat import} command: turns an OpenAPI 3.0, 3.1 or 3.2 spec into a starting-point suite, its
  * bodies and one environment directory per server.
  *
  * <pre>
@@ -57,6 +57,12 @@ import picocli.CommandLine.Spec;
  * arguments — a missing spec argument, a negative {@code --body-file-lines} — for a spec that cannot
  * be read, that is not UTF-8, or that the import refuses, and for a directory the import will not
  * write into, or a file it cannot write. Then a line beginning {@code brat: } goes to stderr, and nothing to stdout.
+ * Any other failure — any exception, or an {@link Error} — exits {@code 2} the same way, its line
+ * naming its type: {@code brat: InvalidPathException: …}.
+ * <p>
+ * <strong>{@code --verbose}</strong> prints, after that line, the stack trace of what failed, its
+ * causes included — the parser's own message among them, which may quote the spec. Without it, only
+ * the line. A successful import prints the same with or without it.
  */
 @Command(
         name = "import",
@@ -74,7 +80,7 @@ final class ImportCommand implements Callable<Integer> {
     @Spec
     private CommandSpec spec;
 
-    @Parameters(index = "0", paramLabel = "<spec>", description = "The OpenAPI 3.0 or 3.1 spec, JSON or YAML.")
+    @Parameters(index = "0", paramLabel = "<spec>", description = "The OpenAPI 3.0, 3.1 or 3.2 spec, JSON or YAML.")
     private Path specFile;
 
     @Option(
@@ -90,6 +96,11 @@ final class ImportCommand implements Callable<Integer> {
             description =
                     "A JSON body longer than this many lines goes to a file of its own. Default: ${DEFAULT-VALUE}.")
     private int bodyFileLines = ImportOptions.DEFAULT_BODY_FILE_LINES;
+
+    @Option(
+            names = "--verbose",
+            description = "Print the stack trace of an error, its causes included; they may quote the spec.")
+    private boolean verbose;
 
     @Option(
             names = {"-h", "--help"},
@@ -125,10 +136,9 @@ final class ImportCommand implements Callable<Integer> {
             outName = out == null ? scaffold.directory() : out;
             ScaffoldWriter.write(scaffold, workingDirectory.resolve(outName));
         } catch (BratException e) {
-            var err = spec.commandLine().getErr();
-            err.println("brat: " + e.getMessage());
-            err.flush();
-            return CommandLine.ExitCode.USAGE;
+            return notImported(e.getMessage(), e);
+        } catch (RuntimeException | Error e) {
+            return notImported(e.getClass().getSimpleName() + ": " + e.getMessage(), e);
         }
         var printed = StringUtils.stripEnd(outName, "/\\");
         var stdout = spec.commandLine().getOut();
@@ -140,6 +150,24 @@ final class ImportCommand implements Callable<Integer> {
         stdout.print(next(scaffold, printed));
         stdout.flush();
         return CommandLine.ExitCode.OK;
+    }
+
+    /**
+     * Reports why nothing was imported — its line, then with {@code --verbose} the stack trace — and
+     * answers the exit code.
+     *
+     * @param message what went wrong
+     * @param cause what was thrown
+     * @return {@code 2}
+     */
+    private int notImported(String message, Throwable cause) {
+        var err = spec.commandLine().getErr();
+        err.println("brat: " + message);
+        if (verbose) {
+            cause.printStackTrace(err);
+        }
+        err.flush();
+        return CommandLine.ExitCode.USAGE;
     }
 
     private static String read(Path file) {

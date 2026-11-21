@@ -5,12 +5,14 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.Require;
 import org.snakeyaml.engine.v2.api.LoadSettings;
 import org.snakeyaml.engine.v2.api.lowlevel.Compose;
 import org.snakeyaml.engine.v2.exceptions.Mark;
+import org.snakeyaml.engine.v2.exceptions.MarkedYamlEngineException;
 import org.snakeyaml.engine.v2.exceptions.YamlEngineException;
 import org.snakeyaml.engine.v2.nodes.MappingNode;
 import org.snakeyaml.engine.v2.nodes.Node;
@@ -21,7 +23,9 @@ import org.snakeyaml.engine.v2.nodes.Tag;
 import org.snakeyaml.engine.v2.schema.CoreSchema;
 
 /**
- * Turns YAML text into the {@link YamlDocument} Jackson can bind.
+ * Turns YAML text into plain values — maps, lists, text, numbers, booleans and nulls — that Jackson
+ * can bind, with anchors, aliases and merge keys resolved and the document read within
+ * {@link YamlLimits}.
  * <p>
  * This is the half of the loader that knows snakeyaml exists, and it exists because Jackson cannot
  * read anchors, aliases or merge keys — and does not fail on them, it reads {@code alias: *base} as
@@ -35,7 +39,7 @@ import org.snakeyaml.engine.v2.schema.CoreSchema;
  * the author never wrote. And the <strong>duplicate-key check</strong>, which snakeyaml performs in
  * the construct step a compose-only path skips, so this does it while inserting.
  */
-final class YamlComposer {
+public final class YamlComposer {
 
     private YamlComposer() {
         // utility class
@@ -49,68 +53,124 @@ final class YamlComposer {
      * overriding is therefore <em>not</em> a duplicate key: the merge is flattened with the explicit
      * key winning before this sees it, and the duplicate check runs on the result.
      * <p>
-     * The engine's own limits are left at their defaults and are deliberately not raised — 50 aliases,
-     * 3 MB, no recursive keys — but a document that hits one is reported in BRAT's words rather than
-     * as a raw engine failure, since a generated suite reaching 3 MB is a plausible accident and an
-     * unexplained parser error is not a useful thing to hand its author.
+     * The document is read within {@code limits}, and a document that exceeds one is reported in
+     * BRAT's words rather than as a raw engine failure — {@code <documentName> exceeds the <n> MB
+     * limit}, {@code <documentName> uses more than the <n> permitted aliases} — since a large generated
+     * document is a plausible accident and an unexplained parser error is not a useful thing to hand
+     * its author. Recursive keys are never allowed.
      *
      * @param yaml the document content
+     * @param limits the limits to read it within, and its name in messages; must not be {@code null}
      * @return the converted document and its position index
-     * @throws BratException if the document is empty; if it is not valid YAML; if one mapping holds
-     *         the same key twice, naming the key and where the second one sat; or if it exceeds an
-     *         engine limit, naming which limit
+     * @throws BratException if the document is empty ({@code <documentName> is empty}); if it is not
+     *         valid YAML ({@code <documentName> is not valid YAML: <the engine's reason> at line L, column
+     *         C} — the reason only, never a quoted part of the document, which may hold secrets); if one
+     *         mapping holds the same key twice, naming the key and where the second one sat; or if it
+     *         exceeds a limit, naming which limit and its value
      */
-    public static YamlDocument compose(String yaml) {
-        var node = composeNode(yaml);
+    static YamlDocument compose(String yaml, YamlLimits limits) {
+        var node = composeNode(yaml, limits);
         var positions = new LinkedHashMap<String, SourcePosition>();
         var root = convert(node, "", positions);
         return new YamlDocument(root, new SourceIndex(positions));
     }
 
     /**
+     * Composes {@code yaml} and converts it, as {@link #compose(String, YamlLimits)} does, returning
+     * only the value: for a reader that needs the document but not where each part of it sat.
+     *
+     * @param yaml the document content
+     * @param limits the limits to read it within, and its name in messages; must not be {@code null}
+     * @return the document's root value: a {@code Map<String, Object>} for a mapping, a {@code List}
+     *         for a list, or the scalar; {@code null} only for a document that is a lone null
+     * @throws BratException in every case {@link #compose(String, YamlLimits)} does
+     */
+    public static Object tree(String yaml, YamlLimits limits) {
+        return compose(yaml, limits).root();
+    }
+
+    /**
      * Composes the text, translating the engine's own failures into {@link BratException}.
      *
      * @param yaml the document content
+     * @param limits the limits to read it within
      * @return the composed root node
      */
-    private static Node composeNode(String yaml) {
-        Require.nonBlank(yaml, "The suite document is empty");
+    private static Node composeNode(String yaml, YamlLimits limits) {
+        Require.nonNull(limits, "YAML limits must not be null");
+        Require.nonBlank(yaml, limits.documentName() + " is empty");
         try {
-            // Defaults are deliberate and none is raised: duplicate keys already rejected, marks kept,
-            // 50 aliases, 3 MB, no recursive keys. Global tags stay off - this is YAML 1.2.
+            // Duplicate keys already rejected, marks kept, no recursive keys, the two limits set
+            // explicitly so the numbers in a message are BRAT's. Global tags stay off - YAML 1.2.
             //
             // The schema is NOT the default, and this is the line that makes `<<: *anchor` work. Only
             // CoreSchema's resolver maps `<<` to Tag.MERGE, and the composer flattens a merge only when
             // that tag is present - under the default schema a merge key survives as a literal `<<`
             // property and binding fails on it. Core is still YAML 1.2, so `no` stays a string: its
             // BOOL is true|True|TRUE|false|False|FALSE, with no yes/no/on/off.
-            return new Compose(
-                            LoadSettings.builder().setSchema(new CoreSchema()).build())
+            return new Compose(LoadSettings.builder()
+                            .setSchema(new CoreSchema())
+                            .setCodePointLimit(limits.maxMegabytes() * 1024 * 1024)
+                            .setMaxAliasesForCollections(limits.maxAliases())
+                            .build())
                     .composeString(yaml)
-                    .orElseThrow(() -> new BratException("The suite document is empty"));
+                    .orElseThrow(() -> new BratException(limits.documentName() + " is empty"));
         } catch (YamlEngineException e) {
-            throw new BratException(limitAware(e.getMessage()), e);
+            throw new BratException(limitAware(e, limits), e);
         }
     }
 
     /**
      * Restates an engine failure in BRAT's own words where it is a limit rather than a syntax error.
      *
-     * @param message the engine's message, or {@code null}
+     * @param failure the engine's failure
+     * @param limits the limits the document was read within
      * @return what to report
      */
-    private static String limitAware(String message) {
-        var text = message == null ? "" : message;
+    private static String limitAware(YamlEngineException failure, YamlLimits limits) {
+        var text = reasonOf(failure);
         // "The incoming YAML document exceeds the limit: 3145728 code points." — matched on the engine's
         // own wording, so a test asserting BRAT's words is what keeps this honest if the wording moves.
         if (text.contains("code points")) {
-            return "The suite document exceeds the 3 MB limit. A generated suite this large is usually "
-                    + "better split across files: " + text;
+            return limits.documentName() + " exceeds the " + limits.maxMegabytes() + " MB limit: " + text;
         }
         if (text.contains("aliases for non-scalar")) {
-            return "The suite document uses more than the 50 permitted aliases: " + text;
+            return limits.documentName() + " uses more than the " + limits.maxAliases() + " permitted aliases: " + text;
         }
-        return "The suite document is not valid YAML: " + text;
+        return limits.documentName() + " is not valid YAML: " + text;
+    }
+
+    /**
+     * The engine's reason for a failure, without the excerpt of the document a marked failure quotes
+     * beneath it.
+     * <ul>
+     *   <li>a failure with a mark and a problem: the problem, then {@code " at line L, column C"} where
+     *       the problem has a mark;</li>
+     *   <li>a failure with a mark and no problem: its context, positioned the same way by the context's
+     *       mark; {@code "no reason given"} when it has no context either;</li>
+     *   <li>a failure without a mark, which quotes nothing: its message, or the empty string when it
+     *       has none.</li>
+     * </ul>
+     * Whatever the failure, the result never holds any of the document's text.
+     *
+     * @param failure the engine's failure; must not be {@code null}
+     * @return the reason; never {@code null}
+     */
+    static String reasonOf(YamlEngineException failure) {
+        if (failure instanceof MarkedYamlEngineException marked) {
+            if (marked.getProblem() != null) {
+                return marked.getProblem().strip() + positioned(marked.getProblemMark());
+            }
+            if (marked.getContext() != null) {
+                return marked.getContext().strip() + positioned(marked.getContextMark());
+            }
+            return "no reason given";
+        }
+        return failure.getMessage() == null ? "" : failure.getMessage();
+    }
+
+    private static String positioned(Optional<Mark> mark) {
+        return mark.map(m -> " at " + positionOf(m)).orElse("");
     }
 
     /**

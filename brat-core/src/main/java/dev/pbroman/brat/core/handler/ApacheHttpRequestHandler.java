@@ -55,7 +55,8 @@ import static org.apache.hc.core5.http.HttpHeaders.CONTENT_TYPE;
  * rate limiting or circuit-breaker behaviour expects to see one.
  * <p>
  * Transport failure throws, because there is no response to return: connection refused, unknown host,
- * a TLS handshake that fails, or this handler's own timeout elapsing. Note the pair that reads
+ * a TLS handshake that fails, or this handler's own timeout elapsing. The message says which, and
+ * names the server, so an author can tell a wrong url from a server that is down or slow. Note the pair that reads
  * confusingly and is not ambiguous — <em>their</em> 504 Gateway Timeout is a response, <em>our</em>
  * timeout is not.
  *
@@ -127,6 +128,9 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
 
     private static final String LOCATION = "Location";
 
+    /** How long connecting may take, for every request this handler performs. */
+    private static final long CONNECT_TIMEOUT_MS = Long.parseLong(DEFAULT_TIMEOUT_MS);
+
     private final CloseableHttpClient client;
 
     /**
@@ -182,7 +186,7 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
                         .setMaxConnTotal(maxTotal)
                         .setMaxConnPerRoute(maxPerRoute)
                         .setDefaultConnectionConfig(ConnectionConfig.custom()
-                                .setConnectTimeout(Timeout.ofMilliseconds(Long.parseLong(DEFAULT_TIMEOUT_MS)))
+                                .setConnectTimeout(Timeout.ofMilliseconds(CONNECT_TIMEOUT_MS))
                                 .build())
                         .build())
                 .build();
@@ -245,7 +249,13 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
      *         {@code url} is absent or not a valid URI; if a {@code file} body was never read, which only
      *         a definition that was never interpolated can carry; or if the request cannot be
      *         completed at all — connection refused, unknown host, failed TLS handshake, the
-     *         timeout elapsing, or, when following redirects, more than 50 of them or a loop
+     *         timeout elapsing, or, when following redirects, more than 50 of them or a loop. The
+     *         message then names the cause and the server: {@code Could not connect to localhost:8080 —
+     *         connection refused}, {@code … — unknown host <host>}, {@code Could not connect to <server>
+     *         within 30.0 s (the connect timeout)}, {@code No response from <url> within 500 ms (the
+     *         request's timeout)}, {@code TLS with <server> failed: <reason>}, {@code <server> closed the
+     *         connection without a response}; any other cause as {@code Could not perform the request to
+     *         <url> — <exception>: <message>}
      */
     @Override
     public HttpResponse performRequest(HttpRequestDefinition requestDefinition, RequestOptions options) {
@@ -257,8 +267,9 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
         // run a request without the mTLS settings its args asked another handler for.
         ArgsUtils.rejectUnknownArgs(requestDefinition.getArgs(), "the '" + NAME + "' request handler");
 
+        var uri = uriOf(requestDefinition.getUrl());
         var builder = ClassicRequestBuilder.create(requestDefinition.getMethod().toUpperCase(Locale.ROOT))
-                .setUri(uriOf(requestDefinition.getUrl()));
+                .setUri(uri);
         if (requestDefinition.getHeaders() != null) {
             for (var header : requestDefinition.getHeaders().entrySet()) {
                 builder.addHeader(header.getKey(), header.getValue());
@@ -283,7 +294,7 @@ public final class ApacheHttpRequestHandler implements HttpRequestHandler, AutoC
         try {
             return client.execute(builder.build(), context, response -> toResponse(response, following));
         } catch (IOException e) {
-            throw new BratException("Could not perform the request to " + requestDefinition.getUrl(), e);
+            throw new BratException(TransportFailures.describe(e, uri, options.timeoutMs(), CONNECT_TIMEOUT_MS), e);
         }
     }
 

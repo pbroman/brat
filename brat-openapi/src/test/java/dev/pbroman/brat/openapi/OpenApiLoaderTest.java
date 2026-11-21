@@ -4,13 +4,17 @@ import java.util.List;
 import java.util.Map;
 
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.openapi.OpenApiDocument.Field;
+import dev.pbroman.brat.openapi.OpenApiDocument.MediaType;
 import dev.pbroman.brat.openapi.OpenApiDocument.Operation;
 import dev.pbroman.brat.openapi.OpenApiDocument.Parameter;
+import dev.pbroman.brat.openapi.OpenApiDocument.Schema;
 import dev.pbroman.brat.openapi.OpenApiDocument.SecurityScheme;
 import dev.pbroman.brat.openapi.OpenApiDocument.Server;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import tools.jackson.databind.node.StringNode;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -76,8 +80,8 @@ class OpenApiLoaderTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"3.0.0", "3.0.3", "3.1.0", "3.1.1", "3.0", "3.1"})
-    void load_acceptsOpenApi30And31(String version) {
+    @ValueSource(strings = {"3.0.0", "3.0.3", "3.1.0", "3.1.1", "3.0", "3.1", "3.2.0", "3.2"})
+    void load_acceptsOpenApi30To32(String version) {
         // when
         var document = OpenApiLoader.load("openapi: \"" + version + "\"\ninfo:\n  title: t\n");
 
@@ -267,7 +271,7 @@ class OpenApiLoaderTest {
                 """));
 
         // then
-        assertThat(operation.parameters()).containsExactly(new Parameter("orderId", "path", true, null));
+        assertThat(operation.parameters()).containsExactly(new Parameter("orderId", "path", true, null, null));
     }
 
     // --- request bodies ---
@@ -580,12 +584,13 @@ class OpenApiLoaderTest {
         // when / then
         assertThatThrownBy(() -> OpenApiLoader.load("openapi: 3.0.3\npaths: [s3cr3t\n"))
                 .isInstanceOf(BratException.class)
-                .hasMessageContaining("line")
+                .hasMessageStartingWith("The OpenAPI document is not valid YAML: ")
+                .hasMessageContaining(" at line ")
                 .hasMessageNotContaining("s3cr3t");
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"- a list\n", "just text\n", "info:\n  title: no version\n"})
+    @ValueSource(strings = {"- a list\n", "just text\n", "info:\n  title: no version\n", "~\n"})
     void load_throwsForADocumentThatIsNotOpenApi(String content) {
         // when / then
         assertThatThrownBy(() -> OpenApiLoader.load(content))
@@ -603,7 +608,7 @@ class OpenApiLoaderTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"2.0", "3.2.0", "4.0.0", "3.10", "30"})
+    @ValueSource(strings = {"2.0", "3.3.0", "4.0.0", "3.10", "30"})
     void load_throwsForAnotherVersionNamingIt(String version) {
         // when / then
         assertThatThrownBy(() -> OpenApiLoader.load("openapi: \"" + version + "\"\n"))
@@ -730,8 +735,8 @@ class OpenApiLoaderTest {
         assertThatThrownBy(
                         () -> OpenApiLoader.load("{\n  \"openapi\": \"3.0.3\",\n  \"info\": {\"title\": \"s3cr3t\"\n"))
                 .isInstanceOf(BratException.class)
-                .hasMessageContaining("neither JSON nor YAML")
-                .hasMessageContaining("line")
+                .hasMessageStartingWith("The OpenAPI document is not valid JSON: ")
+                .hasMessageContaining(" at line ")
                 .hasMessageNotContaining("s3cr3t");
     }
 
@@ -764,5 +769,785 @@ class OpenApiLoaderTest {
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("#/paths/~1x%zz")
                 .hasMessageContaining("points at nothing");
+    }
+
+    // --- reading the document ---
+
+    private static Schema bodySchema(OpenApiDocument document) {
+        return only(document).requestBody().getFirst().schema();
+    }
+
+    private static Field field(Schema schema, String name) {
+        return schema.properties().stream()
+                .filter(f -> f.name().equals(name))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private static String withBodySchema(String schema) {
+        return "paths:\n  /orders:\n    post:\n      requestBody:\n        content:\n"
+                + "          application/json:\n            schema:\n"
+                + schema.indent(14);
+    }
+
+    @Test
+    void load_throwsForADocumentOverTheSizeLimitBeforeParsingIt() {
+        // given - one byte over 64 MB, and not even a document
+        var content = "x".repeat(OpenApiLoader.MAX_MEGABYTES * 1024 * 1024 + 1);
+
+        // then
+        assertThatThrownBy(() -> OpenApiLoader.load(content))
+                .isInstanceOf(BratException.class)
+                .hasMessage("The OpenAPI document is 65 MB; at most 64 MB is read");
+    }
+
+    @Test
+    void load_measuresTheSizeInCodePointsNotChars() {
+        // given - 33 Mi emoji: 66 Mi chars, but only 33 MB of text as YAML counts it. The second line
+        // is broken, so parsing fails at once instead of reading all of it
+        var content = "openapi: 3.0.3\n  broken: here\n" + "\uD83D\uDE00".repeat(33 * 1024 * 1024);
+
+        // then - past the size check, refused by the parser instead
+        assertThatThrownBy(() -> OpenApiLoader.load(content))
+                .isInstanceOf(BratException.class)
+                .hasMessageStartingWith("The OpenAPI document is not valid YAML: ");
+    }
+
+    @Test
+    void load_throwsForAJsonKeyWrittenTwiceNamingIt() {
+        // then - as for YAML, the same spec in either format reads the same
+        assertThatThrownBy(() -> OpenApiLoader.load("{\"openapi\": \"3.0.3\", \"paths\": {}, \"paths\": {}}"))
+                .isInstanceOf(BratException.class)
+                .hasMessageStartingWith("The OpenAPI document is not valid JSON: ")
+                .hasMessageContaining("\"paths\"")
+                .hasMessageContaining(" at line 1");
+    }
+
+    @Test
+    void load_readsADocumentOverTheSuiteLimit() {
+        // given - over the 3 MB a suite may be, well under 64 MB
+        var description = "d".repeat(4 * 1024 * 1024);
+        var content = HEAD + "  description: " + description + "\npaths: {}\n";
+
+        // when
+        var document = OpenApiLoader.load(content);
+
+        // then
+        assertThat(document.title()).isEqualTo("Orders API");
+    }
+
+    @Test
+    void load_resolvesYamlAliases() {
+        // given
+        var body = """
+                paths:
+                  /a/{id}:
+                    get:
+                      parameters:
+                        - &idParam
+                          name: id
+                          in: path
+                          example: abc
+                  /b/{id}:
+                    get:
+                      parameters:
+                        - *idParam
+                """;
+
+        // when
+        var document = load(body);
+
+        // then
+        assertThat(document.operations())
+                .extracting(o -> o.parameters().getFirst().name())
+                .containsExactly("id", "id");
+    }
+
+    @Test
+    void load_resolvesYamlMergeKeys() {
+        // given
+        var body = """
+                x-base: &base
+                  in: query
+                  required: true
+                paths:
+                  /orders:
+                    get:
+                      parameters:
+                        - <<: *base
+                          name: status
+                """;
+
+        // when
+        var parameter = only(load(body)).parameters().getFirst();
+
+        // then
+        assertThat(parameter.name()).isEqualTo("status");
+        assertThat(parameter.in()).isEqualTo("query");
+        assertThat(parameter.required()).isTrue();
+    }
+
+    @Test
+    void load_throwsForMoreThanFiftyAliases() {
+        // given
+        var body = "x-base: &a\n  k: v\nx-list:\n" + "  - *a\n".repeat(51) + "paths: {}\n";
+
+        // then
+        assertThatThrownBy(() -> load(body))
+                .isInstanceOf(BratException.class)
+                .hasMessageStartingWith("The OpenAPI document uses more than the 50 permitted aliases");
+    }
+
+    @Test
+    void load_throwsForAYamlKeyWrittenTwiceNamingItAndWhere() {
+        // then
+        assertThatThrownBy(() -> load("paths: {}\npaths: {}\n"))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("'paths'")
+                .hasMessageContaining("line 5");
+    }
+
+    @Test
+    void load_readsTheQueryMethod() {
+        // when
+        var operation = only(load("paths:\n  /search:\n    query:\n      summary: search\n"));
+
+        // then
+        assertThat(operation.method()).isEqualTo("QUERY");
+    }
+
+    @Test
+    void load_readsAnOperationsOwnServersElseItsPathItems() {
+        // given
+        var body = """
+                servers:
+                  - url: https://api.example.com
+                paths:
+                  /upload:
+                    servers:
+                      - url: https://uploads.example.com
+                    post:
+                      summary: path's
+                    put:
+                      summary: own
+                      servers:
+                        - url: https://direct.example.com
+                  /plain:
+                    get:
+                      summary: none
+                """;
+
+        // when
+        var operations = load(body).operations();
+
+        // then
+        assertThat(operations)
+                .extracting(o -> o.summary() + " "
+                        + o.servers().stream().map(Server::url).toList())
+                .containsExactly("path's [https://uploads.example.com]", "own [https://direct.example.com]", "none []");
+    }
+
+    @Test
+    void load_namesWhatIsNotImported() {
+        // given
+        var body = """
+                webhooks:
+                  orderShipped: {}
+                  orderCancelled: {}
+                paths:
+                  /orders:
+                    additionalOperations:
+                      COPY: {}
+                      MOVE: {}
+                    get:
+                      summary: list
+                """;
+
+        // when
+        var document = load(body);
+
+        // then
+        assertThat(document.notImported())
+                .containsExactly(
+                        "webhooks: orderShipped, orderCancelled", "additionalOperations on /orders: COPY, MOVE");
+        assertThat(document.operations()).hasSize(1);
+    }
+
+    @Test
+    void load_namesNothingNotImportedWhenThereIsNothing() {
+        assertThat(load("paths: {}\n").notImported()).isEmpty();
+        assertThat(load("webhooks: {}\npaths:\n  /o:\n    additionalOperations: {}\n")
+                        .notImported())
+                .isEmpty();
+    }
+
+    @Test
+    void load_marksAMediaExampleFromValueOrDataValueAsNotSerialized() {
+        for (var key : new String[] {"value", "dataValue"}) {
+            // given - both present: the earlier key wins, so the example is not the serialized one
+            var body = "paths:\n  /o:\n    post:\n      requestBody:\n        content:\n"
+                    + "          application/json:\n            examples:\n              one:\n"
+                    + "                " + key + ": {a: 1}\n                serializedValue: '{\"a\":2}'\n";
+
+            // when
+            var media = only(load(body)).requestBody().getFirst();
+
+            // then
+            assertThat(media.serialized()).as(key).isFalse();
+            assertThat(media.example().toString()).as(key).isEqualTo("{\"a\":1}");
+        }
+    }
+
+    @Test
+    void load_readsABooleanSchemaAsAnEmptyOne() {
+        // when - 3.1 allows true and false as schemas
+        var a = field(bodySchema(load(withBodySchema("properties:\n  a: true\n"))), "a")
+                .schema();
+
+        // then
+        assertThat(a).isEqualTo(new Schema(null, null, null, List.of(), List.of(), null));
+    }
+
+    @Test
+    void load_endsACycleOfAllOfs() {
+        // given
+        var body = withBodySchema("$ref: '#/components/schemas/A'\n") + """
+                components:
+                  schemas:
+                    A:
+                      allOf: [{$ref: '#/components/schemas/B'}]
+                      properties: {a: {type: string}}
+                    B:
+                      allOf: [{$ref: '#/components/schemas/A'}]
+                      properties: {b: {type: string}}
+                """;
+
+        // when
+        var read = bodySchema(load(body));
+
+        // then
+        assertThat(read.properties()).extracting(Field::name).containsExactly("b", "a");
+    }
+
+    @Test
+    void load_infersTheTypeWhenATypeListHoldsOnlyNull() {
+        assertThat(bodySchema(load(withBodySchema("type: [\"null\"]\nproperties: {a: {}}\n")))
+                        .type())
+                .isEqualTo("object");
+    }
+
+    @Test
+    void load_leavesStructuresOutOfAnEnum() {
+        assertThat(bodySchema(load(withBodySchema("enum: [A, {b: 1}, [c], null, 3]\n")))
+                        .enumValues())
+                .containsExactly("A", "3");
+    }
+
+    @Test
+    void load_ignoresASchemasKeywordsOfTheWrongShape() {
+        // given - real specs carry these: required: true is Spotify's image upload
+        var schema = """
+                type: {not: text}
+                required: true
+                enum: OPEN
+                allOf: none
+                oneOf: [just text]
+                items: [a list]
+                properties:
+                  a: {type: string, required: [x], properties: [wrong]}
+                """;
+
+        // when
+        var read = bodySchema(load(withBodySchema(schema)));
+
+        // then - the readable parts are read, the rest is absent
+        assertThat(read.type()).isEqualTo("object");
+        assertThat(read.enumValues()).isEmpty();
+        assertThat(read.items()).isNull();
+        assertThat(read.properties()).extracting(Field::name).containsExactly("a");
+        assertThat(field(read, "a").required()).isFalse();
+        assertThat(field(read, "a").schema().properties()).isEmpty();
+    }
+
+    @Test
+    void load_stillRefusesAnExternalReferenceInsideASchema() {
+        assertThatThrownBy(() -> load(withBodySchema("properties:\n  a: {$ref: 'other.yaml#/A'}\n")))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("other.yaml#/A");
+    }
+
+    @Test
+    void load_ignoresASchemasExamplesThatIsNotAList() {
+        // given - a 3.0-era mistake: a mapping of named examples on a schema
+        var read = bodySchema(load(withBodySchema("type: string\nexamples: {one: x}\n")));
+
+        // then
+        assertThat(read.example()).isNull();
+    }
+
+    @Test
+    void load_takesAnExamplesDataValueBeforeItsValue() {
+        // given - 3.2's dataValue, beside 3.1's value
+        var body = """
+                paths:
+                  /orders:
+                    get:
+                      parameters:
+                        - name: status
+                          in: query
+                          examples:
+                            open:
+                              dataValue: OPEN
+                              value: LEGACY
+                """;
+
+        // when
+        var parameter = only(load(body)).parameters().getFirst();
+
+        // then
+        assertThat(parameter.example().asString()).isEqualTo("OPEN");
+    }
+
+    @Test
+    void load_takesAMediaTypesSerializedValueAsSerializedText() {
+        // given
+        var body = """
+                paths:
+                  /orders:
+                    post:
+                      requestBody:
+                        content:
+                          application/json:
+                            examples:
+                              one:
+                                serializedValue: '{"item":"book"}'
+                """;
+
+        // when
+        var media = only(load(body)).requestBody().getFirst();
+
+        // then
+        assertThat(media.example().asString()).isEqualTo("{\"item\":\"book\"}");
+        assertThat(media.serialized()).isTrue();
+    }
+
+    @Test
+    void load_marksAnExampleNotFromSerializedValueAsNotSerialized() {
+        // when
+        var media = only(load(withBodySchema("type: string\nexample: x\n")))
+                .requestBody()
+                .getFirst();
+
+        // then
+        assertThat(media.serialized()).isFalse();
+    }
+
+    @Test
+    void load_ignoresAParametersSerializedValue() {
+        // given
+        var body = """
+                paths:
+                  /orders:
+                    get:
+                      parameters:
+                        - name: status
+                          in: query
+                          examples:
+                            open:
+                              serializedValue: status=OPEN
+                """;
+
+        // when
+        var parameter = only(load(body)).parameters().getFirst();
+
+        // then
+        assertThat(parameter.example()).isNull();
+    }
+
+    @Test
+    void load_takesTheFirstOfASchemasExamplesList() {
+        // given - JSON Schema's examples, a list, as 3.1 writes it
+        var body = """
+                paths:
+                  /orders/{id}:
+                    get:
+                      parameters:
+                        - name: id
+                          in: path
+                          schema:
+                            type: string
+                            examples: [first, second]
+                """;
+
+        // when
+        var parameter = only(load(body)).parameters().getFirst();
+
+        // then
+        assertThat(parameter.example().asString()).isEqualTo("first");
+    }
+
+    @Test
+    void load_readsASchemasTypeExampleAndEnum() {
+        // when
+        var schema = bodySchema(load(withBodySchema("type: string\nexample: OPEN\nenum: [OPEN, 2, null]\n")));
+
+        // then
+        assertThat(schema.type()).isEqualTo("string");
+        assertThat(schema.example().asString()).isEqualTo("OPEN");
+        assertThat(schema.enumValues()).containsExactly("OPEN", "2");
+    }
+
+    @Test
+    void load_takesTheFirstTypeThatIsNotNullFromAList() {
+        assertThat(bodySchema(load(withBodySchema("type: [\"null\", integer]\n")))
+                        .type())
+                .isEqualTo("integer");
+    }
+
+    @Test
+    void load_infersAnObjectOrArrayTypeWhenNoneIsWritten() {
+        // then
+        assertThat(bodySchema(load(withBodySchema("properties:\n  a: {}\n"))).type())
+                .isEqualTo("object");
+        assertThat(bodySchema(load(withBodySchema("items: {type: string}\n"))).type())
+                .isEqualTo("array");
+        assertThat(bodySchema(load(withBodySchema("description: anything\n"))).type())
+                .isNull();
+    }
+
+    @Test
+    void load_readsASchemasPropertiesInOrderWithRequiredAndTheirOwnSchemas() {
+        // given
+        var schema = """
+                type: object
+                required: [item]
+                properties:
+                  item: {type: string, example: book}
+                  quantity: {type: integer}
+                """;
+
+        // when
+        var read = bodySchema(load(withBodySchema(schema)));
+
+        // then
+        assertThat(read.properties()).extracting(Field::name).containsExactly("item", "quantity");
+        assertThat(read.properties()).extracting(Field::required).containsExactly(true, false);
+        assertThat(field(read, "item").schema().example().asString()).isEqualTo("book");
+        assertThat(field(read, "quantity").schema().type()).isEqualTo("integer");
+    }
+
+    @Test
+    void load_followsReferencesInsideASchema() {
+        // given
+        var body = withBodySchema("$ref: '#/components/schemas/Order'\n") + """
+                components:
+                  schemas:
+                    Order:
+                      properties:
+                        customer: {$ref: '#/components/schemas/Customer'}
+                    Customer:
+                      properties:
+                        name: {type: string, example: Ada}
+                """;
+
+        // when
+        var read = bodySchema(load(body));
+
+        // then
+        assertThat(field(field(read, "customer").schema(), "name")
+                        .schema()
+                        .example()
+                        .asString())
+                .isEqualTo("Ada");
+    }
+
+    @Test
+    void load_mergesAllOfMembersInOrderTheSchemasOwnLast() {
+        // given
+        var schema = """
+                allOf:
+                  - required: [id]
+                    properties:
+                      id: {type: string}
+                      note: {type: string, example: first}
+                  - properties:
+                      note: {type: string, example: second}
+                required: [note]
+                properties:
+                  own: {type: boolean}
+                """;
+
+        // when
+        var read = bodySchema(load(withBodySchema(schema)));
+
+        // then
+        assertThat(read.properties()).extracting(Field::name).containsExactly("id", "note", "own");
+        assertThat(field(read, "id").required()).isTrue();
+        assertThat(field(read, "note").required()).isTrue();
+        assertThat(field(read, "note").schema().example().asString()).isEqualTo("second");
+    }
+
+    @Test
+    void load_readsOneOfAndAnyOfAsTheirFirstAlternative() {
+        for (var keyword : new String[] {"oneOf", "anyOf"}) {
+            // given
+            var schema = keyword + ":\n  - properties: {a: {type: string}}\n  - properties: {b: {type: string}}\n";
+
+            // when
+            var read = bodySchema(load(withBodySchema(schema)));
+
+            // then
+            assertThat(read.properties()).as(keyword).extracting(Field::name).containsExactly("a");
+        }
+    }
+
+    @Test
+    void load_readsAnArraysItems() {
+        // when
+        var read = bodySchema(load(withBodySchema("type: array\nitems: {type: string, example: x}\n")));
+
+        // then
+        assertThat(read.items().type()).isEqualTo("string");
+        assertThat(read.items().example().asString()).isEqualTo("x");
+    }
+
+    @Test
+    void load_stopsNestingAfterThreeLevels() {
+        // given - a, then b, then c: c is the third level, and keeps its type but not its properties
+        var schema = """
+                properties:
+                  a:
+                    properties:
+                      b:
+                        properties:
+                          c:
+                            type: object
+                            example: {}
+                            properties:
+                              d: {type: string}
+                """;
+
+        // when
+        var c = field(
+                        field(
+                                        field(bodySchema(load(withBodySchema(schema))), "a")
+                                                .schema(),
+                                        "b")
+                                .schema(),
+                        "c")
+                .schema();
+
+        // then
+        assertThat(c.type()).isEqualTo("object");
+        assertThat(c.example()).isNotNull();
+        assertThat(c.properties()).isEmpty();
+    }
+
+    @Test
+    void load_countsAnArraysItemsAsALevel() {
+        // given - a, then its items, then b: b is the third level
+        var schema = """
+                properties:
+                  a:
+                    type: array
+                    items:
+                      properties:
+                        b:
+                          type: array
+                          items: {type: string}
+                """;
+
+        // when
+        var b = field(
+                        field(bodySchema(load(withBodySchema(schema))), "a")
+                                .schema()
+                                .items(),
+                        "b")
+                .schema();
+
+        // then
+        assertThat(b.type()).isEqualTo("array");
+        assertThat(b.items()).isNull();
+    }
+
+    @Test
+    void load_endsARecursiveSchema() {
+        // given
+        var body = withBodySchema("$ref: '#/components/schemas/Node'\n") + """
+                components:
+                  schemas:
+                    Node:
+                      properties:
+                        child: {$ref: '#/components/schemas/Node'}
+                """;
+
+        // when
+        var read = bodySchema(load(body));
+
+        // then
+        assertThat(field(field(read, "child").schema(), "child").schema().properties())
+                .hasSize(1);
+        assertThat(field(field(field(read, "child").schema(), "child").schema(), "child")
+                        .schema()
+                        .properties())
+                .isEmpty();
+    }
+
+    @Test
+    void load_readsAnEmptySchemaForAPropertyWrittenAsBraces() {
+        // when
+        var a = field(bodySchema(load(withBodySchema("properties:\n  a: {}\n"))), "a")
+                .schema();
+
+        // then
+        assertThat(a).isEqualTo(new Schema(null, null, null, List.of(), List.of(), null));
+    }
+
+    @Test
+    void load_givesAParameterWithoutASchemaNone() {
+        assertThat(only(load("paths:\n  /o/{id}:\n    get:\n      parameters:\n" + "        - {name: id, in: path}\n"))
+                        .parameters()
+                        .getFirst()
+                        .schema())
+                .isNull();
+    }
+
+    // --- the model's derived values ---
+
+    private static Schema schema(String type, List<String> enumValues, Schema items) {
+        return new Schema(type, null, null, enumValues, List.of(), items);
+    }
+
+    private static Parameter parameter(String name, String in, Schema schema, String example) {
+        return new Parameter(name, in, false, example == null ? null : StringNode.valueOf(example), schema);
+    }
+
+    @Test
+    void identity_isEqualForTheSameInTypeAndEnum() {
+        // given - different names, examples and required: none of them count
+        var a = parameter("status", "query", schema("string", List.of("A", "B"), null), "A");
+        var b = new Parameter("other", "query", true, null, schema("string", List.of("A", "B"), null));
+
+        // then
+        assertThat(a.identity()).isEqualTo(b.identity());
+    }
+
+    @Test
+    void identity_differsByInTypeEnumOrEnumOrder() {
+        // given
+        var base = parameter("s", "query", schema("string", List.of("A", "B"), null), null);
+        var others = List.of(
+                parameter("s", "path", schema("string", List.of("A", "B"), null), null),
+                parameter("s", "query", schema("integer", List.of("A", "B"), null), null),
+                parameter("s", "query", schema("string", List.of("A", "C"), null), null),
+                parameter("s", "query", schema("string", List.of("B", "A"), null), null),
+                parameter("s", "query", schema("string", List.of(), null), null));
+
+        // then
+        for (var other : others) {
+            assertThat(other.identity()).as(other.toString()).isNotEqualTo(base.identity());
+        }
+    }
+
+    @Test
+    void identity_differsByFormat() {
+        // given - DigitalOcean's id: a uuid on some operations, free text on others
+        var uuid = parameter("id", "path", new Schema("string", "uuid", null, List.of(), List.of(), null), null);
+        var text = parameter("id", "path", schema("string", List.of(), null), null);
+        var uuidItems = parameter(
+                "ids",
+                "query",
+                schema("array", List.of(), new Schema("string", "uuid", null, List.of(), List.of(), null)),
+                null);
+        var textItems = parameter("ids", "query", schema("array", List.of(), schema("string", List.of(), null)), null);
+
+        // then
+        assertThat(uuid.identity()).isNotEqualTo(text.identity());
+        assertThat(uuidItems.identity()).isNotEqualTo(textItems.identity());
+    }
+
+    @Test
+    void load_readsASchemasFormat() {
+        assertThat(bodySchema(load(withBodySchema("type: string\nformat: uuid\n")))
+                        .format())
+                .isEqualTo("uuid");
+        assertThat(bodySchema(load(withBodySchema("type: string\n"))).format()).isNull();
+    }
+
+    @Test
+    void identity_differsByTheItemsOfAnArray() {
+        // given
+        var strings = parameter("ids", "query", schema("array", List.of(), schema("string", List.of(), null)), null);
+        var numbers = parameter("ids", "query", schema("array", List.of(), schema("integer", List.of(), null)), null);
+        var enumed = parameter("ids", "query", schema("array", List.of(), schema("string", List.of("a"), null)), null);
+
+        // then
+        assertThat(strings.identity()).isNotEqualTo(numbers.identity()).isNotEqualTo(enumed.identity());
+    }
+
+    @Test
+    void identity_ignoresEveryOtherPartOfTheSchema() {
+        // given
+        var plain = parameter("s", "query", schema("string", List.of(), null), null);
+        var rich = parameter(
+                "s",
+                "query",
+                new Schema(
+                        "string",
+                        null,
+                        StringNode.valueOf("x"),
+                        List.of(),
+                        List.of(new Field("f", true, schema("string", List.of(), null))),
+                        null),
+                null);
+
+        // then
+        assertThat(plain.identity()).isEqualTo(rich.identity());
+    }
+
+    @Test
+    void identity_ofAParameterWithoutASchemaMatchesOnlyAnotherWithout() {
+        // given
+        var none = parameter("s", "query", null, null);
+        var alsoNone = parameter("t", "query", null, "x");
+        var typed = parameter("s", "query", schema("string", List.of(), null), null);
+
+        // then
+        assertThat(none.identity()).isEqualTo(alsoNone.identity()).isNotEqualTo(typed.identity());
+    }
+
+    @Test
+    void enumValues_areTheSchemasElseTheItemsElseNone() {
+        // then
+        assertThat(parameter("s", "query", schema("string", List.of("A"), null), null)
+                        .enumValues())
+                .containsExactly("A");
+        assertThat(parameter("s", "query", schema("array", List.of(), schema("string", List.of("x"), null)), null)
+                        .enumValues())
+                .containsExactly("x");
+        assertThat(parameter("s", "query", null, null).enumValues()).isEmpty();
+        assertThat(parameter("s", "query", schema("string", List.of(), null), null)
+                        .enumValues())
+                .isEmpty();
+    }
+
+    @Test
+    void properties_areTheSchemasFieldNamesInOrder() {
+        // given
+        var schema = new Schema(
+                "object",
+                null,
+                null,
+                List.of(),
+                List.of(
+                        new Field("b", false, schema(null, List.of(), null)),
+                        new Field("a", true, schema(null, List.of(), null))),
+                null);
+
+        // then
+        assertThat(new MediaType("application/json", null, false, schema).properties())
+                .containsExactly("b", "a");
+        assertThat(new MediaType("application/json", null, false, null).properties())
+                .isEmpty();
     }
 }

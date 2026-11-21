@@ -51,7 +51,9 @@ class ApacheHttpRequestHandlerTrustStoreTest {
         for (var property : PROPERTIES) {
             saved.put(property, System.getProperty(property));
         }
-        server = HttpsServer.create(new InetSocketAddress("localhost", 0), 0);
+        // Every local address, not one for "localhost": the client tries each address "localhost" has, and
+        // whichever comes first depends on the machine - a refused one would end the test before TLS.
+        server = HttpsServer.create(new InetSocketAddress(0), 0);
         server.setHttpsConfigurator(new HttpsConfigurator(serverContext()));
         server.createContext("/", exchange -> {
             var body = "trusted".getBytes(StandardCharsets.UTF_8);
@@ -80,7 +82,10 @@ class ApacheHttpRequestHandlerTrustStoreTest {
         try (var underTest = new ApacheHttpRequestHandler()) {
 
             // then - a failed handshake is a transport failure: there is no response
-            assertThatThrownBy(() -> underTest.performRequest(get(), OPTIONS)).isInstanceOf(BratException.class);
+            assertThatThrownBy(() -> underTest.performRequest(get(), OPTIONS))
+                    .isInstanceOf(BratException.class)
+                    .hasMessageStartingWith("TLS with localhost:")
+                    .hasMessageContaining(" failed: ");
         }
     }
 

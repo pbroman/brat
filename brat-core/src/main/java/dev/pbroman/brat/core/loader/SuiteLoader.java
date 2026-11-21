@@ -126,7 +126,7 @@ public final class SuiteLoader {
      *         {@code ... is not a <type>}, and its own message is not shown
      */
     public TestSuite load(String yaml, String origin) {
-        var document = YamlComposer.compose(yaml);
+        var document = YamlComposer.compose(yaml, YamlLimits.SUITE);
         if (!(document.root() instanceof Map)) {
             throw LoaderErrors.at(origin, document, "", "A suite document must be a mapping");
         }

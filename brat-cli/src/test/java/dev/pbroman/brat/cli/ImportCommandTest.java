@@ -125,11 +125,12 @@ class ImportCommandTest {
         assertThat(out.toString().lines().toList())
                 .containsExactly(
                         "brat import walkthrough.yaml → orders-api",
-                        "  wrote orders-api/orders-api.brat.yaml   (5 requests in 2 sub-suites, 1 setup request)",
+                        "  wrote orders-api/orders-api.brat.yaml   (9 requests in 2 sub-suites," + " 1 setup request)",
                         "  wrote orders-api/bodies/import-orders.json",
                         "  wrote orders-api/local/env.yaml",
-                        "  wrote orders-api/staging/env.yaml",
-                        "next: fill in local/env.yaml, set BRAT_SECRET_CLIENT_SECRET, then",
+                        "  wrote orders-api/staging-server-reset-nightly/env.yaml",
+                        "next: fill in orders-api.brat.yaml, local/env.yaml, set BRAT_SECRET_CLIENT_SECRET,"
+                                + " BRAT_SECRET_API_KEY, then",
                         "  brat run orders-api -e local");
     }
 
@@ -276,5 +277,60 @@ class ImportCommandTest {
 
         // then
         assertThat(bratOut.toString()).contains("import", "Imports an OpenAPI 3 spec", "brat import");
+    }
+
+    @Test
+    void call_printsTheStackTraceOfAnErrorWithVerbose() throws IOException {
+        // given - a spec over the YAML engine's reach: broken, so the parser's own failure is the cause
+        Files.writeString(temp.resolve("broken.yaml"), "openapi: 3.0.3\npaths: [unclosed\n", StandardCharsets.UTF_8);
+
+        // when
+        var exitCode = underTest.execute("broken.yaml", "--verbose");
+
+        // then - the line first, then the trace with its cause
+        assertThat(exitCode).isEqualTo(2);
+        var lines = err.toString().lines().toList();
+        assertThat(lines.getFirst()).startsWith("brat: The OpenAPI document is not valid YAML");
+        assertThat(err.toString())
+                .contains("BratException")
+                .contains("Caused by:")
+                .contains("\tat ");
+        assertThat(out.toString()).isEmpty();
+    }
+
+    @Test
+    void call_printsOnlyTheLineWithoutVerbose() throws IOException {
+        // given
+        Files.writeString(temp.resolve("broken.yaml"), "openapi: 3.0.3\npaths: [unclosed\n", StandardCharsets.UTF_8);
+
+        // when
+        var exitCode = underTest.execute("broken.yaml");
+
+        // then
+        assertThat(exitCode).isEqualTo(2);
+        assertThat(err.toString().lines().toList()).hasSize(1);
+    }
+
+    @Test
+    void call_exitsWith2NamingTheTypeOfAnyOtherFailure() {
+        // when - a NUL in a path is no BratException but the JDK's own InvalidPathException
+        var exitCode = underTest.execute("orders-openapi.yaml", "--out", "bad\u0000name");
+
+        // then
+        assertThat(exitCode).isEqualTo(2);
+        assertThat(err.toString()).startsWith("brat: InvalidPathException: ");
+        assertThat(err.toString().lines().toList()).hasSize(1);
+        assertThat(out.toString()).isEmpty();
+    }
+
+    @Test
+    void call_printsTheSameWithVerboseWhenTheImportSucceeds() {
+        // when
+        var exitCode = underTest.execute("orders-openapi.yaml", "--out", "orders-api", "--verbose");
+
+        // then
+        assertThat(exitCode).isZero();
+        assertThat(err.toString()).isEmpty();
+        assertThat(out.toString()).startsWith("brat import orders-openapi.yaml → orders-api");
     }
 }

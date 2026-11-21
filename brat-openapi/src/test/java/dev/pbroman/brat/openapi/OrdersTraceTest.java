@@ -58,8 +58,8 @@ class OrdersTraceTest {
 
         // then
         assertThat(scaffold.directory()).isEqualTo("orders-api");
-        assertThat(scaffold.environments()).containsExactly("local", "staging");
-        assertThat(scaffold.requests()).isEqualTo(5);
+        assertThat(scaffold.environments()).containsExactly("local", "staging-server-reset-nightly");
+        assertThat(scaffold.requests()).isEqualTo(9);
         assertThat(scaffold.subSuites()).isEqualTo(2);
         assertThat(scaffold.setupRequests()).isEqualTo(1);
     }

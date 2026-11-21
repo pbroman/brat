@@ -4,6 +4,9 @@ name: Orders API
 constants:
   status: OPEN                             # example from the spec
   orderId: "4711"                          # example from the spec
+  status_shipments: IN_TRANSIT             # the first of IN_TRANSIT, DELIVERED; the "status" of "list an order's shipments", not listOrders'
+  # itemId:                                # no example in the spec: fill in, or -p constants.itemId=…
+  jobId: job-1                             # example from the spec
 
 auth:                                      # the spec's default security: clientCredentials
   type: bearer
@@ -86,11 +89,55 @@ subSuites:
               func: isEqualTo
               b: 200
 
+      - name: update an order
+        requestDefinition:
+          url: "${env.baseUrl}/orders/${constants.orderId}"
+          method: PUT
+          headers:
+            Content-Type: application/json
+          body:                            # built from the schema's examples; fill in: customerRef
+            raw: |
+              {
+                "item": "book",
+                "quantity": 2,
+                "currency": "EUR",
+                "customerRef": ""
+              }
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 200
+
+      - name: "list an order's shipments"
+        requestDefinition:
+          url: "${env.baseUrl}/orders/${constants.orderId}/shipments?status=${constants.status_shipments}"
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 200
+
+      - name: remove an item
+        requestDefinition:
+          url: "${env.baseUrl}/orders/${constants.orderId}/items/${constants.itemId}"
+          method: DELETE
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 204
+
   - name: bulk
+    auth:                                  # the spec's security for every request here: bulkKey
+      type: apikey
+      args:
+        key: "${secrets.apiKey}"           # BRAT_SECRET_API_KEY, or a secrets file
+        header: X-Bulk-Key
     requests:
       - name: import orders
         requestDefinition:
-          url: "${env.baseUrl}/orders/import"
+          url: "${env.bulkBaseUrl}/orders/import"
           method: POST
           headers:
             Content-Type: application/json
@@ -101,3 +148,12 @@ subSuites:
             - a: "${response.statusCode}"
               func: isEqualTo
               b: 202
+
+      - name: read an import job
+        requestDefinition:
+          url: "${env.bulkBaseUrl}/orders/import/${constants.jobId}"
+        responseActions:
+          assertions:
+            - a: "${response.statusCode}"
+              func: isEqualTo
+              b: 200
