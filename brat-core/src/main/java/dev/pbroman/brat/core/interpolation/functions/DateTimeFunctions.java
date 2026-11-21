@@ -41,6 +41,11 @@ import static dev.pbroman.brat.core.api.interpolation.FunctionArgs.requireArgCou
  */
 final class DateTimeFunctions {
 
+    // The names these functions are registered under, which their messages repeat.
+    private static final String NOW = "now";
+    private static final String EPOCH = "epoch";
+    private static final String DATE = "date";
+
     private static final Pattern OFFSET = Pattern.compile("([+-]?)(\\d+)([smhdwM])");
 
     private DateTimeFunctions() {
@@ -54,18 +59,18 @@ final class DateTimeFunctions {
      */
     public static List<BratFunction> functions() {
         return List.of(
-                BratFunction.of("now", DateTimeFunctions::now),
-                BratFunction.of("epoch", DateTimeFunctions::epoch),
-                BratFunction.of("date", DateTimeFunctions::date));
+                BratFunction.of(NOW, DateTimeFunctions::now),
+                BratFunction.of(EPOCH, DateTimeFunctions::epoch),
+                BratFunction.of(DATE, DateTimeFunctions::date));
     }
 
     private static String epoch(List<String> args) {
-        requireArgCount("epoch", args, 0, 0);
+        requireArgCount(EPOCH, args, 0, 0);
         return String.valueOf(System.currentTimeMillis());
     }
 
     private static String now(List<String> args) {
-        requireArgCount("now", args, 0, 2);
+        requireArgCount(NOW, args, 0, 2);
         if (args.isEmpty()) {
             return Instant.now().toString();
         }
@@ -74,7 +79,7 @@ final class DateTimeFunctions {
     }
 
     private static String date(List<String> args) {
-        requireArgCount("date", args, 1, 3);
+        requireArgCount(DATE, args, 1, 3);
         var zone = args.size() == 3 ? zoneOf(args.get(2)) : ZoneOffset.UTC;
         var shifted = shift(ZonedDateTime.now(zone), args.getFirst());
         return args.size() == 1
@@ -90,7 +95,7 @@ final class DateTimeFunctions {
         }
         // integer() rather than Long.parseLong: the pattern bounds the digits' shape but not their
         // magnitude, and an overflowing count must fail as a BratException like everything else
-        var amount = integer("date", matcher.group(2)) * ("-".equals(matcher.group(1)) ? -1 : 1);
+        var amount = integer(DATE, matcher.group(2)) * ("-".equals(matcher.group(1)) ? -1 : 1);
         try {
             return switch (matcher.group(3)) {
                 case "s" -> from.plusSeconds(amount);

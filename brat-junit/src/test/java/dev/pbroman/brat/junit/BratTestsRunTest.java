@@ -1,13 +1,21 @@
 package dev.pbroman.brat.junit;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DynamicContainer;
 import org.junit.jupiter.api.DynamicNode;
+import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.condition.EnabledIf;
@@ -121,6 +129,40 @@ class BratTestsRunTest {
                 .list();
     }
 
+    /**
+     * Executes every test of {@code tests} as Jupiter would, depth first, recording what each one writes
+     * to standard output while it — and only it — executes.
+     */
+    private static Map<String, String> printedByEachTest(BratTests tests) {
+        var printed = new LinkedHashMap<String, String>();
+        try (var stream = tests.tests()) {
+            executeAll(stream.iterator(), printed);
+        }
+        return printed;
+    }
+
+    private static void executeAll(Iterator<? extends DynamicNode> nodes, Map<String, String> printed) {
+        while (nodes.hasNext()) {
+            var node = nodes.next();
+            if (node instanceof DynamicContainer container) {
+                executeAll(container.getChildren().iterator(), printed);
+                continue;
+            }
+            var test = (DynamicTest) node;
+            var buffer = new ByteArrayOutputStream();
+            var original = System.out;
+            System.setOut(new PrintStream(buffer, true, StandardCharsets.UTF_8));
+            try {
+                test.getExecutable().execute();
+            } catch (Throwable verdict) {
+                // a failed or skipped test: its verdict is not what is asserted here
+            } finally {
+                System.setOut(original);
+            }
+            printed.put(test.getDisplayName(), buffer.toString(StandardCharsets.UTF_8));
+        }
+    }
+
     /** As {@link #run}, with Jupiter's parallel execution on and every test concurrent by default. */
     private static List<Event> runInParallel(Class<?> factory) {
         return EngineTestKit.engine("junit-jupiter")
@@ -202,6 +244,32 @@ class BratTestsRunTest {
         assertThat(message(events, "errors")).startsWith("errors — ");
         assertThat(finished(events, "is skipped").getStatus()).isEqualTo(TestExecutionResult.Status.ABORTED);
         assertThat(finished(events, "lists orders").getStatus()).isEqualTo(TestExecutionResult.Status.SUCCESSFUL);
+    }
+
+    @Test
+    void tests_printEachRequestOnItsOwnTestAsBratRunWould() {
+        // when
+        var printed = printedByEachTest(fixture("outcomes"));
+
+        // then
+        assertThat(printed.get("passes")).startsWith("PASS   passes (");
+        assertThat(printed.get("fails an assertion")).startsWith("FAIL   fails an assertion (");
+        assertThat(printed.get("errors")).startsWith("ERROR  errors (");
+        assertThat(printed.get("is skipped")).startsWith("SKIP   is skipped — ");
+        assertThat(printed.get("warm up [setup]")).startsWith("PASS   warm up [setup] (");
+        assertThat(printed.get("lists orders")).startsWith("PASS   lists orders (");
+        assertThat(printed.get("passes").lines()).hasSize(1);
+        assertThat(printed.get("fails an assertion").lines()).hasSize(1);
+    }
+
+    @Test
+    void tests_printTheEndOfAnAbortedOrSkippedSuiteOnItsTest() {
+        // when
+        var printed = printedByEachTest(fixture("suites-ending-early"));
+
+        // then
+        assertThat(printed.get("checkout: aborted")).startsWith("ABORTED checkout — ");
+        assertThat(printed.get("later: skipped")).startsWith("SKIPPED later — ");
     }
 
     @Test

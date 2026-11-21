@@ -2,7 +2,6 @@ package dev.pbroman.brat.core.reporting;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.Locale;
 
 import dev.pbroman.brat.core.api.listener.AttemptFinished;
 import dev.pbroman.brat.core.api.listener.RunEvent;
@@ -11,12 +10,12 @@ import dev.pbroman.brat.core.api.rendering.OutcomeRenderer;
 import dev.pbroman.brat.core.api.reporting.ReportDetail;
 import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.data.AssertionSeverity;
-import dev.pbroman.brat.core.data.Phase;
 import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.data.result.RunResult;
 import dev.pbroman.brat.core.data.result.SuiteStatus;
+import dev.pbroman.brat.core.rendering.ReportMarkers;
 import dev.pbroman.brat.core.rendering.ReportText;
 import dev.pbroman.brat.core.rendering.RequestRenderer;
 
@@ -28,19 +27,14 @@ import dev.pbroman.brat.core.rendering.RequestRenderer;
  */
 final class ConsoleRunListener implements RunListener {
 
-    /** What a request line opens with. */
-    private enum Verdict {
-        PASS,
-        FAIL,
-        SKIP,
-        ERROR
-    }
-
     private static final String INDENT = "  ";
-    /** Puts the detail under a request beneath its name rather than its verdict. */
-    private static final String DETAIL_INDENT = " ".repeat(9);
 
     private static final String DASH = " — ";
+
+    // The labels of the summary's counts, shared by its request, assertion and suite rows.
+    private static final String COUNT_PASSED = "passed";
+    private static final String COUNT_FAILED = "failed";
+    private static final String COUNT_SKIPPED = "skipped";
 
     private final PrintStream out;
     private final OutcomeRenderer renderer;
@@ -107,29 +101,10 @@ final class ConsoleRunListener implements RunListener {
 
     private void requestFinished(RequestResult result) {
         var coordinates = result.coordinates();
-        var status = result.status();
-        var failed = result.failed();
-        var verdict =
-                switch (status) {
-                    case RequestStatus.Errored errored -> Verdict.ERROR;
-                    case RequestStatus.Skipped skipped -> Verdict.SKIP;
-                    default -> failed ? Verdict.FAIL : Verdict.PASS;
-                };
-        count(status, failed);
+        count(result.status(), result.failed());
 
-        var line = new StringBuilder(indent(depth(coordinates.path())))
-                .append(column(verdict.name()))
-                .append(coordinates.name())
-                .append(tag(coordinates.phase()));
-        if (!(status instanceof RequestStatus.Skipped)) {
-            line.append(" (").append(duration(result.elapsedMs())).append(')');
-        }
-        var reason = reason(status);
-        if (reason != null) {
-            line.append(DASH).append(shown(reason));
-        }
-        out.println(line);
-        var detailIndent = indent(depth(coordinates.path())) + DETAIL_INDENT;
+        out.println(indent(depth(coordinates.path())) + RequestRenderer.headline(result, mask, detail.showSecrets()));
+        var detailIndent = indent(depth(coordinates.path())) + RequestRenderer.DETAIL_INDENT;
         for (var detailLine : RequestRenderer.lines(result, detail, mask, renderer)) {
             out.println(detailIndent + detailLine);
         }
@@ -182,15 +157,15 @@ final class ConsoleRunListener implements RunListener {
             }
             case SuiteStatus.Skipped skipped -> {
                 suitesSkipped++;
-                out.println(indent + "SKIPPED " + name + DASH + shown(skipped.reason()));
+                out.println(indent + ReportMarkers.SKIPPED + " " + name + DASH + shown(skipped.reason()));
             }
             case SuiteStatus.Aborted aborted -> {
                 suitesAborted++;
-                out.println(indent + "ABORTED " + name + DASH + shown(aborted.reason()));
+                out.println(indent + ReportMarkers.ABORTED + " " + name + DASH + shown(aborted.reason()));
             }
             case SuiteStatus.Cancelled cancelled -> {
                 suitesCancelled++;
-                out.println(indent + "CANCELLED " + name);
+                out.println(indent + ReportMarkers.CANCELLED + " " + name);
             }
         }
     }
@@ -198,12 +173,12 @@ final class ConsoleRunListener implements RunListener {
     private void summary(RunResult result) {
         out.println("-----");
         out.println(row("requests", requests)
-                + part("passed", requestsPassed)
-                + part("failed", requestsFailed)
-                + part("skipped", requestsSkipped));
+                + part(COUNT_PASSED, requestsPassed)
+                + part(COUNT_FAILED, requestsFailed)
+                + part(COUNT_SKIPPED, requestsSkipped));
         out.println(row("assertions", assertions)
-                + part("passed", assertionsPassed)
-                + part("failed", assertionsFailed)
+                + part(COUNT_PASSED, assertionsPassed)
+                + part(COUNT_FAILED, assertionsFailed)
                 + part("warned", assertionsWarned));
         if (capturesFailed > 0) {
             out.println("captures failed " + capturesFailed);
@@ -215,7 +190,7 @@ final class ConsoleRunListener implements RunListener {
                 parts.add(part("aborted", suitesAborted));
             }
             if (suitesSkipped > 0) {
-                parts.add(part("skipped", suitesSkipped));
+                parts.add(part(COUNT_SKIPPED, suitesSkipped));
             }
             if (suitesCancelled > 0) {
                 parts.add(part("cancelled", suitesCancelled));
@@ -224,11 +199,11 @@ final class ConsoleRunListener implements RunListener {
         }
         String verdict;
         if (result.error() != null) {
-            verdict = "ABORTED" + DASH + shown(result.error());
+            verdict = ReportMarkers.ABORTED + DASH + shown(result.error());
         } else if (result.cancelled()) {
-            verdict = "CANCELLED";
+            verdict = ReportMarkers.CANCELLED;
         } else {
-            verdict = requestsFailed > 0 || suitesAborted > 0 ? "FAILED" : "PASSED";
+            verdict = requestsFailed > 0 || suitesAborted > 0 ? ReportMarkers.FAILED : ReportMarkers.PASSED;
         }
         out.println(duration(result.elapsedMs()) + " · " + verdict);
     }
@@ -239,23 +214,6 @@ final class ConsoleRunListener implements RunListener {
 
     private static String part(String label, int count) {
         return String.format("   %s %d", label, count);
-    }
-
-    private static String reason(RequestStatus status) {
-        return switch (status) {
-            case RequestStatus.Skipped skipped -> skipped.reason();
-            case RequestStatus.Errored errored -> errored.message();
-            case RequestStatus.GaveUp gaveUp -> gaveUp.message();
-            case RequestStatus.Completed completed -> null;
-        };
-    }
-
-    private static String tag(Phase phase) {
-        return switch (phase) {
-            case SETUP -> " [setup]";
-            case TEARDOWN -> " [teardown]";
-            case MAIN -> "";
-        };
     }
 
     /** Pads a request line's marker so that the names after it line up. */
@@ -278,6 +236,6 @@ final class ConsoleRunListener implements RunListener {
     }
 
     private static String duration(long ms) {
-        return ms < 1000 ? ms + " ms" : String.format(Locale.ROOT, "%.1f s", ms / 1000.0);
+        return ReportText.duration(ms);
     }
 }

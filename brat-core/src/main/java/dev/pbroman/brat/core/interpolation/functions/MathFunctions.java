@@ -30,6 +30,13 @@ import static dev.pbroman.brat.core.api.interpolation.FunctionArgs.requireArgCou
  */
 final class MathFunctions {
 
+    // The names these functions are registered under, which their messages repeat.
+    private static final String ADD = "add";
+    private static final String SUBTRACT = "subtract";
+    private static final String MULTIPLY = "multiply";
+    private static final String DIVIDE = "divide";
+    private static final String MOD = "mod";
+
     private static final MathContext DECIMAL_16 = MathContext.DECIMAL64;
 
     private MathFunctions() {
@@ -43,19 +50,16 @@ final class MathFunctions {
      */
     public static List<BratFunction> functions() {
         return List.of(
-                BratFunction.of("add", args -> apply("add", args, BigDecimal::add)),
-                BratFunction.of("subtract", args -> apply("subtract", args, BigDecimal::subtract)),
-                BratFunction.of("multiply", args -> apply("multiply", args, BigDecimal::multiply)),
+                BratFunction.of(ADD, args -> apply(ADD, args, BigDecimal::add)),
+                BratFunction.of(SUBTRACT, args -> apply(SUBTRACT, args, BigDecimal::subtract)),
+                BratFunction.of(MULTIPLY, args -> apply(MULTIPLY, args, BigDecimal::multiply)),
                 BratFunction.of(
-                        "divide",
+                        DIVIDE,
                         args -> apply(
-                                "divide",
-                                args,
-                                (a, b) -> nonZero("divide", a, b).divide(b, DECIMAL_16))),
+                                DIVIDE, args, (a, b) -> nonZero(DIVIDE, a, b).divide(b, DECIMAL_16))),
                 BratFunction.of(
-                        "mod",
-                        args -> apply(
-                                "mod", args, (a, b) -> nonZero("mod", a, b).remainder(b))));
+                        MOD,
+                        args -> apply(MOD, args, (a, b) -> nonZero(MOD, a, b).remainder(b))));
     }
 
     private static String apply(String name, List<String> args, BinaryOperator<BigDecimal> operation) {

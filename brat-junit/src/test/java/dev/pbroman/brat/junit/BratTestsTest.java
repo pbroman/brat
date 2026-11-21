@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Properties;
 
+import dev.pbroman.brat.core.api.reporting.ReportDetail;
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -141,12 +143,92 @@ class BratTestsTest {
         base.environmentDirectory("envs/ci");
         base.env("baseUrl", "http://x");
         base.param("tenant", "acme");
+        base.show(Map.of("response", "all"));
+        base.quiet();
 
         // then
         var launch = base.launch(service);
+        assertThat(base.output(new Properties(), new Properties()).quiet()).isFalse();
         assertThat(launch.environment()).isNull();
         assertThat(launch.environmentDirectory()).isNull();
         assertThat(launch.params()).isEmpty();
+    }
+
+    // --- what the tests print ---
+
+    @Test
+    void show_choosesWhatTheTestsPrintMergingKeysGivenBefore() {
+        // when
+        var output = BratTests.suite("x")
+                .show(Map.of("response", "all", "request", "all"))
+                .show(Map.of("request", "none"))
+                .output(new Properties(), new Properties());
+
+        // then
+        assertThat(output.detail()).isEqualTo(ReportDetail.of(Map.of("response", "all", "request", "none")));
+        assertThat(output.quiet()).isFalse();
+    }
+
+    @Test
+    void show_winsOverConfiguration() {
+        // given
+        var system = new Properties();
+        system.setProperty("brat.show.response", "none");
+
+        // when
+        var output = BratTests.suite("x").show(Map.of("response", "all")).output(system, new Properties());
+
+        // then
+        assertThat(output.detail().response())
+                .isEqualTo(ReportDetail.of(Map.of("response", "all")).response());
+    }
+
+    @Test
+    void show_refusesAKeyNamingNoDetailNamingTheDetails() {
+        // when / then
+        assertThatThrownBy(() -> BratTests.suite("x").show(Map.of("respons", "all")))
+                .isInstanceOf(BratException.class)
+                .hasMessageContaining("respons")
+                .hasMessageContaining("response");
+    }
+
+    @Test
+    void show_refusesAValueTheDetailDoesNotTake() {
+        // when / then
+        assertThatThrownBy(() -> BratTests.suite("x").show(Map.of("assertions", "none")))
+                .isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void show_refusesNull() {
+        // when / then
+        assertThatThrownBy(() -> BratTests.suite("x").show(null)).isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void quiet_silencesTheTestsWinningOverConfiguration() {
+        // given
+        var file = new Properties();
+        file.setProperty("brat.quiet", "false");
+
+        // when
+        var output = BratTests.suite("x").quiet().output(new Properties(), file);
+
+        // then
+        assertThat(output.quiet()).isTrue();
+    }
+
+    @Test
+    void output_takesConfigurationWhereTheTestChoseNothing() {
+        // given
+        var file = new Properties();
+        file.setProperty("brat.quiet", "true");
+
+        // when
+        var output = BratTests.suite("x").output(new Properties(), file);
+
+        // then
+        assertThat(output.quiet()).isTrue();
     }
 
     // --- refusals while building ---

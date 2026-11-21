@@ -1,5 +1,7 @@
 package dev.pbroman.brat.core.rendering;
 
+import java.util.Locale;
+
 import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.exception.BratException;
 
@@ -46,5 +48,16 @@ public final class ReportText {
         var kept = Character.isHighSurrogate(masked.charAt(MAX_LENGTH - 1)) ? MAX_LENGTH - 1 : MAX_LENGTH;
         return masked.substring(0, kept) + System.lineSeparator() + "… " + (masked.length() - kept)
                 + " more characters";
+    }
+
+    /**
+     * Returns {@code ms} as a report prints a duration: {@code 12 ms} below a second, else seconds to one
+     * decimal, {@code 1.5 s}, whatever the locale.
+     *
+     * @param ms the duration in milliseconds
+     * @return the duration as text; never {@code null}
+     */
+    public static String duration(long ms) {
+        return ms < 1000 ? ms + " ms" : String.format(Locale.ROOT, "%.1f s", ms / 1000.0);
     }
 }

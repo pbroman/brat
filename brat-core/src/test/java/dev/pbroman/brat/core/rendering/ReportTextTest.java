@@ -1,5 +1,7 @@
 package dev.pbroman.brat.core.rendering;
 
+import java.util.Locale;
+
 import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.exception.BratException;
 import org.junit.jupiter.api.Test;
@@ -110,5 +112,26 @@ class ReportTextTest {
     void shown_throwsForANullMask() {
         // when / then
         assertThatThrownBy(() -> ReportText.shown("text", null, false)).isInstanceOf(BratException.class);
+    }
+
+    @Test
+    void duration_isMillisecondsBelowASecond() {
+        // when / then
+        assertThat(ReportText.duration(0)).isEqualTo("0 ms");
+        assertThat(ReportText.duration(999)).isEqualTo("999 ms");
+    }
+
+    @Test
+    void duration_isSecondsToOneDecimalFromASecondWhateverTheLocale() {
+        // given
+        var before = Locale.getDefault();
+        Locale.setDefault(Locale.GERMANY);
+        try {
+            // when / then
+            assertThat(ReportText.duration(1000)).isEqualTo("1.0 s");
+            assertThat(ReportText.duration(1550)).isEqualTo("1.6 s");
+        } finally {
+            Locale.setDefault(before);
+        }
     }
 }

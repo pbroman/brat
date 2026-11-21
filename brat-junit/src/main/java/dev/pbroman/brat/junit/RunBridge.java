@@ -22,7 +22,6 @@ import dev.pbroman.brat.core.api.listener.RunControl;
 import dev.pbroman.brat.core.api.listener.RunEvent;
 import dev.pbroman.brat.core.api.listener.RunListener;
 import dev.pbroman.brat.core.api.rendering.OutcomeRenderer;
-import dev.pbroman.brat.core.api.reporting.ReportDetail;
 import dev.pbroman.brat.core.api.reporting.ReporterContext;
 import dev.pbroman.brat.core.api.reporting.RunReporter;
 import dev.pbroman.brat.core.api.reporting.ValueMask;
@@ -32,6 +31,7 @@ import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.data.result.RunResult;
 import dev.pbroman.brat.core.data.result.SuiteStatus;
 import dev.pbroman.brat.core.launch.PreparedRun;
+import dev.pbroman.brat.core.rendering.ReportMarkers;
 import dev.pbroman.brat.core.rendering.ReportText;
 import dev.pbroman.brat.core.rendering.RequestRenderer;
 import dev.pbroman.brat.core.runner.Brat;
@@ -80,10 +80,11 @@ final class RunBridge {
      *
      * @param brat a runner from {@link #newBrat()}, owned from here on; never {@code null}
      * @param prepared the suite and its environment, read by {@code brat}; never {@code null}
+     * @param output what the tests print, and the detail a failure carries; never {@code null}
      * @return the tests
      */
-    static Stream<DynamicNode> nodes(Brat brat, PreparedRun prepared) {
-        var run = new Run(brat, prepared);
+    static Stream<DynamicNode> nodes(Brat brat, PreparedRun prepared, Output output) {
+        var run = new Run(brat, prepared, output);
         return stream(new Level(run, prepared.suite().name(), Run.TOP, true)).onClose(run::close);
     }
 
@@ -105,6 +106,7 @@ final class RunBridge {
         private final PreparedRun prepared;
         private final Events events;
         private final RunControl control = RunControl.create();
+        private final Output output;
         /** Held by whichever thread is reading the queue, so each event is read and sorted once. */
         private final ReentrantLock reading = new ReentrantLock();
 
@@ -120,9 +122,10 @@ final class RunBridge {
 
         private volatile ValueMask mask = new ValueMask();
 
-        Run(Brat brat, PreparedRun prepared) {
+        Run(Brat brat, PreparedRun prepared, Output output) {
             this.brat = brat;
             this.prepared = prepared;
+            this.output = output;
             this.events = (Events) brat.reporter(REPORTER, Map.of());
         }
 
@@ -377,12 +380,14 @@ final class RunBridge {
             if (status instanceof SuiteStatus.Aborted aborted) {
                 var reason = run.shown(aborted.reason());
                 return DynamicTest.dynamicTest(name + ": aborted", () -> {
+                    TestPrinter.end(System.out, ReportMarkers.ABORTED, name, aborted.reason(), run.output, run.mask);
                     throw new AssertionFailedError(reason);
                 });
             }
             if (status instanceof SuiteStatus.Skipped skipped) {
                 var reason = run.shown(skipped.reason());
                 return DynamicTest.dynamicTest(name + ": skipped", () -> {
+                    TestPrinter.end(System.out, ReportMarkers.SKIPPED, name, skipped.reason(), run.output, run.mask);
                     throw new TestAbortedException(reason);
                 });
             }
@@ -395,9 +400,11 @@ final class RunBridge {
             if (!root || run.stopped || run.error == null) {
                 return null;
             }
-            var error = run.shown(run.error);
+            var raw = run.error;
+            var error = run.shown(raw);
             run.error = null;
             return DynamicTest.dynamicTest(name + ": run failed", () -> {
+                TestPrinter.end(System.out, ReportMarkers.ERROR, name, raw, run.output, run.mask);
                 throw new AssertionFailedError(error);
             });
         }
@@ -415,6 +422,7 @@ final class RunBridge {
         if (result == null) {
             throw new AssertionFailedError("The run ended before this request finished");
         }
+        TestPrinter.request(System.out, result, run.output, run.mask, run.events.renderer());
         verdict(result, run);
     }
 
@@ -436,7 +444,7 @@ final class RunBridge {
         var lines = new ArrayList<String>();
         var header = result.coordinates().name();
         lines.add(reason == null ? header : header + DASH + run.shown(reason));
-        var detail = RequestRenderer.lines(result, ReportDetail.of(Map.of()), run.mask, run.events.renderer());
+        var detail = RequestRenderer.lines(result, run.output.detail(), run.mask, run.events.renderer());
         for (var line : detail) {
             lines.add(INDENT + line);
         }

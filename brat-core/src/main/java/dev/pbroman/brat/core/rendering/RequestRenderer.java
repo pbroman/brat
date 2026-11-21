@@ -12,8 +12,10 @@ import dev.pbroman.brat.core.api.reporting.ReportDetail;
 import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.data.AssertionSeverity;
 import dev.pbroman.brat.core.data.ConfigData;
+import dev.pbroman.brat.core.data.Phase;
 import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.result.RequestResult;
+import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.exception.BratException;
 
 import static dev.pbroman.brat.core.util.Require.nonNull;
@@ -27,6 +29,12 @@ import static dev.pbroman.brat.core.util.Require.nonNull;
  */
 public final class RequestRenderer {
 
+    /**
+     * What a report puts before each line of {@link #lines} under a request's {@link #headline}: nine
+     * spaces, so the detail starts beneath the request's name rather than its verdict.
+     */
+    public static final String DETAIL_INDENT = " ".repeat(9);
+
     private static final String INDENT = "  ";
 
     private static final String DASH = " — ";
@@ -36,6 +44,65 @@ public final class RequestRenderer {
 
     private RequestRenderer() {
         // static helpers only
+    }
+
+    /**
+     * Returns a request's own line, as a report prints it: its verdict padded to seven characters —
+     * {@code PASS}, {@code FAIL} for a request that {@linkplain RequestResult#failed() failed} but did not
+     * error, {@code ERROR} for an errored one, {@code SKIP} for a skipped one — then its name, then
+     * {@code [setup]} or {@code [teardown]} for those phases, then its duration in parentheses
+     * ({@link ReportText#duration}) unless it was skipped, then {@code " — "} and the reason where its
+     * status gives one (a skip's, an error's, a give-up's message), shown through
+     * {@link ReportText#shown}. So: {@code PASS   passes (12 ms)},
+     * {@code SKIP   is skipped — tenant-only checks}.
+     *
+     * @param result the request's result; must not be {@code null}
+     * @param mask the run's mask; must not be {@code null}
+     * @param showSecrets whether values the mask only guessed are left in
+     * @return the line, with no indent of its own; never {@code null}
+     * @throws BratException if {@code result} or {@code mask} is {@code null}
+     */
+    public static String headline(RequestResult result, ValueMask mask, boolean showSecrets) {
+        nonNull(result, "The request result to render must not be null");
+        nonNull(mask, "The mask must not be null");
+        var status = result.status();
+        String verdict;
+        if (status instanceof RequestStatus.Errored) {
+            verdict = ReportMarkers.ERROR;
+        } else if (status instanceof RequestStatus.Skipped) {
+            verdict = ReportMarkers.SKIP;
+        } else {
+            verdict = result.failed() ? ReportMarkers.FAIL : ReportMarkers.PASS;
+        }
+        var coordinates = result.coordinates();
+        var line = new StringBuilder(String.format("%-7s", verdict))
+                .append(coordinates.name())
+                .append(tag(coordinates.phase()));
+        if (!(status instanceof RequestStatus.Skipped)) {
+            line.append(" (").append(ReportText.duration(result.elapsedMs())).append(')');
+        }
+        var reason = reason(status);
+        if (reason != null) {
+            line.append(DASH).append(ReportText.shown(reason, mask, showSecrets));
+        }
+        return line.toString();
+    }
+
+    private static String tag(Phase phase) {
+        return switch (phase) {
+            case SETUP -> " [setup]";
+            case TEARDOWN -> " [teardown]";
+            case MAIN -> "";
+        };
+    }
+
+    private static String reason(RequestStatus status) {
+        return switch (status) {
+            case RequestStatus.Skipped skipped -> skipped.reason();
+            case RequestStatus.Errored errored -> errored.message();
+            case RequestStatus.GaveUp gaveUp -> gaveUp.message();
+            case RequestStatus.Completed completed -> null;
+        };
     }
 
     /**
@@ -83,7 +150,7 @@ public final class RequestRenderer {
             }
         }
         for (var capture : result.responseActionsResult().captureFailures()) {
-            lines.add("CAPTURE " + capture.name() + DASH
+            lines.add(ReportMarkers.CAPTURE + " " + capture.name() + DASH
                     + ReportText.shown(capture.message(), mask, detail.showSecrets()));
         }
         if (detail.showsRequest(result) && result.requestDefinition() instanceof ConfigData sent) {
@@ -103,9 +170,9 @@ public final class RequestRenderer {
             AssertionResult assertion, ReportDetail detail, ValueMask mask, OutcomeRenderer renderer) {
         String mark;
         if (assertion.passed()) {
-            mark = "PASS";
+            mark = ReportMarkers.PASS;
         } else {
-            mark = assertion.severity() == AssertionSeverity.WARN ? "WARN" : "FAIL";
+            mark = assertion.severity() == AssertionSeverity.WARN ? ReportMarkers.WARN : ReportMarkers.FAIL;
         }
         var condition = assertion.condition();
         var header = String.format("%-6s", mark) + condition.getFunc();

@@ -104,6 +104,105 @@ class RequestRendererTest {
         return RequestRenderer.lines(result, detail, mask, renderer);
     }
 
+    // --- headline ---
+
+    private static RequestResult withStatus(RequestStatus status, Phase phase, AssertionResult... assertions) {
+        return new RequestResult(
+                new RequestCoordinates("orders/read", null, "read", phase, 1),
+                sent(),
+                null,
+                status,
+                1500,
+                0,
+                new ResponseActionsResult(List.of(assertions), List.of()));
+    }
+
+    @Test
+    void headline_isPassThenTheNameAndTheDuration() {
+        // when
+        var line = RequestRenderer.headline(
+                withStatus(new RequestStatus.Completed(Map.of(), 1, 12), Phase.MAIN), mask, false);
+
+        // then
+        assertThat(line).isEqualTo("PASS   read (1.5 s)");
+    }
+
+    @Test
+    void headline_isFailForAFailedAssertion() {
+        // when
+        var line = RequestRenderer.headline(
+                withStatus(new RequestStatus.Completed(Map.of(), 1, 12), Phase.MAIN, failing()), mask, false);
+
+        // then
+        assertThat(line).isEqualTo("FAIL   read (1.5 s)");
+    }
+
+    @Test
+    void headline_isErrorWithTheErrorsMessage() {
+        // when
+        var line = RequestRenderer.headline(
+                withStatus(new RequestStatus.Errored("No 'baseUrl' in env"), Phase.MAIN), mask, false);
+
+        // then
+        assertThat(line).isEqualTo("ERROR  read (1.5 s) — No 'baseUrl' in env");
+    }
+
+    @Test
+    void headline_isFailWithTheMessageOfAGiveUp() {
+        // given
+        var gaveUp = new RequestStatus.GaveUp(new RequestStatus.Completed(Map.of(), 3, 12), "never became ready");
+
+        // when
+        var line = RequestRenderer.headline(withStatus(gaveUp, Phase.MAIN), mask, false);
+
+        // then
+        assertThat(line).isEqualTo("FAIL   read (1.5 s) — never became ready");
+    }
+
+    @Test
+    void headline_isSkipWithTheReasonAndNoDuration() {
+        // when
+        var line = RequestRenderer.headline(
+                withStatus(new RequestStatus.Skipped("tenant-only checks"), Phase.MAIN), mask, false);
+
+        // then
+        assertThat(line).isEqualTo("SKIP   read — tenant-only checks");
+    }
+
+    @Test
+    void headline_tagsSetupAndTeardown() {
+        // when
+        var setup = RequestRenderer.headline(
+                withStatus(new RequestStatus.Completed(Map.of(), 1, 12), Phase.SETUP), mask, false);
+        var teardown = RequestRenderer.headline(
+                withStatus(new RequestStatus.Completed(Map.of(), 1, 12), Phase.TEARDOWN), mask, false);
+
+        // then
+        assertThat(setup).isEqualTo("PASS   read [setup] (1.5 s)");
+        assertThat(teardown).isEqualTo("PASS   read [teardown] (1.5 s)");
+    }
+
+    @Test
+    void headline_masksTheReason() {
+        // given
+        mask.addSecret(SECRET);
+
+        // when
+        var line = RequestRenderer.headline(
+                withStatus(new RequestStatus.Errored("rejected " + SECRET), Phase.MAIN), mask, false);
+
+        // then
+        assertThat(line).doesNotContain(SECRET).endsWith("rejected ***");
+    }
+
+    @Test
+    void headline_refusesANullResultOrMask() {
+        // when / then
+        assertThatThrownBy(() -> RequestRenderer.headline(null, mask, false)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> RequestRenderer.headline(result(failing()), null, false))
+                .isInstanceOf(BratException.class);
+    }
+
     // --- what is shown ---
 
     @Test

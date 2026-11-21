@@ -37,6 +37,14 @@ import static dev.pbroman.brat.core.api.interpolation.FunctionArgs.requireRange;
  */
 final class GeneratorFunctions {
 
+    // The names these functions are registered under, which their messages repeat.
+    private static final String UUID_NAME = "uuid";
+    private static final String RANDOM_INT = "randomInt";
+    private static final String RANDOM_LONG = "randomLong";
+    private static final String RANDOM_FLOAT = "randomFloat";
+    private static final String RANDOM_FROM = "randomFrom";
+    private static final String RANDOM_STRING = "randomString";
+
     private static final String DEFAULT_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 
     /**
@@ -57,27 +65,27 @@ final class GeneratorFunctions {
      */
     public static List<BratFunction> functions() {
         return List.of(
-                BratFunction.of("uuid", GeneratorFunctions::uuid),
-                BratFunction.of("randomInt", GeneratorFunctions::randomInt),
-                BratFunction.of("randomLong", GeneratorFunctions::randomLong),
-                BratFunction.of("randomFloat", GeneratorFunctions::randomFloat),
-                BratFunction.of("randomFrom", GeneratorFunctions::randomFrom),
-                BratFunction.of("randomString", GeneratorFunctions::randomString));
+                BratFunction.of(UUID_NAME, GeneratorFunctions::uuid),
+                BratFunction.of(RANDOM_INT, GeneratorFunctions::randomInt),
+                BratFunction.of(RANDOM_LONG, GeneratorFunctions::randomLong),
+                BratFunction.of(RANDOM_FLOAT, GeneratorFunctions::randomFloat),
+                BratFunction.of(RANDOM_FROM, GeneratorFunctions::randomFrom),
+                BratFunction.of(RANDOM_STRING, GeneratorFunctions::randomString));
     }
 
     private static String uuid(List<String> args) {
-        requireArgCount("uuid", args, 0, 0);
+        requireArgCount(UUID_NAME, args, 0, 0);
         return UUID.randomUUID().toString();
     }
 
     private static String randomInt(List<String> args) {
-        requireArgCount("randomInt", args, 2, 2);
-        return String.valueOf(randomInRange("randomInt", args));
+        requireArgCount(RANDOM_INT, args, 2, 2);
+        return String.valueOf(randomInRange(RANDOM_INT, args));
     }
 
     private static String randomLong(List<String> args) {
-        requireArgCount("randomLong", args, 2, 2);
-        return String.valueOf(randomInRange("randomLong", args));
+        requireArgCount(RANDOM_LONG, args, 2, 2);
+        return String.valueOf(randomInRange(RANDOM_LONG, args));
     }
 
     private static long randomInRange(String name, List<String> args) {
@@ -92,7 +100,7 @@ final class GeneratorFunctions {
     }
 
     private static String randomFloat(List<String> args) {
-        requireArgCount("randomFloat", args, 2, 2);
+        requireArgCount(RANDOM_FLOAT, args, 2, 2);
         var min = finiteBound(args.get(0));
         var max = finiteBound(args.get(1));
         if (min > max) {
@@ -107,7 +115,7 @@ final class GeneratorFunctions {
      * saturates to infinity rather than failing, and an infinite bound blows up inside the generator.
      */
     private static double finiteBound(String value) {
-        var bound = decimal("randomFloat", value).doubleValue();
+        var bound = decimal(RANDOM_FLOAT, value).doubleValue();
         if (!Double.isFinite(bound)) {
             throw new BratException("__randomFloat needs bounds a decimal number can hold, but got '" + value + "'");
         }
@@ -115,13 +123,13 @@ final class GeneratorFunctions {
     }
 
     private static String randomFrom(List<String> args) {
-        requireArgCount("randomFrom", args, 1, Integer.MAX_VALUE);
+        requireArgCount(RANDOM_FROM, args, 1, Integer.MAX_VALUE);
         return args.get(ThreadLocalRandom.current().nextInt(args.size()));
     }
 
     private static String randomString(List<String> args) {
-        requireArgCount("randomString", args, 1, 2);
-        var length = integerWithin("randomString", args.getFirst(), 0, MAX_LENGTH);
+        requireArgCount(RANDOM_STRING, args, 1, 2);
+        var length = integerWithin(RANDOM_STRING, args.getFirst(), 0, MAX_LENGTH);
         var alphabet = args.size() == 2 ? args.get(1) : DEFAULT_ALPHABET;
         if (alphabet.isEmpty()) {
             throw new BratException("__randomString needs a non-empty alphabet to draw from");
