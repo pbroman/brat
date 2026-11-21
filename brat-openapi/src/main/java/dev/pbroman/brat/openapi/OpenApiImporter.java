@@ -4,7 +4,7 @@ import dev.pbroman.brat.core.exception.BratException;
 import dev.pbroman.brat.core.util.Require;
 
 /**
- * Imports an OpenAPI 3.0 or 3.1 document as a starting-point suite: one request per operation, one
+ * Imports an OpenAPI 3.0, 3.1 or 3.2 document as a starting-point suite: one request per operation, one
  * environment directory per server, and a comment wherever the author has to fill something in.
  * <p>
  * The import happens in memory and touches no disk; writing the files is the caller's. It holds no
@@ -36,24 +36,40 @@ public final class OpenApiImporter {
      * claiming theirs before sub-suites.
      * <p>
      * <strong>A request's definition.</strong> Its url is {@code ${env.baseUrl}} followed by the path,
-     * each {@code {name}} in it replaced by {@code ${constants.name}}, then the required query parameters
-     * as {@code name=${constants.name}}, joined by {@code &}. Each required header parameter is a header
-     * of its name with the value {@code ${constants.name}}, except {@code Accept}, {@code Content-Type}
+     * each {@code {name}} in it replaced by {@code ${constants.<constant>}}, then the required query
+     * parameters as {@code name=${constants.<constant>}}, joined by {@code &} — {@code <constant>} being the
+     * name of the constant that parameter is sent from, below. Each required header parameter is a header
+     * of its name with the value {@code ${constants.<constant>}}, except {@code Accept}, {@code Content-Type}
      * and {@code Authorization} (in any case), which are ignored. Its {@code method} is written unless it
      * is {@code GET}. Optional query and header parameters are not sent, and the url carries a comment
      * naming them. A cookie parameter is not sent either; a required one gets a comment and a note.
      * <p>
-     * <strong>Constants.</strong> One per parameter name the requests send, in the order the spec first
-     * uses each — one {@code ${constants.id}} serves every operation with a parameter {@code id}. The
-     * first operation using it decides its value, its example written as the text of a single value, and
-     * how it is written, by where that operation sends it: where the value would not survive in a url,
-     * because it holds a character other than a letter, a digit or {@code -._~}, a path or query
-     * constant is written percent-encoded as UTF-8 with a comment giving the example as the spec has it,
-     * while a header constant is written as it is. Every constant carries a comment saying where its
-     * value came from. Its value is {@code ""}, with a comment and a note, when the first operation gives
-     * no example, gives a list or a mapping, or gives one holding <code>${</code>, which would be read as
-     * a placeholder. Where later operations give a different example, the comment names each request and
-     * its example, and a note says so.
+     * <strong>Constants.</strong> One per parameter the requests send, in the order the spec first uses
+     * each, where a parameter is a name together with what the spec makes it: its {@code in}, its schema's
+     * type and enum, and for an array its items' type and enum. Parameters alike in all of these share a
+     * constant — one {@code ${constants.orderId}} serves every operation sending that {@code orderId}.
+     * Of parameters sharing a name and not the rest, the first met keeps the bare name and each other is
+     * named {@code <name>_<segment>}: {@code <segment>} is the last segment of its first operation's path
+     * that is not a {@code {parameter}}, each run of characters other than a letter or a digit made one
+     * {@code _} and any at either end dropped ({@code /me/top/{type}} → {@code type_top}); where that
+     * leaves nothing, or the name is already taken, the lowest free of {@code <name>_2}, {@code <name>_3}….
+     * <p>
+     * A constant's value is the first <em>usable</em> example among the operations it serves, in spec
+     * order — one that is a single value holding no <code>${</code> — written as the text of a single
+     * value, and how it is written is decided by where the operation giving it sends it: where the value
+     * would not survive in a url, because it holds a character other than a letter, a digit or
+     * {@code -._~}, a path or query constant is written percent-encoded as UTF-8 with a comment giving the
+     * example as the spec has it, while a header constant is written as it is. Without a usable example,
+     * its value is the first of the parameter's enum values, with a comment naming them — at most five,
+     * then {@code …}. Without either, the constant is <strong>written commented out</strong>,
+     * {@code # <name>:}, with a comment and a note saying to fill it in or pass
+     * {@code -p constants.<name>=…}; a request sending it then errors before anything is sent,
+     * {@code The constant '<name>' is not set}, rather than sending a blank. Where no constant has a
+     * value, the {@code constants:} key is commented out as well. Every constant carries a
+     * comment saying where its value came from; one named with a suffix adds
+     * {@code the "<parameter name>" of "<its first request>", not <the bare one's first request>'}.
+     * Where the operations a constant serves give different examples, the comment names each later
+     * request and its example, and a note says so.
      * <p>
      * <strong>The body.</strong> Of an operation's request-body media types, the first JSON one
      * ({@code application/json}, or any ending in {@code +json}) is used, else the first
@@ -62,14 +78,24 @@ public final class OpenApiImporter {
      * <ul>
      *   <li><em>JSON</em>: a {@code Content-Type} header of the media type as written, and the example
      *       printed as JSON — two spaces of indent, {@code "key": value}, one member or element per line.
-     *       An example given as text is read as JSON first; text that is not JSON is the request's
-     *       {@code raw} as it is, with a comment, whatever its length. Printed JSON of up to
+     *       An example given as text is read as JSON where it is an object or a list
+     *       ({@code '{"item":"book"}'}); any other text is a JSON string, printed as one ({@code "."}).
+     *       An example given as {@code serializedValue} is already in its final form: it is the request's
+     *       {@code raw} as it is, with a comment, whatever its length. <strong>Without an example</strong>,
+     *       the body is built from the schema: a value's own example, else its first enum value; an
+     *       object of its properties, each that has a value and each required one, a required one without
+     *       a value written as a blank of its type ({@code ""}, {@code 0}, {@code false}, {@code []},
+     *       {@code {}} — an object built of its own required properties); an array of one element, its
+     *       items' value. A property neither required nor having a value is left out. A built body
+     *       carries a comment on {@code body:} — {@code built from the schema's examples}, then
+     *       {@code ; fill in: } and the required properties written blank, nested ones as
+     *       {@code customer.name} — and, where any is blank, a note. Printed JSON of up to
      *       {@link ImportOptions#bodyFileLines()} lines is the request's {@code raw}, as a literal block;
      *       longer, it is written to {@code bodies/<name>.json} and the
      *       request's {@code file} names it, with a comment giving its length and the limit. A file name is
      *       the request's name made into a file name, or {@code body}, a taken one getting {@code -2},
-     *       {@code -3}… across the whole suite. No example, or one holding <code>${</code>, gives an empty
-     *       {@code raw} with a comment and a note.</li>
+     *       {@code -3}… across the whole suite. No example and nothing to build, or a body holding
+     *       <code>${</code>, gives an empty {@code raw} with a comment and a note.</li>
      *   <li><em>Form</em>: a {@code form} with one entry per property of the media type's schema, in
      *       order, each holding the example's value for it where the example is a mapping with a single
      *       value there that holds no <code>${</code>, and {@code ""} otherwise. No {@code Content-Type}

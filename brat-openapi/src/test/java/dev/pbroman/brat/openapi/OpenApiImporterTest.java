@@ -515,7 +515,7 @@ class OpenApiImporterTest {
     }
 
     @Test
-    void scaffold_leavesAConstantEmptyAndNotesIt_whenThereIsNoExample() {
+    void scaffold_commentsAConstantOutAndNotesIt_whenThereIsNoExample() {
         // when
         var scaffold = withPaths("""
                 /orders/{orderId}:
@@ -523,18 +523,19 @@ class OpenApiImporterTest {
                     summary: read an order
                 """);
 
-        // then
+        // then - the url still sends it, so the run names it rather than sending a blank
         assertThat(onlyRequest(scaffold).get("requestDefinition").get("url").asString())
                 .isEqualTo("${env.baseUrl}/orders/${constants.orderId}");
-        assertThat(constant(scaffold, "orderId")).isEmpty();
-        assertThat(lineWith(scaffold, "orderId:")).contains("#");
+        assertThat(suite(scaffold).has("constants")).isFalse();
+        assertThat(lineWith(scaffold, "orderId:").strip()).startsWith("# orderId:");
+        assertThat(lineWith(scaffold, "constants:").strip()).startsWith("# constants:");
         assertThat(notesIn(scaffold, scaffold.suiteFile()))
-                .anySatisfy(note -> assertThat(note).contains("orderId"));
+                .anySatisfy(note -> assertThat(note).contains("orderId").contains("-p constants.orderId="));
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"\"${vars.id}\"", "[1, 2]", "{ a: 1 }"})
-    void scaffold_leavesAConstantEmptyAndNotesIt_whenTheExampleIsNotASafeSingleValue(String example) {
+    void scaffold_commentsAConstantOutAndNotesIt_whenTheExampleIsNotASafeSingleValue(String example) {
         // when
         var scaffold = withPaths("""
                 /orders/{orderId}:
@@ -547,7 +548,8 @@ class OpenApiImporterTest {
                 """.formatted(example));
 
         // then
-        assertThat(constant(scaffold, "orderId")).isEmpty();
+        assertThat(suite(scaffold).has("constants")).isFalse();
+        assertThat(lineWith(scaffold, "orderId:").strip()).startsWith("# orderId:");
         assertThat(suiteText(scaffold)).doesNotContain("${vars.id}");
         assertThat(notesIn(scaffold, scaffold.suiteFile()))
                 .anySatisfy(note -> assertThat(note).contains("orderId"));
@@ -670,9 +672,10 @@ class OpenApiImporterTest {
         assertThat(raw(onlyRequest(scaffold)).strip()).isEqualTo("{\n  \"item\": \"book\"\n}");
     }
 
-    @Test
-    void scaffold_writesTextThatIsNotJsonAsItIsWithAComment() {
-        // when
+    @ParameterizedTest
+    @ValueSource(strings = {"'item=book'", "'.'", "'42'", "'\"quoted\"'"})
+    void scaffold_writesTextThatIsNotAJsonObjectOrListAsAJsonString(String example) {
+        // when - the value is the text; its JSON is a string
         var scaffold = withPaths("""
                 /orders:
                   post:
@@ -680,11 +683,51 @@ class OpenApiImporterTest {
                     requestBody:
                       content:
                         application/json:
-                          example: 'item=book'
+                          example: %s
+                """.formatted(example));
+
+        // then
+        var raw = raw(onlyRequest(scaffold)).strip();
+        assertThat(JSON.readTree(raw).isString()).as(raw).isTrue();
+        assertThat(JSON.readTree(raw).asString())
+                .isEqualTo(YAML.readTree("v: " + example).get("v").asString());
+    }
+
+    @Test
+    void scaffold_writesAScalarSchemaExampleAsJson() {
+        // when - tic-tac-toe's mark: a string schema whose example is "."
+        var scaffold = withPaths("""
+                /board:
+                  put:
+                    summary: mark
+                    requestBody:
+                      content:
+                        application/json:
+                          schema: { type: string, example: . }
                 """);
 
         // then
-        assertThat(raw(onlyRequest(scaffold)).strip()).isEqualTo("item=book");
+        assertThat(raw(onlyRequest(scaffold)).strip()).isEqualTo("\".\"");
+    }
+
+    @Test
+    void scaffold_writesASerializedValueAsItIsWhateverItsLength() {
+        // when
+        var scaffold = OpenApiImporter.scaffold(HEAD.replace("3.0.3", "3.2.0") + """
+                        paths:
+                          /orders:
+                            post:
+                              summary: create an order
+                              requestBody:
+                                content:
+                                  application/json:
+                                    examples:
+                                      one:
+                                        serializedValue: '{"item":"book","quantity":2}'
+                        """, SOURCE, new ImportOptions(0));
+
+        // then - not re-printed, and inline even with a limit of zero lines
+        assertThat(raw(onlyRequest(scaffold))).isEqualTo("{\"item\":\"book\",\"quantity\":2}");
         assertThat(lineWith(scaffold, "raw:")).contains("#");
     }
 
@@ -1195,5 +1238,470 @@ class OpenApiImporterTest {
         assertThatThrownBy(() -> OpenApiImporter.scaffold("swagger: \"2.0\"\n", SOURCE, ImportOptions.defaults()))
                 .isInstanceOf(BratException.class)
                 .hasMessageContaining("Swagger 2");
+    }
+
+    // --- constants by identity ---
+
+    private static final String SPOTIFY_LIKE = """
+            /search:
+              get:
+                summary: search
+                parameters:
+                  - name: type
+                    in: query
+                    required: true
+                    schema:
+                      type: array
+                      items: { type: string, enum: [album, artist, playlist, track, show, episode] }
+            /me/top/{type}:
+              get:
+                summary: top items
+                parameters:
+                  - { name: type, in: path, schema: { type: string, enum: [artists, tracks] } }
+            /me/following:
+              get:
+                summary: followed
+                parameters:
+                  - { name: type, in: query, required: true, schema: { type: string, enum: [artist] } }
+              put:
+                summary: follow
+                parameters:
+                  - { name: type, in: query, required: true, example: artist, schema: { type: string, enum: [artist] } }
+            """;
+
+    @Test
+    void scaffold_sharesAConstantOnlyBetweenParametersTheSpecMakesTheSame() {
+        // when
+        var scaffold = withPaths(SPOTIFY_LIKE);
+
+        // then - three meanings of "type", three constants; the two following ones share one
+        var constants = suite(scaffold).get("constants");
+        assertThat(constants.propertyNames()).containsExactly("type", "type_top", "type_following");
+        var urls = new ArrayList<String>();
+        for (var request : suite(scaffold).get("requests")) {
+            urls.add(request.get("requestDefinition").get("url").asString());
+        }
+        assertThat(urls)
+                .containsExactly(
+                        "${env.baseUrl}/search?type=${constants.type}",
+                        "${env.baseUrl}/me/top/${constants.type_top}",
+                        "${env.baseUrl}/me/following?type=${constants.type_following}",
+                        "${env.baseUrl}/me/following?type=${constants.type_following}");
+    }
+
+    @Test
+    void scaffold_takesTheFirstUsableExampleAmongTheOperationsAConstantServes() {
+        // when - "followed" has none, "follow" has one
+        var scaffold = withPaths(SPOTIFY_LIKE);
+
+        // then
+        assertThat(constant(scaffold, "type_following")).isEqualTo("artist");
+        assertThat(lineWith(scaffold, "type_following:")).contains("example from the spec");
+    }
+
+    @Test
+    void scaffold_takesTheFirstEnumValueWithoutAnExampleNamingAtMostFive() {
+        // when
+        var scaffold = withPaths(SPOTIFY_LIKE);
+
+        // then - an array's items' enum counts as its own
+        assertThat(constant(scaffold, "type")).isEqualTo("album");
+        assertThat(lineWith(scaffold, "  type:"))
+                .contains("album, artist, playlist, track, show, …")
+                .doesNotContain("episode");
+        assertThat(constant(scaffold, "type_top")).isEqualTo("artists");
+    }
+
+    @Test
+    void scaffold_saysWhoseASplitConstantIs() {
+        // when
+        var scaffold = withPaths(SPOTIFY_LIKE);
+
+        // then
+        assertThat(lineWith(scaffold, "type_top:")).contains("the \"type\" of \"top items\", not search'");
+        assertThat(lineWith(scaffold, "  type:")).doesNotContain(" of \"");
+    }
+
+    @Test
+    void scaffold_makesASegmentIntoASuffixAndNumbersWhatIsLeftOrTaken() {
+        // when - "accounts.json" becomes accounts_json; "/{id}" has no fixed segment; a second "top" is taken
+        var scaffold = withPaths("""
+                /accounts.json/{id}:
+                  get:
+                    parameters:
+                      - { name: id, in: path, example: a, schema: { type: string } }
+                /{id}:
+                  get:
+                    parameters:
+                      - { name: id, in: path, example: "1", schema: { type: integer } }
+                /reports/{id}:
+                  get:
+                    parameters:
+                      - { name: id, in: path, example: "true", schema: { type: boolean } }
+                /more/reports/{id}:
+                  get:
+                    parameters:
+                      - { name: id, in: path, example: "1.5", schema: { type: number } }
+                """);
+
+        // then
+        assertThat(suite(scaffold).get("constants").propertyNames())
+                .containsExactly("id", "id_2", "id_reports", "id_3");
+        assertThat(suiteText(scaffold)).contains("/accounts.json/${constants.id}");
+    }
+
+    @Test
+    void scaffold_suffixesFromTheSegmentOfTheConstantsFirstOperation() {
+        // when
+        var scaffold = withPaths("""
+                /v1/accounts/{id}:
+                  get:
+                    parameters:
+                      - { name: id, in: path, example: a, schema: { type: string } }
+                /v1/charges/{id}:
+                  get:
+                    parameters:
+                      - { name: id, in: path, example: "1", schema: { type: integer } }
+                """);
+
+        // then
+        assertThat(suite(scaffold).get("constants").propertyNames()).containsExactly("id", "id_charges");
+    }
+
+    @Test
+    void scaffold_sendsASplitHeaderConstantByItsName() {
+        // when
+        var scaffold = withPaths("""
+                /a:
+                  get:
+                    parameters:
+                      - { name: X-Mode, in: header, required: true, example: fast, schema: { type: string } }
+                /b:
+                  get:
+                    parameters:
+                      - { name: X-Mode, in: header, required: true, example: "1", schema: { type: integer } }
+                """);
+
+        // then
+        var requests = suite(scaffold).get("requests");
+        assertThat(requests.get(0)
+                        .get("requestDefinition")
+                        .get("headers")
+                        .get("X-Mode")
+                        .asString())
+                .isEqualTo("${constants.X-Mode}");
+        assertThat(requests.get(1)
+                        .get("requestDefinition")
+                        .get("headers")
+                        .get("X-Mode")
+                        .asString())
+                .isEqualTo("${constants.X-Mode_b}");
+    }
+
+    @Test
+    void scaffold_commentsOutOnlyTheConstantsWithoutAValue() {
+        // when
+        var scaffold = withPaths("""
+                /orders/{orderId}/items/{itemId}:
+                  delete:
+                    parameters:
+                      - { name: orderId, in: path, example: "4711" }
+                      - { name: itemId, in: path }
+                """);
+
+        // then - the key stays, one entry is commented out
+        assertThat(suite(scaffold).get("constants").propertyNames()).containsExactly("orderId");
+        assertThat(lineWith(scaffold, "itemId:").strip()).startsWith("# itemId:");
+        assertThat(lineWith(scaffold, "constants:").strip()).isEqualTo("constants:");
+    }
+
+    // --- bodies built from the schema ---
+
+    /** A scaffold of one PUT whose JSON body has {@code schema}, every body kept inline. */
+    private static Scaffold withBodySchema(String schema) {
+        var paths = """
+                /orders:
+                  put:
+                    summary: update an order
+                    requestBody:
+                      content:
+                        application/json:
+                          schema:
+                """ + schema.indent(12);
+        return OpenApiImporter.scaffold(HEAD + "paths:\n" + paths.indent(2), SOURCE, new ImportOptions(100));
+    }
+
+    @Test
+    void scaffold_buildsABodyFromThePropertiesExamplesAndBlanksTheRequiredOnes() {
+        // when - the walkthrough's Order
+        var scaffold = withBodySchema("""
+                type: object
+                required: [item, quantity, customerRef]
+                properties:
+                  item: { type: string, example: book }
+                  quantity: { type: integer, example: 2 }
+                  currency: { type: string, example: EUR }
+                  customerRef: { type: string }
+                  note: { type: string }
+                """);
+
+        // then
+        assertThat(JSON.readTree(raw(onlyRequest(scaffold))))
+                .isEqualTo(
+                        JSON.readTree("{\"item\":\"book\",\"quantity\":2,\"currency\":\"EUR\",\"customerRef\":\"\"}"));
+        assertThat(lineWith(scaffold, "body:")).contains("# built from the schema's examples; fill in: customerRef");
+        assertThat(notesIn(scaffold, scaffold.suiteFile()))
+                .anySatisfy(note -> assertThat(note).contains("update an order").contains("customerRef"));
+    }
+
+    @Test
+    void scaffold_writesEachTypesBlankForARequiredPropertyWithoutAValue() {
+        // when
+        var scaffold = withBodySchema("""
+                required: [s, i, n, b, a, o, u]
+                properties:
+                  s: { type: string }
+                  i: { type: integer }
+                  n: { type: number }
+                  b: { type: boolean }
+                  a: { type: array, items: { type: string } }
+                  o:
+                    type: object
+                    required: [inner]
+                    properties: { inner: { type: string }, extra: { type: string } }
+                  u: {}
+                """);
+
+        // then - an object is built of its own required properties, named by path
+        assertThat(JSON.readTree(raw(onlyRequest(scaffold))))
+                .isEqualTo(JSON.readTree(
+                        "{\"s\":\"\",\"i\":0,\"n\":0,\"b\":false,\"a\":[],\"o\":{\"inner\":\"\"},\"u\":\"\"}"));
+        assertThat(lineWith(scaffold, "body:")).contains("fill in: s, i, n, b, a, o.inner, u");
+    }
+
+    @Test
+    void scaffold_usesAnEnumValueAndBuildsNestedObjectsAndArraysFromExamples() {
+        // when
+        var scaffold = withBodySchema("""
+                properties:
+                  status: { type: string, enum: [OPEN, SHIPPED] }
+                  customer:
+                    properties:
+                      name: { type: string, example: Ada }
+                      nickname: { type: string }
+                  lines:
+                    type: array
+                    items: { properties: { sku: { type: string, example: B-1 } } }
+                  tags:
+                    type: array
+                    items: { type: string }
+                """);
+
+        // then - optional parts without a value are left out, and nothing needs filling in
+        assertThat(JSON.readTree(raw(onlyRequest(scaffold))))
+                .isEqualTo(JSON.readTree(
+                        "{\"status\":\"OPEN\",\"customer\":{\"name\":\"Ada\"},\"lines\":[{\"sku\":\"B-1\"}]}"));
+        assertThat(lineWith(scaffold, "body:"))
+                .contains("# built from the schema's examples")
+                .doesNotContain("fill in");
+        assertThat(notesIn(scaffold, scaffold.suiteFile())).noneMatch(note -> note.contains("fill in"));
+    }
+
+    @Test
+    void scaffold_typesAnEnumValueByTheSchemasType() {
+        // when
+        var scaffold = withBodySchema("""
+                properties:
+                  level: { type: integer, enum: [3, 5] }
+                  strict: { type: boolean, enum: [true] }
+                """);
+
+        // then
+        assertThat(JSON.readTree(raw(onlyRequest(scaffold)))).isEqualTo(JSON.readTree("{\"level\":3,\"strict\":true}"));
+    }
+
+    @Test
+    void scaffold_prefersTheMediaTypesExampleToABuiltBody() {
+        // when
+        var scaffold = withPaths("""
+                /orders:
+                  post:
+                    summary: create an order
+                    requestBody:
+                      content:
+                        application/json:
+                          example: { item: pen }
+                          schema: { properties: { item: { type: string, example: book } } }
+                """);
+
+        // then
+        assertThat(JSON.readTree(raw(onlyRequest(scaffold)))).isEqualTo(JSON.readTree("{\"item\":\"pen\"}"));
+        assertThat(lineWith(scaffold, "body:")).doesNotContain("#");
+    }
+
+    @Test
+    void scaffold_leavesTheBodyEmptyWhenTheSchemaYieldsNothing() {
+        // when - only optional properties, none with a value
+        var scaffold = withBodySchema("properties:\n  note: { type: string }\n");
+
+        // then
+        assertThat(raw(onlyRequest(scaffold))).isEmpty();
+        assertThat(lineWith(scaffold, "raw:")).contains("no example in the spec");
+    }
+
+    @Test
+    void scaffold_writesALongBuiltBodyToAFileKeepingItsComment() {
+        // when
+        var scaffold = OpenApiImporter.scaffold(HEAD + "paths:\n" + """
+                        /orders:
+                          put:
+                            summary: update an order
+                            requestBody:
+                              content:
+                                application/json:
+                                  schema:
+                                    required: [a, b]
+                                    properties: { a: { type: string }, b: { type: string } }
+                        """.indent(2), SOURCE, new ImportOptions(1));
+
+        // then
+        assertThat(scaffold.files()).containsKey("bodies/update-an-order.json");
+        assertThat(lineWith(scaffold, "body:")).contains("fill in: a, b");
+    }
+
+    // --- review additions ---
+
+    @Test
+    void scaffold_namesWhoseASplitIsWhenTheBareNameBelongsToAnotherParameter() {
+        // when - "type" splits into type_top; then a parameter literally named type_top arrives
+        var scaffold = withPaths("""
+                /search:
+                  get:
+                    summary: search
+                    parameters:
+                      - { name: type, in: query, required: true, example: album, schema: { type: string } }
+                /me/top/{type}:
+                  get:
+                    summary: top items
+                    parameters:
+                      - { name: type, in: path, example: "1", schema: { type: integer } }
+                /stats/{type_top}:
+                  get:
+                    summary: stats
+                    parameters:
+                      - { name: type_top, in: path, example: x }
+                """);
+
+        // then - the third is split too, and says whose name it could not have
+        assertThat(suite(scaffold).get("constants").propertyNames())
+                .containsExactly("type", "type_top", "type_top_stats");
+        assertThat(lineWith(scaffold, "type_top_stats:")).contains("the \"type_top\" of \"stats\", not top items'");
+    }
+
+    @Test
+    void scaffold_namesTheOtherExamplesWhenTheValueCameFromALaterRequest() {
+        // when - the first has none, the second gives A, the third B
+        var scaffold = withPaths("""
+                /a/{id}:
+                  get:
+                    summary: first
+                /b/{id}:
+                  get:
+                    summary: second
+                    parameters:
+                      - { name: id, in: path, example: A }
+                /c/{id}:
+                  get:
+                    summary: third
+                    parameters:
+                      - { name: id, in: path, example: B }
+                """);
+
+        // then
+        assertThat(constant(scaffold, "id")).isEqualTo("A");
+        assertThat(suiteText(scaffold)).contains("first usable example; \"third\" uses B");
+        assertThat(notesIn(scaffold, scaffold.suiteFile()))
+                .anySatisfy(note -> assertThat(note).contains("third").contains("first usable example"));
+    }
+
+    @Test
+    void scaffold_leavesTheBodyEmptyWhenASerializedValueHoldsAPlaceholder() {
+        // when
+        var scaffold = scaffold(HEAD.replace("3.0.3", "3.2.0") + """
+                paths:
+                  /orders:
+                    post:
+                      summary: create an order
+                      requestBody:
+                        content:
+                          application/json:
+                            examples:
+                              one:
+                                serializedValue: '{"id":"${vars.id}"}'
+                """);
+
+        // then
+        assertThat(raw(onlyRequest(scaffold))).isEmpty();
+        assertThat(suiteText(scaffold)).doesNotContain("${vars.id}");
+        assertThat(notesIn(scaffold, scaffold.suiteFile()))
+                .anySatisfy(note -> assertThat(note).contains("create an order"));
+    }
+
+    @Test
+    void scaffold_blanksARequiredObjectWithoutRequiredPropertiesAsAnEmptyObject() {
+        // when
+        var scaffold = withBodySchema("""
+                required: [meta, owner]
+                properties:
+                  meta: { type: object, properties: { x: { type: string } } }
+                  owner:
+                    type: object
+                    required: [id, name]
+                    properties: { id: { type: string, example: u-1 }, name: { type: string } }
+                """);
+
+        // then - meta is {} and named; owner keeps its required child's example and blanks the other
+        assertThat(JSON.readTree(raw(onlyRequest(scaffold))))
+                .isEqualTo(JSON.readTree("{\"meta\":{},\"owner\":{\"id\":\"u-1\",\"name\":\"\"}}"));
+        assertThat(lineWith(scaffold, "body:")).contains("fill in: meta, owner.name");
+    }
+
+    @Test
+    void scaffold_leavesAJsonBodyWithNeitherExampleNorSchemaEmpty() {
+        // when
+        var scaffold = withPaths("""
+                /orders:
+                  post:
+                    summary: create an order
+                    requestBody:
+                      content:
+                        application/json: {}
+                """);
+
+        // then
+        assertThat(raw(onlyRequest(scaffold))).isEmpty();
+        assertThat(lineWith(scaffold, "raw:")).contains("no example in the spec");
+    }
+
+    @Test
+    void scaffold_writesAQueryOperationWithItsMethod() {
+        // when - 3.2's QUERY: a safe method with a body
+        var scaffold = scaffold(HEAD.replace("3.0.3", "3.2.0") + """
+                paths:
+                  /stations:
+                    query:
+                      summary: query stations
+                      requestBody:
+                        content:
+                          application/json:
+                            example: { near: Berlin }
+                      responses:
+                        "200": { description: the stations }
+                """);
+
+        // then
+        var definition = onlyRequest(scaffold).get("requestDefinition");
+        assertThat(definition.get("method").asString()).isEqualTo("QUERY");
+        assertThat(JSON.readTree(raw(onlyRequest(scaffold)))).isEqualTo(JSON.readTree("{\"near\":\"Berlin\"}"));
     }
 }

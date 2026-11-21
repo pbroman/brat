@@ -1,0 +1,64 @@
+# OpenAPI 3.2: the QUERY method, dataValue and serializedValue examples, additionalOperations,
+# webhooks and a nested tag. Imported, the suite must load and validate like any other.
+openapi: 3.2.0
+info:
+  title: Stations 3.2
+servers:
+  - url: https://stations.example.com
+    description: production
+tags:
+  - name: stations
+  - name: departures
+    parent: stations
+webhooks:
+  delayAnnounced:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object }
+paths:
+  /stations:
+    query:
+      tags: [stations]
+      summary: query stations
+      requestBody:
+        content:
+          application/json:
+            examples:
+              nearby:
+                dataValue:
+                  near: Berlin
+                  radiusKm: 5
+      responses:
+        "200": { description: the stations }
+    additionalOperations:
+      LINK:
+        summary: link two stations
+  /stations/{stationId}/departures:
+    get:
+      tags: [departures]
+      summary: list departures
+      parameters:
+        - name: stationId
+          in: path
+          examples:
+            berlin:
+              dataValue: BER
+        - name: line
+          in: query
+          required: true
+          schema: { type: string, enum: [S1, S2, U8] }
+      responses:
+        "200": { description: the departures }
+  /tickets:
+    post:
+      summary: buy a ticket
+      requestBody:
+        content:
+          application/json:
+            examples:
+              one:
+                serializedValue: '{"from":"BER","to":"HAM"}'
+      responses:
+        "201": { description: bought }

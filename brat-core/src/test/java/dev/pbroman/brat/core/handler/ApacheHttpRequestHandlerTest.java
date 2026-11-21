@@ -85,6 +85,20 @@ class ApacheHttpRequestHandlerTest {
     }
 
     @Test
+    void performRequest_sendsAMethodBeyondTheStandardOnesWithItsBody() {
+        // given - QUERY, which OpenAPI 3.2 names: a safe method that carries a body
+        var definition = new HttpRequestDefinition(
+                stub.baseUrl() + "/stations", "query", HttpBody.raw("{\"near\": \"Berlin\"}"), null);
+
+        // when
+        underTest.performRequest(definition, OPTIONS);
+
+        // then
+        assertThat(stub.lastRequest().method()).isEqualTo("QUERY");
+        assertThat(stub.lastRequest().body()).isEqualTo("{\"near\": \"Berlin\"}");
+    }
+
+    @Test
     void performRequest_defaultsToGet() {
         // given - the definition applies the default, so the handler must not override it
         var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", null, null, null);

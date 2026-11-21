@@ -1,7 +1,9 @@
 package dev.pbroman.brat.openapi;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -18,12 +20,17 @@ import dev.pbroman.brat.core.secrets.SecretsUtils;
 import dev.pbroman.brat.openapi.OpenApiDocument.MediaType;
 import dev.pbroman.brat.openapi.OpenApiDocument.Operation;
 import dev.pbroman.brat.openapi.OpenApiDocument.Parameter;
+import dev.pbroman.brat.openapi.OpenApiDocument.Schema;
 import dev.pbroman.brat.openapi.OpenApiDocument.Server;
 import dev.pbroman.brat.openapi.Scaffold.Note;
 import org.apache.commons.lang3.StringUtils;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.BooleanNode;
+import tools.jackson.databind.node.DecimalNode;
+import tools.jackson.databind.node.IntNode;
+import tools.jackson.databind.node.StringNode;
 
 /**
  * Writes the text of a scaffold for an {@link OpenApiDocument}: the suite file, its body files and its
@@ -54,6 +61,9 @@ final class SuiteEmitter {
     /** The column a comment after a value starts at, where the value leaves room. */
     private static final int COMMENT_COLUMN = 43;
 
+    /** How many enum values a constant's comment names before {@code …}. */
+    private static final int MAX_ENUM_NAMED = 5;
+
     private SuiteEmitter() {
         // static helpers only
     }
@@ -70,11 +80,22 @@ final class SuiteEmitter {
         return new Emission(document, sourceName, options).scaffold();
     }
 
-    /** A constant: the first operation's value for it, and every request's example. */
-    private record Constant(String name, String in, JsonNode example, List<Use> uses) {}
+    /**
+     * A constant: its name, the parameter it was first met as, the request that first sends it, the
+     * first request of the bare-named constant it was split from ({@code null} for a bare one), and every
+     * use in spec order.
+     */
+    private record Constant(String name, Parameter parameter, String firstRequest, String splitFrom, List<Use> uses) {}
 
-    /** One request's example for a constant. */
-    private record Use(String request, String example) {}
+    /** One request's use of a constant: where it sends it and the example it gives. */
+    private record Use(String request, String in, JsonNode example) {}
+
+    /**
+     * What a JSON body is written as: printed {@code json}, else {@code raw} text as it is, else nothing;
+     * {@code reason} comments a {@code raw} or the empty body, {@code bodyComment} the {@code body:} line,
+     * and {@code fillIn} names the blanks a built body holds.
+     */
+    private record JsonBody(JsonNode json, String raw, String reason, String bodyComment, List<String> fillIn) {}
 
     /** The requests under one parent: the top of the suite, or one sub-suite. */
     private record Group(String name, List<Operation> operations) {}
@@ -88,6 +109,7 @@ final class SuiteEmitter {
 
         private final Map<Operation, String> requestNames = new IdentityHashMap<>();
         private final Map<String, Constant> constants = new LinkedHashMap<>();
+        private final Map<String, String> constantByParameter = new HashMap<>();
         private final Set<String> bodyFiles = new HashSet<>();
         private final Map<String, String> bodies = new LinkedHashMap<>();
         private final List<Note> suiteNotes = new ArrayList<>();
@@ -185,16 +207,63 @@ final class SuiteEmitter {
 
         // --- constants ---
 
+        /**
+         * Gathers the constants as {@link OpenApiImporter#scaffold} describes — one per parameter name and
+         * identity, named, in order of first use — filling {@link #constants} and
+         * {@link #constantByParameter}.
+         */
         private void collectConstants() {
             for (var operation : document.operations()) {
                 var request = requestNames.get(operation);
                 for (var parameter : sentParameters(operation)) {
-                    var constant = constants.computeIfAbsent(
-                            parameter.name(),
-                            name -> new Constant(name, parameter.in(), parameter.example(), new ArrayList<>()));
-                    constant.uses().add(new Use(request, exampleText(parameter.example())));
+                    var key = parameterKey(parameter);
+                    var name = constantByParameter.get(key);
+                    if (name == null) {
+                        // Split only when the bare name is taken, so whoever holds it is there to name.
+                        var bare = constants.get(parameter.name());
+                        name = bare == null ? parameter.name() : splitName(parameter, operation);
+                        var splitFrom = bare == null ? null : bare.firstRequest();
+                        constants.put(name, new Constant(name, parameter, request, splitFrom, new ArrayList<>()));
+                        constantByParameter.put(key, name);
+                    }
+                    constants.get(name).uses().add(new Use(request, parameter.in(), parameter.example()));
                 }
             }
+        }
+
+        /**
+         * The name for a parameter whose bare name is taken: {@code <name>_<segment>} from the last fixed
+         * segment of the operation's path, else the lowest free {@code <name>_2}, {@code <name>_3}….
+         */
+        private String splitName(Parameter parameter, Operation operation) {
+            var segments = operation.path().split("/");
+            for (var i = segments.length - 1; i >= 0; i--) {
+                if (segments[i].isEmpty() || PATH_PARAMETER.matcher(segments[i]).find()) {
+                    continue;
+                }
+                var suffix = StringUtils.strip(segments[i].replaceAll("[^A-Za-z0-9]+", "_"), "_");
+                var candidate = parameter.name() + "_" + suffix;
+                if (!suffix.isEmpty() && !constants.containsKey(candidate)) {
+                    return candidate;
+                }
+                break;
+            }
+            for (var n = 2; ; n++) {
+                var candidate = parameter.name() + "_" + n;
+                if (!constants.containsKey(candidate)) {
+                    return candidate;
+                }
+            }
+        }
+
+        /** The name of the constant {@code parameter} is sent from; collected first. */
+        private String constantName(Parameter parameter) {
+            return constantByParameter.get(parameterKey(parameter));
+        }
+
+        /** What tells two parameters' constants apart: the name and the identity. */
+        private static String parameterKey(Parameter parameter) {
+            return parameter.name() + "\u0000" + parameter.identity();
         }
 
         /**
@@ -242,58 +311,103 @@ final class SuiteEmitter {
             return example.asString();
         }
 
+        /**
+         * Writes the {@code constants:} block as {@link OpenApiImporter#scaffold} describes: each
+         * constant's value, its comment, a commented-out line for one without a value, and the notes.
+         */
         private void writeConstants(Lines lines) {
             if (constants.isEmpty()) {
                 return;
             }
-            lines.add("constants:");
+            var anyValue = constants.values().stream()
+                    .anyMatch(constant -> usableUse(constant) != null
+                            || !constant.parameter().enumValues().isEmpty());
+            if (anyValue) {
+                lines.add("constants:");
+            } else {
+                lines.add("# constants:", "none has a value from the spec: uncomment this with the first you fill in");
+            }
             for (var constant : constants.values()) {
-                var key = "  " + YamlText.scalar(constant.name()) + ": ";
-                var example = constant.example();
-                var text = exampleText(example);
-                String reason = null;
-                if (example == null) {
-                    reason = "no example in the spec";
-                } else if (example.isContainer()) {
-                    reason = "the spec's example is not a single value";
-                } else if (text.contains(PLACEHOLDER)) {
-                    reason = "the spec's example holds ${, which would be read as a placeholder";
-                }
-                if (reason != null) {
-                    lines.add(key + "\"\"", reason + ": fill in");
-                    note(suiteNotes, "constants." + constant.name() + ": " + reason + "; fill in a value");
-                } else {
-                    var value = "header".equals(constant.in()) ? text : percentEncoded(text);
-                    var comment = value.equals(text)
-                            ? "example from the spec"
-                            : "the spec's example, encoded: " + YamlText.commentText(text);
-                    lines.add(key + YamlText.scalar(value), comment);
-                }
-                var differing = differingUses(constant, text);
-                if (!differing.isEmpty()) {
-                    var named = new ArrayList<String>();
-                    for (var use : differing) {
-                        named.add("\"" + use.request() + "\" uses " + use.example());
-                    }
-                    var others = String.join(", ", named);
-                    lines.comment("first request's example; " + YamlText.commentText(others));
-                    note(
-                            suiteNotes,
-                            "constants." + constant.name() + " serves requests whose examples differ (" + others
-                                    + "); it holds the first request's");
-                }
+                writeConstant(lines, constant);
             }
             lines.blank();
         }
 
-        private static List<Use> differingUses(Constant constant, String first) {
-            var result = new ArrayList<Use>();
-            for (var use : constant.uses().subList(1, constant.uses().size())) {
-                if (use.example() != null && !use.example().equals(first)) {
-                    result.add(use);
+        private void writeConstant(Lines lines, Constant constant) {
+            var name = constant.name();
+            var usable = usableUse(constant);
+            var enumValues = constant.parameter().enumValues();
+            if (usable == null && enumValues.isEmpty()) {
+                var reason = missingReason(constant.uses().getFirst().example());
+                lines.add("  # " + YamlText.scalar(name) + ":", reason + ": fill in, or -p constants." + name + "=…");
+                note(
+                        suiteNotes,
+                        "constants." + name + ": " + reason + "; fill in a value, or pass -p constants." + name + "=…");
+                return;
+            }
+            String text;
+            String in;
+            String source;
+            if (usable != null) {
+                text = exampleText(usable.example());
+                in = usable.in();
+                source = "example from the spec";
+            } else {
+                text = enumValues.getFirst();
+                in = constant.parameter().in();
+                var named = enumValues.size() > MAX_ENUM_NAMED
+                        ? String.join(", ", enumValues.subList(0, MAX_ENUM_NAMED)) + ", …"
+                        : String.join(", ", enumValues);
+                source = "the first of " + named;
+            }
+            var value = "header".equals(in) ? text : percentEncoded(text);
+            var comment = value.equals(text)
+                    ? source
+                    : source.replace("example from the spec", "the spec's example") + ", encoded: " + text;
+            if (constant.splitFrom() != null) {
+                comment += "; the \"" + constant.parameter().name() + "\" of \"" + constant.firstRequest() + "\", not "
+                        + constant.splitFrom() + "'";
+            }
+            lines.add("  " + YamlText.scalar(name) + ": " + YamlText.scalar(value), YamlText.commentText(comment));
+            var differing = new ArrayList<String>();
+            for (var use : constant.uses()) {
+                var other = exampleText(use.example());
+                if (use != usable && other != null && !other.equals(text)) {
+                    differing.add("\"" + use.request() + "\" uses " + other);
                 }
             }
-            return result;
+            if (!differing.isEmpty()) {
+                var others = String.join(", ", differing);
+                var whose =
+                        usable == constant.uses().getFirst() ? "first request's example; " : "first usable example; ";
+                lines.comment(whose + YamlText.commentText(others));
+                note(
+                        suiteNotes,
+                        "constants." + name + " serves requests whose examples differ (" + others + "); it holds the "
+                                + whose.substring(0, whose.length() - 2));
+            }
+        }
+
+        /** The first use whose example is a single value holding no placeholder, or {@code null}. */
+        private static Use usableUse(Constant constant) {
+            for (var use : constant.uses()) {
+                var text = exampleText(use.example());
+                if (text != null && !text.contains(PLACEHOLDER)) {
+                    return use;
+                }
+            }
+            return null;
+        }
+
+        /** Why an example gives a constant no value. */
+        private static String missingReason(JsonNode example) {
+            if (example == null) {
+                return "no example in the spec";
+            }
+            if (example.isContainer()) {
+                return "the spec's example is not a single value";
+            }
+            return "the spec's example holds ${, which would be read as a placeholder";
         }
 
         // --- the suite ---
@@ -370,7 +484,7 @@ final class SuiteEmitter {
             var headers = new LinkedHashMap<String, String>();
             for (var parameter : operation.parameters()) {
                 if ("header".equals(parameter.in()) && isSent(parameter)) {
-                    headers.put(parameter.name(), "${constants." + parameter.name() + "}");
+                    headers.put(parameter.name(), "${constants." + constantName(parameter) + "}");
                 }
             }
             if (media != null && !isForm(media.type())) {
@@ -384,8 +498,9 @@ final class SuiteEmitter {
                 }
             }
             if (media != null) {
-                lines.add(in + "  body:");
-                writeBody(lines, media, name, in + "    ");
+                var json = isJson(media.type()) ? jsonBody(media, name) : null;
+                lines.add(in + "  body:", json == null ? null : json.bodyComment());
+                writeBody(lines, media, json, name, in + "    ");
             }
             var status = successStatus(operation.responseCodes());
             if (status.isPresent()) {
@@ -531,14 +646,21 @@ final class SuiteEmitter {
                     + ", or put it in a secrets file";
         }
 
-        private static String url(Operation operation) {
+        private String url(Operation operation) {
+            var pathConstants = new HashMap<String, String>();
+            for (var parameter : sentParameters(operation)) {
+                if ("path".equals(parameter.in())) {
+                    pathConstants.put(parameter.name(), constantName(parameter));
+                }
+            }
             var path = PATH_PARAMETER
                     .matcher(operation.path())
-                    .replaceAll(match -> Matcher.quoteReplacement("${constants." + match.group(1) + "}"));
+                    .replaceAll(match ->
+                            Matcher.quoteReplacement("${constants." + pathConstants.get(match.group(1)) + "}"));
             var query = new ArrayList<String>();
             for (var parameter : operation.parameters()) {
                 if ("query".equals(parameter.in()) && parameter.required()) {
-                    query.add(percentEncoded(parameter.name()) + "=${constants." + parameter.name() + "}");
+                    query.add(percentEncoded(parameter.name()) + "=${constants." + constantName(parameter) + "}");
                 }
             }
             return "${env.baseUrl}" + path + (query.isEmpty() ? "" : "?" + String.join("&", query));
@@ -599,9 +721,9 @@ final class SuiteEmitter {
             return type.toLowerCase(Locale.ROOT).split(";", 2)[0].strip();
         }
 
-        private void writeBody(Lines lines, MediaType media, String request, String in) {
-            if (isJson(media.type())) {
-                writeJsonBody(lines, media.example(), request, in);
+        private void writeBody(Lines lines, MediaType media, JsonBody json, String request, String in) {
+            if (json != null) {
+                writeJsonBody(lines, json, request, in);
             } else if (isForm(media.type())) {
                 writeFormBody(lines, media, request, in);
             } else {
@@ -611,28 +733,148 @@ final class SuiteEmitter {
             }
         }
 
-        private void writeJsonBody(Lines lines, JsonNode example, String request, String in) {
-            if (example == null) {
-                emptyBody(lines, request, in, "no example in the spec");
-                return;
-            }
-            var json = example;
-            if (example.isString()) {
-                try {
-                    json = JSON.readTree(example.asString());
-                } catch (JacksonException notJson) {
-                    json = null;
+        /**
+         * What a JSON media type's body is written as, as {@link OpenApiImporter#scaffold} describes: the
+         * example, read or encoded as JSON; a {@code serializedValue} as it is; else a body built from
+         * the schema; else nothing, with the reason.
+         */
+        private JsonBody jsonBody(MediaType media, String request) {
+            var example = media.example();
+            if (example != null) {
+                if (media.serialized()) {
+                    return new JsonBody(
+                            null, example.asString(), "the spec's serialized example, as it is", null, List.of());
                 }
+                var json = example;
+                if (example.isString()) {
+                    JsonNode parsed = null;
+                    try {
+                        parsed = JSON.readTree(example.asString());
+                    } catch (JacksonException notJson) {
+                        // text that is not JSON is a JSON string, which `json` already is
+                    }
+                    json = parsed != null && parsed.isContainer() ? parsed : example;
+                }
+                return new JsonBody(json, null, null, null, List.of());
             }
-            if (json == null) {
-                var text = example.asString();
-                if (text.contains(PLACEHOLDER)) {
+            var fillIn = new ArrayList<String>();
+            var built = media.schema() == null ? null : builtFromSchema(media.schema(), "", fillIn);
+            if (built == null) {
+                return new JsonBody(null, null, "no example in the spec", null, List.of());
+            }
+            var comment = "built from the schema's examples";
+            if (!fillIn.isEmpty()) {
+                comment += "; fill in: " + String.join(", ", fillIn);
+                note(
+                        suiteNotes,
+                        "\"" + request + "\": the body is built from the schema's examples; fill in "
+                                + String.join(", ", fillIn));
+            }
+            return new JsonBody(built, null, null, YamlText.commentText(comment), List.copyOf(fillIn));
+        }
+
+        /**
+         * A value built from {@code schema} as {@link OpenApiImporter#scaffold} describes, adding to
+         * {@code fillIn} the path of each required property written blank; {@code null} when it yields
+         * nothing.
+         */
+        private static JsonNode builtFromSchema(Schema schema, String path, List<String> fillIn) {
+            var value = valueOf(schema);
+            if (value != null) {
+                return value;
+            }
+            if (isObject(schema)) {
+                var own = new ArrayList<String>();
+                var object = JSON.createObjectNode();
+                var hasValue = false;
+                for (var field : schema.properties()) {
+                    var fieldPath = path.isEmpty() ? field.name() : path + "." + field.name();
+                    var child = builtFromSchema(field.schema(), fieldPath, own);
+                    hasValue |= child != null;
+                    if (child == null && field.required()) {
+                        child = blank(field.schema(), fieldPath, own);
+                    }
+                    if (child != null) {
+                        object.set(field.name(), child);
+                    }
+                }
+                // A nested object holding only blanks is as good as no value; the body itself keeps them.
+                if (object.isEmpty() || (!hasValue && !path.isEmpty())) {
+                    return null;
+                }
+                fillIn.addAll(own);
+                return object;
+            }
+            if ("array".equals(schema.type()) && schema.items() != null) {
+                var item = builtFromSchema(schema.items(), path, fillIn);
+                return item == null ? null : JSON.createArrayNode().add(item);
+            }
+            return null;
+        }
+
+        /** A required value without one: a blank of its type, an object of its own required properties. */
+        private static JsonNode blank(Schema schema, String path, List<String> fillIn) {
+            if (isObject(schema)) {
+                var object = JSON.createObjectNode();
+                for (var field : schema.properties()) {
+                    if (field.required()) {
+                        var fieldPath = path + "." + field.name();
+                        var child = builtFromSchema(field.schema(), fieldPath, fillIn);
+                        object.set(field.name(), child != null ? child : blank(field.schema(), fieldPath, fillIn));
+                    }
+                }
+                if (object.isEmpty()) {
+                    fillIn.add(path);
+                }
+                return object;
+            }
+            fillIn.add(path);
+            return switch (String.valueOf(schema.type())) {
+                case "array" -> JSON.createArrayNode();
+                case "integer", "number" -> IntNode.valueOf(0);
+                case "boolean" -> BooleanNode.FALSE;
+                default -> StringNode.valueOf("");
+            };
+        }
+
+        /** A schema's own value: its example, else its first enum value typed by its type; else {@code null}. */
+        private static JsonNode valueOf(Schema schema) {
+            if (schema.example() != null) {
+                return schema.example();
+            }
+            if (schema.enumValues().isEmpty()) {
+                return null;
+            }
+            var text = schema.enumValues().getFirst();
+            try {
+                return switch (String.valueOf(schema.type())) {
+                    case "integer", "number" -> DecimalNode.valueOf(new BigDecimal(text));
+                    case "boolean" -> BooleanNode.valueOf(Boolean.parseBoolean(text));
+                    default -> StringNode.valueOf(text);
+                };
+            } catch (NumberFormatException notANumber) {
+                return StringNode.valueOf(text);
+            }
+        }
+
+        private static boolean isObject(Schema schema) {
+            return "object".equals(schema.type()) || !schema.properties().isEmpty();
+        }
+
+        private void writeJsonBody(Lines lines, JsonBody body, String request, String in) {
+            if (body.raw() != null) {
+                if (body.raw().contains(PLACEHOLDER)) {
                     emptyBody(lines, request, in, "the spec's example holds ${, which would be read as a placeholder");
                     return;
                 }
-                lines.add(in + "raw: " + YamlText.scalar(text), "the spec's example is not JSON; written as it is");
+                lines.add(in + "raw: " + YamlText.scalar(body.raw()), body.reason());
                 return;
             }
+            if (body.json() == null) {
+                emptyBody(lines, request, in, body.reason());
+                return;
+            }
+            var json = body.json();
             var printed = printed(json, "");
             if (printed.contains(PLACEHOLDER)) {
                 emptyBody(lines, request, in, "the spec's example holds ${, which would be read as a placeholder");

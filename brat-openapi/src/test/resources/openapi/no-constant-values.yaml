@@ -1,0 +1,13 @@
+# Every constant without a value: the constants key itself is commented out.
+openapi: 3.0.3
+info:
+  title: No constant values
+servers:
+  - url: http://localhost:8080
+    description: local
+paths:
+  /orders/{orderId}:
+    get:
+      summary: read an order
+      responses:
+        "200": { description: the order }
