@@ -80,7 +80,10 @@ class ApacheHttpRequestHandlerTrustStoreTest {
         try (var underTest = new ApacheHttpRequestHandler()) {
 
             // then - a failed handshake is a transport failure: there is no response
-            assertThatThrownBy(() -> underTest.performRequest(get(), OPTIONS)).isInstanceOf(BratException.class);
+            assertThatThrownBy(() -> underTest.performRequest(get(), OPTIONS))
+                    .isInstanceOf(BratException.class)
+                    .hasMessageStartingWith("TLS with localhost:")
+                    .hasMessageContaining(" failed: ");
         }
     }
 

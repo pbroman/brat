@@ -81,7 +81,7 @@ class SuiteSchemaFixturesTest {
 
     private static List<String> errorLocations(String relativePath) throws IOException {
         var yaml = Files.readString(root().resolve(relativePath), StandardCharsets.UTF_8);
-        var tree = JSON.valueToTree(YamlComposer.compose(yaml).root());
+        var tree = JSON.valueToTree(YamlComposer.compose(yaml, YamlLimits.SUITE).root());
         return schema.validate(tree).stream()
                 .map(error -> error.getInstanceLocation().toString())
                 .toList();

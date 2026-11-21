@@ -1,5 +1,7 @@
 package dev.pbroman.brat.core.handler;
 
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -313,8 +315,10 @@ class ApacheHttpRequestHandlerTest {
         var definition = new HttpRequestDefinition(stub.baseUrl() + "/orders", "GET", null, null);
         var options = new RequestOptions("200", null, Map.of());
 
-        // then
-        assertThatThrownBy(() -> underTest.performRequest(definition, options)).isInstanceOf(BratException.class);
+        // then - the message says it was our timeout, and which one
+        assertThatThrownBy(() -> underTest.performRequest(definition, options))
+                .isInstanceOf(BratException.class)
+                .hasMessage("No response from " + stub.baseUrl() + "/orders within 200 ms (the request's timeout)");
     }
 
     @Test
@@ -334,7 +338,42 @@ class ApacheHttpRequestHandlerTest {
         var definition = new HttpRequestDefinition("http://localhost:1/orders", "GET", null, null);
 
         // then
-        assertThatThrownBy(() -> underTest.performRequest(definition, OPTIONS)).isInstanceOf(BratException.class);
+        assertThatThrownBy(() -> underTest.performRequest(definition, OPTIONS))
+                .isInstanceOf(BratException.class)
+                .hasMessage("Could not connect to localhost:1 — connection refused");
+    }
+
+    @Test
+    void performRequest_throwsNamingAnUnknownHost() {
+        // given - .invalid is reserved never to resolve
+        var definition = new HttpRequestDefinition("http://no-such-host.invalid/orders", "GET", null, null);
+
+        // then
+        assertThatThrownBy(() -> underTest.performRequest(definition, OPTIONS))
+                .isInstanceOf(BratException.class)
+                .hasMessage("Could not connect to no-such-host.invalid:80 — unknown host no-such-host.invalid");
+    }
+
+    @Test
+    void performRequest_throwsWhenTheServerClosesWithoutAResponse() throws IOException {
+        // given - a server that accepts a connection, reads the request and hangs up
+        try (var server = new ServerSocket(0)) {
+            var hangUp = new Thread(() -> {
+                try (var socket = server.accept()) {
+                    socket.getInputStream().read(new byte[1024]);
+                } catch (IOException ignored) {
+                    // the test asserts on the client's side
+                }
+            });
+            hangUp.start();
+            var definition = new HttpRequestDefinition(
+                    "http://localhost:" + server.getLocalPort() + "/orders", "GET", null, null);
+
+            // then
+            assertThatThrownBy(() -> underTest.performRequest(definition, OPTIONS))
+                    .isInstanceOf(BratException.class)
+                    .hasMessage("localhost:" + server.getLocalPort() + " closed the connection without a response");
+        }
     }
 
     @Test

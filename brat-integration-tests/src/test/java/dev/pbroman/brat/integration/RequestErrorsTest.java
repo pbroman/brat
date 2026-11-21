@@ -36,13 +36,15 @@ class RequestErrorsTest extends EndToEndTestBase {
     @Test
     void run_errorsAndCarriesOnWhenAHostIsUnreachable() {
         // when — the first request goes to a port nothing listens on, the second to the real server
-        var result = run("suites/two-hosts.brat.yaml", Map.of("deadUrl", unusedUrl()));
+        var deadUrl = unusedUrl();
+        var result = run("suites/two-hosts.brat.yaml", Map.of("deadUrl", deadUrl));
 
         // then — a transport failure is this request's data, not the run's end
         assertThat(result.requestResults()).hasSize(2);
         var unreachable = result.requestResults().getFirst();
         assertThat(unreachable.status()).isInstanceOf(RequestStatus.Errored.class);
-        assertThat(((RequestStatus.Errored) unreachable.status()).message()).contains("/status/200");
+        assertThat(((RequestStatus.Errored) unreachable.status()).message())
+                .contains("Could not connect to " + deadUrl.substring("http://".length()) + " — connection refused");
         assertThat(result.requestResults().get(1).status()).isInstanceOf(RequestStatus.Completed.class);
         assertThat(result.failed()).isTrue();
 

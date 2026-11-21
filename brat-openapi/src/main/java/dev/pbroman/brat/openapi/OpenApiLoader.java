@@ -13,49 +13,75 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import dev.pbroman.brat.core.exception.BratException;
+import dev.pbroman.brat.core.loader.YamlComposer;
+import dev.pbroman.brat.core.loader.YamlLimits;
 import dev.pbroman.brat.core.util.JacksonUtils;
+import dev.pbroman.brat.openapi.OpenApiDocument.Field;
 import dev.pbroman.brat.openapi.OpenApiDocument.MediaType;
 import dev.pbroman.brat.openapi.OpenApiDocument.Operation;
 import dev.pbroman.brat.openapi.OpenApiDocument.Parameter;
+import dev.pbroman.brat.openapi.OpenApiDocument.Schema;
 import dev.pbroman.brat.openapi.OpenApiDocument.SecurityScheme;
 import dev.pbroman.brat.openapi.OpenApiDocument.Server;
 import org.apache.commons.lang3.StringUtils;
 import tools.jackson.core.JacksonException;
+import tools.jackson.core.StreamReadFeature;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.MissingNode;
-import tools.jackson.dataformat.yaml.YAMLMapper;
+import tools.jackson.databind.node.NullNode;
 
 /**
- * Parses the content of an OpenAPI 3.0 or 3.1 document into an {@link OpenApiDocument}, following the
- * {@code $ref}s within the document that the importer needs.
+ * Parses the content of an OpenAPI 3.0, 3.1 or 3.2 document into an {@link OpenApiDocument}, following
+ * the {@code $ref}s within the document that the importer needs.
  * <p>
  * It holds no state, so it may be called from several threads at once.
  */
 final class OpenApiLoader {
 
-    private static final YAMLMapper YAML = YAMLMapper.builder().build();
+    /** The largest document read, JSON or YAML, in megabytes of text. */
+    static final int MAX_MEGABYTES = 64;
 
-    private static final JsonMapper JSON = JsonMapper.builder().build();
+    /** How a YAML document is read: within {@link #MAX_MEGABYTES} and 50 aliases. */
+    private static final YamlLimits YAML_LIMITS = new YamlLimits("The OpenAPI document", MAX_MEGABYTES, 50);
+
+    private static final JsonMapper JSON = JsonMapper.builder()
+            .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)
+            .build();
 
     private static final Set<String> METHODS =
-            Set.of("get", "put", "post", "delete", "options", "head", "patch", "trace");
+            Set.of("get", "put", "post", "delete", "options", "head", "patch", "trace", "query");
 
-    private static final Pattern SUPPORTED_VERSION = Pattern.compile("3\\.[01](\\..*)?");
+    private static final Pattern SUPPORTED_VERSION = Pattern.compile("3\\.[012](\\..*)?");
 
     private static final String REF = "$ref";
+
+    /** A schema's properties and items are read for three levels below the schema it started from. */
+    private static final int MAX_LEVEL = 3;
+
+    private static final List<String> PARAMETER_EXAMPLE_KEYS = List.of("dataValue", "value");
+
+    private static final String SERIALIZED_VALUE = "serializedValue";
+
+    private static final List<String> MEDIA_EXAMPLE_KEYS = List.of("dataValue", "value", SERIALIZED_VALUE);
 
     private OpenApiLoader() {
         // static helpers only
     }
 
     /**
-     * Parses {@code content}, JSON or YAML, recognised by the content alone.
+     * Parses {@code content}, JSON or YAML, recognised by the content alone: content whose first
+     * non-blank character is an opening brace is read as JSON, and as YAML only if it is not JSON
+     * (flow-style YAML); anything else as YAML. In YAML, anchors, aliases and {@code <<:} merge keys
+     * are resolved and at most 50 aliases to a mapping or list are allowed. In either, a key written
+     * twice in one mapping is refused.
      * <p>
      * <strong>What is read</strong> is only what {@link OpenApiDocument} holds; every other key is
      * ignored, extensions ({@code x-…}) included. Of a path item, the keys {@code get}, {@code put},
-     * {@code post}, {@code delete}, {@code options}, {@code head}, {@code patch} and {@code trace} are
-     * operations, and {@code parameters} applies to each of them.
+     * {@code post}, {@code delete}, {@code options}, {@code head}, {@code patch}, {@code trace} and
+     * {@code query} are operations, and {@code parameters} and {@code servers} apply to each of them.
+     * Its {@code additionalOperations}, and the document's {@code webhooks}, are not read beyond their
+     * names, which {@link OpenApiDocument#notImported()} lists.
      * <p>
      * <strong>A {@code $ref}</strong> is followed wherever the loader reads a path item, a parameter, a
      * request body, an example, a schema or a security scheme, and a reference that leads to another
@@ -72,13 +98,24 @@ final class OpenApiLoader {
      * @throws dev.pbroman.brat.core.exception.BratException
      *         <ul>
      *           <li>if {@code content} is blank: "The OpenAPI document is empty";</li>
-     *           <li>if it is neither JSON nor YAML, with the line and column but none of the content;</li>
+     *           <li>if it is longer than {@link #MAX_MEGABYTES} megabytes of text — 2<sup>20</sup> code
+     *               points each, as YAML counts them — before any of it is parsed: "The OpenAPI document
+     *               is N MB; at most 64 MB is read", N rounded up;</li>
+     *           <li>if it is read as YAML and is not valid YAML: "The OpenAPI document is not valid
+     *               YAML: " and the parser's reason, with its line and column;</li>
+     *           <li>if it starts with a brace and is neither valid JSON nor valid YAML: "The OpenAPI
+     *               document is not valid JSON: " and the JSON parser's reason, then " at line L, column
+     *               C" — the reason never quoting the content;</li>
+     *           <li>if it uses more than 50 aliases to a mapping or a list: "The OpenAPI document uses
+     *               more than the 50 permitted aliases";</li>
+     *           <li>if a mapping holds the same key twice, naming the key and its position — for JSON,
+     *               within the "not valid JSON" message above;</li>
      *           <li>if its top is not a mapping, or has neither {@code openapi} nor {@code swagger}:
      *               "not an OpenAPI document";</li>
      *           <li>if it has {@code swagger}: it names Swagger 2 and says to convert it to OpenAPI 3
      *               first;</li>
-     *           <li>if {@code openapi} is not text starting {@code 3.0} or {@code 3.1} followed by the end
-     *               or a {@code .}, naming the version found;</li>
+     *           <li>if {@code openapi} is not text starting {@code 3.0}, {@code 3.1} or {@code 3.2}
+     *               followed by the end or a {@code .}, naming the version found;</li>
      *           <li>for a {@code $ref} it follows that does not start with {@code #/}, naming the
      *               reference and its location, and saying only references within the document are
      *               read;</li>
@@ -108,34 +145,46 @@ final class OpenApiLoader {
         }
         if (!SUPPORTED_VERSION.matcher(version.asString()).matches()) {
             throw new BratException(
-                    "OpenAPI " + version.asString() + " is not supported; only OpenAPI 3.0 and 3.1 are read");
+                    "OpenAPI " + version.asString() + " is not supported; only OpenAPI 3.0, 3.1 and 3.2 are read");
         }
         return new Reading(root).document();
     }
 
     /**
-     * Parses content starting with an opening brace as JSON first, falling back to YAML for a flow-style YAML
-     * document; JSON is tried first because JSON indented with tabs is not YAML. A failure is reported
-     * at the position the first parser tried gave.
+     * Checks the size, then parses: JSON first for content starting with an opening brace, falling back
+     * to YAML for a flow-style YAML document, YAML for anything else — reporting each failure as
+     * {@link #load(String)} documents.
      */
     private static JsonNode parse(String content) {
+        var megabyte = 1024 * 1024;
+        // A code point is one or two chars, so only text longer than the limit in chars can exceed it.
+        var codePoints = content.length() > MAX_MEGABYTES * megabyte
+                ? content.codePointCount(0, content.length())
+                : content.length();
+        if (codePoints > MAX_MEGABYTES * megabyte) {
+            var size = (codePoints + megabyte - 1) / megabyte;
+            throw new BratException(
+                    "The OpenAPI document is " + size + " MB; at most " + MAX_MEGABYTES + " MB is read");
+        }
         if (!content.stripLeading().startsWith("{")) {
-            return readTree(YAML, content, null);
+            return yaml(content);
         }
         try {
             return JSON.readTree(content);
         } catch (JacksonException jsonFailure) {
-            return readTree(YAML, content, jsonFailure);
+            try {
+                return yaml(content);
+            } catch (BratException yamlFailure) {
+                throw new BratException("The OpenAPI document is not valid JSON: " + jsonFailure.getOriginalMessage()
+                        + JacksonUtils.locationOf(jsonFailure));
+            }
         }
     }
 
-    private static JsonNode readTree(YAMLMapper mapper, String content, JacksonException earlier) {
-        try {
-            return mapper.readTree(content);
-        } catch (JacksonException e) {
-            throw new BratException("The OpenAPI document is neither JSON nor YAML"
-                    + JacksonUtils.locationOf(earlier == null ? e : earlier));
-        }
+    /** Composes YAML with its aliases and merge keys resolved, within {@link #YAML_LIMITS}. */
+    private static JsonNode yaml(String content) {
+        var tree = YamlComposer.tree(content, YAML_LIMITS);
+        return tree == null ? NullNode.getInstance() : JSON.valueToTree(tree);
     }
 
     /** A node and the JSON pointer it was found at. */
@@ -177,7 +226,8 @@ final class OpenApiLoader {
                     servers(top.child("servers")),
                     operations(top.child("paths")),
                     nullToEmpty(security(top.child("security"))),
-                    securitySchemes(components == null ? null : components.child("securitySchemes")));
+                    securitySchemes(components == null ? null : components.child("securitySchemes")),
+                    notImported(top));
         }
 
         // --- servers ---
@@ -206,16 +256,19 @@ final class OpenApiLoader {
             for (var path : properties(optionalObject(paths))) {
                 var item = object(resolve(path.getValue()));
                 var shared = parameters(item.child("parameters"));
+                var pathServers = servers(item.child("servers"));
                 for (var entry : properties(item)) {
                     if (METHODS.contains(entry.getKey())) {
-                        result.add(operation(entry.getKey(), path.getKey(), object(entry.getValue()), shared));
+                        result.add(operation(
+                                entry.getKey(), path.getKey(), object(entry.getValue()), shared, pathServers));
                     }
                 }
             }
             return List.copyOf(result);
         }
 
-        private Operation operation(String method, String path, Located operation, List<Parameter> shared) {
+        private Operation operation(
+                String method, String path, Located operation, List<Parameter> shared, List<Server> pathServers) {
             var parameters = new ArrayList<>(shared);
             for (var own : parameters(operation.child("parameters"))) {
                 var replaced = false;
@@ -248,7 +301,14 @@ final class OpenApiLoader {
                     List.copyOf(parameters),
                     requestBody(operation.child("requestBody")),
                     List.copyOf(responses),
-                    security(operation.child("security")));
+                    security(operation.child("security")),
+                    operationServers(operation, pathServers));
+        }
+
+        /** The operation's own servers, else its path item's. */
+        private List<Server> operationServers(Located operation, List<Server> pathServers) {
+            var own = servers(operation.child("servers"));
+            return own.isEmpty() ? pathServers : own;
         }
 
         private List<Parameter> parameters(Located parameters) {
@@ -262,7 +322,7 @@ final class OpenApiLoader {
                         || (!required.absent()
                                 && required.node().isBoolean()
                                 && required.node().asBoolean());
-                result.add(new Parameter(name, in, isRequired, example(parameter, true)));
+                result.add(new Parameter(name, in, isRequired, example(parameter, true), schemaOf(parameter)));
             }
             return List.copyOf(result);
         }
@@ -275,44 +335,234 @@ final class OpenApiLoader {
             var result = new ArrayList<MediaType>();
             for (var entry : properties(optionalObject(body.child("content")))) {
                 var media = object(entry.getValue());
-                var schema = schema(media);
-                var properties = new ArrayList<String>();
-                if (schema != null) {
-                    for (var property : properties(optionalObject(schema.child("properties")))) {
-                        properties.add(property.getKey());
-                    }
-                }
-                result.add(new MediaType(entry.getKey(), example(media, false), List.copyOf(properties)));
+                result.add(new MediaType(entry.getKey(), example(media, false), isSerialized(media), schemaOf(media)));
             }
             return List.copyOf(result);
         }
 
         /**
-         * The first of {@code example}, the first {@code examples} entry's {@code value}, the schema's
-         * {@code example} and, if {@code withDefault}, the schema's {@code default}.
+         * The example {@link Parameter#example()} and {@link MediaType#example()} describe; a media type's
+         * may also come from {@code serializedValue}, a parameter's from its schema's {@code default}.
          */
-        private JsonNode example(Located owner, boolean withDefault) {
+        private JsonNode example(Located owner, boolean forParameter) {
             var example = owner.child("example");
             if (!example.absent()) {
                 return example.node();
             }
-            var examples = properties(optionalObject(owner.child("examples")));
-            if (!examples.isEmpty()) {
-                var value = object(resolve(examples.getFirst().getValue())).child("value");
-                if (!value.absent()) {
-                    return value.node();
-                }
+            var entry = firstExamplesEntry(owner);
+            var key = entry == null
+                    ? null
+                    : firstKeyHeld(entry, forParameter ? PARAMETER_EXAMPLE_KEYS : MEDIA_EXAMPLE_KEYS);
+            if (key != null) {
+                return entry.child(key).node();
             }
             var schema = schema(owner);
             if (schema == null) {
                 return null;
             }
-            var schemaExample = schema.child("example");
-            if (!schemaExample.absent()) {
-                return schemaExample.node();
+            var schemaExample = schemaExample(schema);
+            if (schemaExample != null) {
+                return schemaExample;
             }
             var schemaDefault = schema.child("default");
-            return withDefault && !schemaDefault.absent() ? schemaDefault.node() : null;
+            return forParameter && !schemaDefault.absent() ? schemaDefault.node() : null;
+        }
+
+        /** Whether {@link #example} took a media type's example from its first entry's {@code serializedValue}. */
+        private boolean isSerialized(Located media) {
+            if (!media.child("example").absent()) {
+                return false;
+            }
+            var entry = firstExamplesEntry(media);
+            return entry != null && SERIALIZED_VALUE.equals(firstKeyHeld(entry, MEDIA_EXAMPLE_KEYS));
+        }
+
+        /** The first of {@code keys} the entry holds a value for, or {@code null}: the one rule both use. */
+        private static String firstKeyHeld(Located entry, List<String> keys) {
+            for (var key : keys) {
+                if (!entry.child(key).absent()) {
+                    return key;
+                }
+            }
+            return null;
+        }
+
+        /** The first entry of the owner's {@code examples} mapping, its reference followed, or {@code null}. */
+        private Located firstExamplesEntry(Located owner) {
+            var examples = properties(optionalObject(owner.child("examples")));
+            return examples.isEmpty()
+                    ? null
+                    : object(resolve(examples.getFirst().getValue()));
+        }
+
+        /** A schema's {@code example}, else the first of its {@code examples} list, else {@code null}. */
+        private static JsonNode schemaExample(Located schema) {
+            var example = schema.child("example");
+            if (!example.absent()) {
+                return example.node();
+            }
+            var examples = schema.child("examples");
+            if (!examples.absent()
+                    && examples.node().isArray()
+                    && !examples.node().isEmpty()) {
+                return examples.node().get(0);
+            }
+            return null;
+        }
+
+        /** The owner's {@code schema}, read as {@link Schema} describes, or {@code null} if it has none. */
+        private Schema schemaOf(Located owner) {
+            var schema = owner.child("schema");
+            return schema.absent() ? null : readSchema(schema, 0);
+        }
+
+        /** Reads one schema at a nesting level: properties and items only below {@link #MAX_LEVEL}. */
+        private Schema readSchema(Located located, int level) {
+            if (!isMapping(located)) {
+                return new Schema(null, null, List.of(), List.of(), null);
+            }
+            var parts = new ArrayList<Located>();
+            collectParts(object(resolve(located)), parts, new HashSet<>());
+            String type = null;
+            JsonNode example = null;
+            List<String> enumValues = List.of();
+            Located items = null;
+            var properties = new LinkedHashMap<String, Located>();
+            var required = new HashSet<String>();
+            for (var part : parts) {
+                type = firstNonNull(typeOf(part), type);
+                example = firstNonNull(schemaExample(part), example);
+                var partEnum = enumOf(part);
+                enumValues = partEnum.isEmpty() ? enumValues : partEnum;
+                items = isMapping(part.child("items")) ? part.child("items") : items;
+                if (isMapping(part.child("properties"))) {
+                    for (var property : properties(part.child("properties"))) {
+                        properties.put(property.getKey(), property.getValue());
+                    }
+                }
+                for (var name : listOrEmpty(part.child("required"))) {
+                    if (name.node().isString()) {
+                        required.add(name.node().asString());
+                    }
+                }
+            }
+            if (type == null) {
+                type = !properties.isEmpty() ? "object" : items != null ? "array" : null;
+            }
+            if (level >= MAX_LEVEL) {
+                return new Schema(type, example, enumValues, List.of(), null);
+            }
+            var fields = new ArrayList<Field>();
+            for (var property : properties.entrySet()) {
+                fields.add(new Field(
+                        property.getKey(),
+                        required.contains(property.getKey()),
+                        readSchema(property.getValue(), level + 1)));
+            }
+            return new Schema(
+                    type,
+                    example,
+                    enumValues,
+                    List.copyOf(fields),
+                    items == null ? null : readSchema(items, level + 1));
+        }
+
+        /**
+         * Adds the parts a schema is merged from, in order: its {@code allOf} members, its first
+         * {@code oneOf} or {@code anyOf} alternative, then itself. A member already being read is
+         * skipped, so a cycle of {@code allOf}s ends.
+         */
+        private void collectParts(Located schema, List<Located> parts, Set<String> reading) {
+            if (!reading.add(schema.location())) {
+                return;
+            }
+            for (var member : listOrEmpty(schema.child("allOf"))) {
+                if (isMapping(member)) {
+                    collectParts(object(resolve(member)), parts, reading);
+                }
+            }
+            for (var keyword : List.of("oneOf", "anyOf")) {
+                var alternatives = listOrEmpty(schema.child(keyword));
+                if (!alternatives.isEmpty()) {
+                    if (isMapping(alternatives.getFirst())) {
+                        collectParts(object(resolve(alternatives.getFirst())), parts, reading);
+                    }
+                    break;
+                }
+            }
+            parts.add(schema);
+            reading.remove(schema.location());
+        }
+
+        /** A schema's own {@code type}: the first that is not {@code null} of a list, or {@code null}. */
+        private static String typeOf(Located schema) {
+            var type = schema.child("type");
+            if (type.absent()) {
+                return null;
+            }
+            if (type.node().isString()) {
+                return type.node().asString();
+            }
+            if (!type.node().isArray()) {
+                return null;
+            }
+            for (var entry : type.node()) {
+                if (entry.isString() && !"null".equals(entry.asString())) {
+                    return entry.asString();
+                }
+            }
+            return null;
+        }
+
+        /** A schema's own {@code enum} values as text, a {@code null} or a structure left out. */
+        private static List<String> enumOf(Located schema) {
+            var result = new ArrayList<String>();
+            for (var value : listOrEmpty(schema.child("enum"))) {
+                if (!value.absent() && value.node().isValueNode()) {
+                    result.add(value.node().asString());
+                }
+            }
+            return List.copyOf(result);
+        }
+
+        /** Whether the node is present and a mapping. */
+        private static boolean isMapping(Located located) {
+            return !located.absent() && located.node().isObject();
+        }
+
+        /** The elements of a list, or none for anything that is not one: a schema's mistakes are ignored. */
+        private static List<Located> listOrEmpty(Located list) {
+            return list.absent() || !list.node().isArray() ? List.of() : elements(list);
+        }
+
+        private static <T> T firstNonNull(T preferred, T fallback) {
+            return preferred != null ? preferred : fallback;
+        }
+
+        /** What {@link OpenApiDocument#notImported()} describes. */
+        private List<String> notImported(Located top) {
+            var result = new ArrayList<String>();
+            for (var entry : properties(top)) {
+                if ("webhooks".equals(entry.getKey())) {
+                    var names = properties(optionalObject(entry.getValue()));
+                    if (!names.isEmpty()) {
+                        result.add("webhooks: " + joinKeys(names));
+                    }
+                } else if ("paths".equals(entry.getKey())) {
+                    for (var path : properties(optionalObject(entry.getValue()))) {
+                        var item = object(resolve(path.getValue()));
+                        var extra = properties(optionalObject(item.child("additionalOperations")));
+                        if (!extra.isEmpty()) {
+                            result.add("additionalOperations on " + path.getKey() + ": " + joinKeys(extra));
+                        }
+                    }
+                }
+            }
+            return List.copyOf(result);
+        }
+
+        private static String joinKeys(List<Map.Entry<String, Located>> entries) {
+            return String.join(", ", entries.stream().map(Map.Entry::getKey).toList());
         }
 
         private Located schema(Located owner) {

@@ -215,7 +215,7 @@ final class SuiteEmitter {
             var matcher = PATH_PARAMETER.matcher(operation.path());
             while (matcher.find()) {
                 if (declaredPath.add(matcher.group(1))) {
-                    result.add(new Parameter(matcher.group(1), "path", true, null));
+                    result.add(new Parameter(matcher.group(1), "path", true, null, null));
                 }
             }
             return result;

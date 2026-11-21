@@ -13,7 +13,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ImportNamesTest {
 
     private static Operation operation(String method, String path, String operationId, String summary) {
-        return new Operation(method, path, operationId, summary, List.of(), List.of(), List.of(), List.of(), null);
+        return new Operation(
+                method, path, operationId, summary, List.of(), List.of(), List.of(), List.of(), null, List.of());
     }
 
     // --- fileName ---
