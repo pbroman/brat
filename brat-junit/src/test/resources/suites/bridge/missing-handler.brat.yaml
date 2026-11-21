@@ -1,0 +1,13 @@
+# Names a request handler no runner has, which ends the run rather than one request.
+name: missing handler
+
+requests:
+  - name: first
+    requestDefinition:
+      url: "${env.baseUrl}/ok?first"
+
+  - name: through a handler nobody registered
+    requestHandlers:
+      http: no-such-handler
+    requestDefinition:
+      url: "${env.baseUrl}/ok?second"

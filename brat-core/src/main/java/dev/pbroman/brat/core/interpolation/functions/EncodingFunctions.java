@@ -41,6 +41,15 @@ import static dev.pbroman.brat.core.api.interpolation.FunctionArgs.requireArgCou
  */
 final class EncodingFunctions {
 
+    // The names these functions are registered under, which their messages repeat.
+    private static final String BASE64 = "base64";
+    private static final String BASE64_DECODE = "base64Decode";
+    private static final String URL_ENCODE = "urlEncode";
+    private static final String URL_DECODE = "urlDecode";
+    private static final String MD5 = "md5";
+    private static final String SHA256 = "sha256";
+    private static final String HMAC_SHA256 = "hmacSha256";
+
     private static final String UNRESERVED = "-._~";
 
     /** Held rather than rebuilt: {@code withUpperCase} allocates, and encoding runs per byte. */
@@ -57,22 +66,22 @@ final class EncodingFunctions {
      */
     public static List<BratFunction> functions() {
         return List.of(
-                BratFunction.of("base64", EncodingFunctions::base64),
-                BratFunction.of("base64Decode", EncodingFunctions::base64Decode),
-                BratFunction.of("urlEncode", EncodingFunctions::urlEncode),
-                BratFunction.of("urlDecode", EncodingFunctions::urlDecode),
-                BratFunction.of("md5", EncodingFunctions::md5),
-                BratFunction.of("sha256", EncodingFunctions::sha256),
-                BratFunction.of("hmacSha256", EncodingFunctions::hmacSha256));
+                BratFunction.of(BASE64, EncodingFunctions::base64),
+                BratFunction.of(BASE64_DECODE, EncodingFunctions::base64Decode),
+                BratFunction.of(URL_ENCODE, EncodingFunctions::urlEncode),
+                BratFunction.of(URL_DECODE, EncodingFunctions::urlDecode),
+                BratFunction.of(MD5, EncodingFunctions::md5),
+                BratFunction.of(SHA256, EncodingFunctions::sha256),
+                BratFunction.of(HMAC_SHA256, EncodingFunctions::hmacSha256));
     }
 
     private static String base64(List<String> args) {
-        requireArgCount("base64", args, 1, 1);
+        requireArgCount(BASE64, args, 1, 1);
         return Base64.getEncoder().encodeToString(args.getFirst().getBytes(StandardCharsets.UTF_8));
     }
 
     private static String base64Decode(List<String> args) {
-        requireArgCount("base64Decode", args, 1, 1);
+        requireArgCount(BASE64_DECODE, args, 1, 1);
         try {
             return new String(Base64.getDecoder().decode(args.getFirst()), StandardCharsets.UTF_8);
         } catch (IllegalArgumentException e) {
@@ -81,7 +90,7 @@ final class EncodingFunctions {
     }
 
     private static String urlEncode(List<String> args) {
-        requireArgCount("urlEncode", args, 1, 1);
+        requireArgCount(URL_ENCODE, args, 1, 1);
         var encoded = new StringBuilder();
         for (var b : args.getFirst().getBytes(StandardCharsets.UTF_8)) {
             var c = (char) (b & 0xFF);
@@ -95,7 +104,7 @@ final class EncodingFunctions {
     }
 
     private static String urlDecode(List<String> args) {
-        requireArgCount("urlDecode", args, 1, 1);
+        requireArgCount(URL_DECODE, args, 1, 1);
         try {
             // A literal + must survive, so it is escaped before URLDecoder can read it as a space
             return URLDecoder.decode(args.getFirst().replace("+", "%2B"), StandardCharsets.UTF_8);
@@ -105,12 +114,12 @@ final class EncodingFunctions {
     }
 
     private static String md5(List<String> args) {
-        requireArgCount("md5", args, 1, 1);
+        requireArgCount(MD5, args, 1, 1);
         return digest("MD5", args.getFirst());
     }
 
     private static String sha256(List<String> args) {
-        requireArgCount("sha256", args, 1, 1);
+        requireArgCount(SHA256, args, 1, 1);
         return digest("SHA-256", args.getFirst());
     }
 
@@ -126,7 +135,7 @@ final class EncodingFunctions {
     }
 
     private static String hmacSha256(List<String> args) {
-        requireArgCount("hmacSha256", args, 2, 2);
+        requireArgCount(HMAC_SHA256, args, 2, 2);
         try {
             var mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(args.getFirst().getBytes(StandardCharsets.UTF_8), "HmacSHA256"));

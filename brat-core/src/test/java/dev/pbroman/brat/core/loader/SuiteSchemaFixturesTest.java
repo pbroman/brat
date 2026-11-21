@@ -33,6 +33,7 @@ class SuiteSchemaFixturesTest {
     /** Fixtures with a shape error, by path from the repository root, and where the schema must report it. */
     private static final Map<String, String> EXPECTED_TO_FAIL = Map.of(
             "brat-cli/src/test/resources/cli/broken.brat.yaml", "/requests/0",
+            "brat-junit/src/test/resources/suites/broken/broken.brat.yaml", "/requests/0",
             "brat-integration-tests/src/test/resources/suites/broken/unknown-key.brat.yaml", "/requests/0",
             "brat-integration-tests/src/test/resources/suites/broken/mis-indented-body.brat.yaml",
                     "/requests/0/requestDefinition/headers/body");

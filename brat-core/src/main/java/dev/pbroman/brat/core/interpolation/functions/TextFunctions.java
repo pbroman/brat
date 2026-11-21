@@ -38,6 +38,15 @@ import static dev.pbroman.brat.core.api.interpolation.FunctionArgs.requireArgCou
  */
 final class TextFunctions {
 
+    // The names these functions are registered under, which their messages repeat.
+    private static final String UPPER = "upper";
+    private static final String LOWER = "lower";
+    private static final String TRIM = "trim";
+    private static final String LENGTH = "length";
+    private static final String SUBSTRING = "substring";
+    private static final String REPLACE = "replace";
+    private static final String DEFAULT = "default";
+
     private TextFunctions() {
         // no instances
     }
@@ -49,41 +58,41 @@ final class TextFunctions {
      */
     public static List<BratFunction> functions() {
         return List.of(
-                BratFunction.of("upper", TextFunctions::upper),
-                BratFunction.of("lower", TextFunctions::lower),
-                BratFunction.of("trim", TextFunctions::trim),
-                BratFunction.of("length", TextFunctions::length),
-                BratFunction.of("substring", TextFunctions::substring),
-                BratFunction.of("replace", TextFunctions::replace),
-                BratFunction.of("default", TextFunctions::defaultTo));
+                BratFunction.of(UPPER, TextFunctions::upper),
+                BratFunction.of(LOWER, TextFunctions::lower),
+                BratFunction.of(TRIM, TextFunctions::trim),
+                BratFunction.of(LENGTH, TextFunctions::length),
+                BratFunction.of(SUBSTRING, TextFunctions::substring),
+                BratFunction.of(REPLACE, TextFunctions::replace),
+                BratFunction.of(DEFAULT, TextFunctions::defaultTo));
     }
 
     private static String upper(List<String> args) {
-        requireArgCount("upper", args, 1, 1);
+        requireArgCount(UPPER, args, 1, 1);
         // ROOT rather than the default locale: a Turkish-locale machine would otherwise map i to İ
         return args.getFirst().toUpperCase(Locale.ROOT);
     }
 
     private static String lower(List<String> args) {
-        requireArgCount("lower", args, 1, 1);
+        requireArgCount(LOWER, args, 1, 1);
         return args.getFirst().toLowerCase(Locale.ROOT);
     }
 
     private static String trim(List<String> args) {
-        requireArgCount("trim", args, 1, 1);
+        requireArgCount(TRIM, args, 1, 1);
         return args.getFirst().trim();
     }
 
     private static String length(List<String> args) {
-        requireArgCount("length", args, 1, 1);
+        requireArgCount(LENGTH, args, 1, 1);
         return String.valueOf(args.getFirst().length());
     }
 
     private static String substring(List<String> args) {
-        requireArgCount("substring", args, 2, 3);
+        requireArgCount(SUBSTRING, args, 2, 3);
         var text = args.getFirst();
-        var start = integerWithin("substring", args.get(1), 0, text.length());
-        var end = args.size() == 3 ? integerWithin("substring", args.get(2), 0, text.length()) : text.length();
+        var start = integerWithin(SUBSTRING, args.get(1), 0, text.length());
+        var end = args.size() == 3 ? integerWithin(SUBSTRING, args.get(2), 0, text.length()) : text.length();
         if (start > end) {
             throw new BratException(
                     "__substring cannot take " + start + " to " + end + " of a " + text.length() + "-character value");
@@ -92,12 +101,12 @@ final class TextFunctions {
     }
 
     private static String replace(List<String> args) {
-        requireArgCount("replace", args, 3, 3);
+        requireArgCount(REPLACE, args, 3, 3);
         return args.getFirst().replace(args.get(1), args.get(2));
     }
 
     private static String defaultTo(List<String> args) {
-        requireArgCount("default", args, 2, 2);
+        requireArgCount(DEFAULT, args, 2, 2);
         return args.getFirst().isEmpty() ? args.get(1) : args.getFirst();
     }
 }

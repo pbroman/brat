@@ -1,0 +1,39 @@
+# A login that steps aside when the launch hands over a token, as a test of the app does.
+name: handed-over token
+
+auth:
+  type: bearer
+  args:
+    token: "${vars.accessToken}"
+
+requests:
+  - name: get a token
+    phase: setup
+    skipCondition:                                # vars.accessToken=… at launch skips the login
+      a: "${vars.accessToken}"
+      func: isNotBlank
+    auth:
+      type: none                                  # the login must not send the token it fetches
+    requestDefinition:
+      url: "${env.baseUrl}/oauth/token"
+      method: POST
+      body:
+        form:
+          username: admin
+          password: "${secrets.adminPassword}"
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: 200
+      setVars:
+        accessToken: "${response.json.$.access_token}"
+
+  - name: who am I
+    requestDefinition:
+      url: "${env.baseUrl}/secure/whoami"
+    responseActions:
+      assertions:
+        - a: "${response.json.$.username}"
+          func: isEqualTo
+          b: admin

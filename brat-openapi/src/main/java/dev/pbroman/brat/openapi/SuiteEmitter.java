@@ -463,6 +463,12 @@ final class SuiteEmitter {
         private void writeTokenRequest(Lines lines, ImportAuth.TokenRequest request, String name) {
             lines.add("  - name: " + YamlText.scalar(name));
             lines.add("    phase: setup", "runs first; if it fails, nothing else runs");
+            lines.add(
+                    "    skipCondition:",
+                    "skipped when a token is handed over (vars." + YamlText.commentText(request.accessTokenVar())
+                            + ")");
+            lines.add("      a: " + YamlText.scalar("${vars." + request.accessTokenVar() + "}"));
+            lines.add("      func: isNotBlank");
             lines.add("    auth:");
             lines.add("      type: none", "the token request must not send the token it fetches");
             lines.add("    requestDefinition:");

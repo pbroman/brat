@@ -1,0 +1,20 @@
+# A slow request between two quick ones, and a teardown: what stopping leaves undone and what it still does.
+name: slow
+
+requests:
+  - name: first
+    requestDefinition:
+      url: "${env.baseUrl}/ok?first"
+
+  - name: slow
+    requestDefinition:
+      url: "${env.baseUrl}/slow"
+
+  - name: after
+    requestDefinition:
+      url: "${env.baseUrl}/ok?after"
+
+  - name: clean up
+    phase: teardown
+    requestDefinition:
+      url: "${env.baseUrl}/ok?clean-up"

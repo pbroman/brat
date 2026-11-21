@@ -2,28 +2,22 @@ package dev.pbroman.brat.core.reporting;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.Locale;
 
-import dev.pbroman.brat.core.api.interpolation.InterpolationOutcome;
 import dev.pbroman.brat.core.api.listener.AttemptFinished;
 import dev.pbroman.brat.core.api.listener.RunEvent;
 import dev.pbroman.brat.core.api.listener.RunListener;
 import dev.pbroman.brat.core.api.rendering.OutcomeRenderer;
-import dev.pbroman.brat.core.api.rendering.RenderKinds;
-import dev.pbroman.brat.core.api.rendering.RenderTarget;
 import dev.pbroman.brat.core.api.reporting.ReportDetail;
 import dev.pbroman.brat.core.api.reporting.ValueMask;
 import dev.pbroman.brat.core.data.AssertionSeverity;
-import dev.pbroman.brat.core.data.ConfigData;
-import dev.pbroman.brat.core.data.Phase;
 import dev.pbroman.brat.core.data.result.AssertionResult;
 import dev.pbroman.brat.core.data.result.RequestResult;
 import dev.pbroman.brat.core.data.result.RequestStatus;
 import dev.pbroman.brat.core.data.result.RunResult;
 import dev.pbroman.brat.core.data.result.SuiteStatus;
+import dev.pbroman.brat.core.rendering.ReportMarkers;
 import dev.pbroman.brat.core.rendering.ReportText;
-import dev.pbroman.brat.core.rendering.ResponseRenderer;
+import dev.pbroman.brat.core.rendering.RequestRenderer;
 
 /**
  * Prints one run for {@link ConsoleRunReporter}, whose Javadoc describes the output.
@@ -33,19 +27,14 @@ import dev.pbroman.brat.core.rendering.ResponseRenderer;
  */
 final class ConsoleRunListener implements RunListener {
 
-    /** What a request line opens with. */
-    private enum Verdict {
-        PASS,
-        FAIL,
-        SKIP,
-        ERROR
-    }
-
     private static final String INDENT = "  ";
-    /** Puts the detail under a request beneath its name rather than its verdict. */
-    private static final String DETAIL_INDENT = " ".repeat(9);
 
     private static final String DASH = " — ";
+
+    // The labels of the summary's counts, shared by its request, assertion and suite rows.
+    private static final String COUNT_PASSED = "passed";
+    private static final String COUNT_FAILED = "failed";
+    private static final String COUNT_SKIPPED = "skipped";
 
     private final PrintStream out;
     private final OutcomeRenderer renderer;
@@ -112,62 +101,18 @@ final class ConsoleRunListener implements RunListener {
 
     private void requestFinished(RequestResult result) {
         var coordinates = result.coordinates();
-        var status = result.status();
-        var failed = result.failed();
-        var verdict =
-                switch (status) {
-                    case RequestStatus.Errored errored -> Verdict.ERROR;
-                    case RequestStatus.Skipped skipped -> Verdict.SKIP;
-                    default -> failed ? Verdict.FAIL : Verdict.PASS;
-                };
-        count(status, failed);
+        count(result.status(), result.failed());
 
-        var line = new StringBuilder(indent(depth(coordinates.path())))
-                .append(column(verdict.name()))
-                .append(coordinates.name())
-                .append(tag(coordinates.phase()));
-        if (!(status instanceof RequestStatus.Skipped)) {
-            line.append(" (").append(duration(result.elapsedMs())).append(')');
+        out.println(indent(depth(coordinates.path())) + RequestRenderer.headline(result, mask, detail.showSecrets()));
+        var detailIndent = indent(depth(coordinates.path())) + RequestRenderer.DETAIL_INDENT;
+        for (var detailLine : RequestRenderer.lines(result, detail, mask, renderer)) {
+            out.println(detailIndent + detailLine);
         }
-        var reason = reason(status);
-        if (reason != null) {
-            line.append(DASH).append(shown(reason));
-        }
-        out.println(line);
-        ResponseRenderer.redirectNotice(result, mask, detail.showSecrets())
-                .ifPresent(notice -> out.println(indent(depth(coordinates.path())) + DETAIL_INDENT + notice));
 
         for (var assertion : result.responseActionsResult().assertionResults()) {
             count(assertion);
         }
         capturesFailed += result.responseActionsResult().captureFailures().size();
-        printDetail(result, indent(depth(coordinates.path())) + DETAIL_INDENT);
-    }
-
-    /**
-     * Prints the detail under a request: the assertions {@code detail} shows, every capture failure, then
-     * the request as sent and the response where {@code detail} shows them.
-     *
-     * @param result the request's result
-     * @param detailIndent the indent the detail is printed at
-     */
-    private void printDetail(RequestResult result, String detailIndent) {
-        for (var assertion : result.responseActionsResult().assertionResults()) {
-            if (detail.showsAssertion(assertion)) {
-                printAssertion(assertion, detailIndent);
-            }
-        }
-        for (var capture : result.responseActionsResult().captureFailures()) {
-            out.println(detailIndent + "CAPTURE " + capture.name() + DASH + shown(capture.message()));
-        }
-        if (detail.showsRequest(result)) {
-            printSent(result, detailIndent);
-        }
-        if (detail.showsResponse(result)) {
-            for (var line : ResponseRenderer.lines(result, mask, detail.showSecrets())) {
-                out.println(detailIndent + line);
-            }
-        }
     }
 
     private void count(RequestStatus status, boolean failed) {
@@ -192,54 +137,6 @@ final class ConsoleRunListener implements RunListener {
         }
     }
 
-    private void printAssertion(AssertionResult assertion, String detailIndent) {
-        String mark;
-        if (assertion.passed()) {
-            mark = "PASS";
-        } else {
-            mark = assertion.severity() == AssertionSeverity.WARN ? "WARN" : "FAIL";
-        }
-        var condition = assertion.condition();
-        var header = detailIndent + String.format("%-6s", mark) + condition.getFunc();
-        out.println(assertion.message() == null ? header : header + DASH + shown(assertion.message()));
-        if (condition.isInterpolated()) {
-            var outcomes = new LinkedHashMap<>(condition.getOutcomes());
-            outcomes.remove("message");
-            printRendered(new RenderTarget(outcomes), detailIndent + INDENT);
-        }
-    }
-
-    private void printSent(RequestResult result, String detailIndent) {
-        if (result.requestDefinition() instanceof ConfigData sent) {
-            RenderTarget.of(sent).ifPresent(target -> {
-                out.println(detailIndent + "request:");
-                printRendered(new RenderTarget(target.outcomes()), detailIndent + INDENT);
-            });
-        }
-    }
-
-    /**
-     * Renders {@code target} with every outcome's reporting string shown through {@link ReportText}, so it
-     * is masked and cut before the renderer lays it out.
-     *
-     * @param target the outcomes to print
-     * @param indent the indent of every line
-     */
-    private void printRendered(RenderTarget target, String indent) {
-        var outcomes = new LinkedHashMap<String, InterpolationOutcome>();
-        for (var entry : target.outcomes().entrySet()) {
-            var outcome = entry.getValue();
-            outcomes.put(
-                    entry.getKey(),
-                    new InterpolationOutcome(
-                            outcome.value(), shown(outcome.reportingString()), outcome.containsSecret()));
-        }
-        renderer.render(RenderKinds.CONSOLE, new RenderTarget(target.label(), outcomes))
-                .lines()
-                .map(line -> indent + line)
-                .forEach(out::println);
-    }
-
     /**
      * {@code text} as the report prints it: masked with the run's mask, then cut.
      *
@@ -260,15 +157,15 @@ final class ConsoleRunListener implements RunListener {
             }
             case SuiteStatus.Skipped skipped -> {
                 suitesSkipped++;
-                out.println(indent + "SKIPPED " + name + DASH + shown(skipped.reason()));
+                out.println(indent + ReportMarkers.SKIPPED + " " + name + DASH + shown(skipped.reason()));
             }
             case SuiteStatus.Aborted aborted -> {
                 suitesAborted++;
-                out.println(indent + "ABORTED " + name + DASH + shown(aborted.reason()));
+                out.println(indent + ReportMarkers.ABORTED + " " + name + DASH + shown(aborted.reason()));
             }
             case SuiteStatus.Cancelled cancelled -> {
                 suitesCancelled++;
-                out.println(indent + "CANCELLED " + name);
+                out.println(indent + ReportMarkers.CANCELLED + " " + name);
             }
         }
     }
@@ -276,12 +173,12 @@ final class ConsoleRunListener implements RunListener {
     private void summary(RunResult result) {
         out.println("-----");
         out.println(row("requests", requests)
-                + part("passed", requestsPassed)
-                + part("failed", requestsFailed)
-                + part("skipped", requestsSkipped));
+                + part(COUNT_PASSED, requestsPassed)
+                + part(COUNT_FAILED, requestsFailed)
+                + part(COUNT_SKIPPED, requestsSkipped));
         out.println(row("assertions", assertions)
-                + part("passed", assertionsPassed)
-                + part("failed", assertionsFailed)
+                + part(COUNT_PASSED, assertionsPassed)
+                + part(COUNT_FAILED, assertionsFailed)
                 + part("warned", assertionsWarned));
         if (capturesFailed > 0) {
             out.println("captures failed " + capturesFailed);
@@ -293,7 +190,7 @@ final class ConsoleRunListener implements RunListener {
                 parts.add(part("aborted", suitesAborted));
             }
             if (suitesSkipped > 0) {
-                parts.add(part("skipped", suitesSkipped));
+                parts.add(part(COUNT_SKIPPED, suitesSkipped));
             }
             if (suitesCancelled > 0) {
                 parts.add(part("cancelled", suitesCancelled));
@@ -302,11 +199,11 @@ final class ConsoleRunListener implements RunListener {
         }
         String verdict;
         if (result.error() != null) {
-            verdict = "ABORTED" + DASH + shown(result.error());
+            verdict = ReportMarkers.ABORTED + DASH + shown(result.error());
         } else if (result.cancelled()) {
-            verdict = "CANCELLED";
+            verdict = ReportMarkers.CANCELLED;
         } else {
-            verdict = requestsFailed > 0 || suitesAborted > 0 ? "FAILED" : "PASSED";
+            verdict = requestsFailed > 0 || suitesAborted > 0 ? ReportMarkers.FAILED : ReportMarkers.PASSED;
         }
         out.println(duration(result.elapsedMs()) + " · " + verdict);
     }
@@ -317,23 +214,6 @@ final class ConsoleRunListener implements RunListener {
 
     private static String part(String label, int count) {
         return String.format("   %s %d", label, count);
-    }
-
-    private static String reason(RequestStatus status) {
-        return switch (status) {
-            case RequestStatus.Skipped skipped -> skipped.reason();
-            case RequestStatus.Errored errored -> errored.message();
-            case RequestStatus.GaveUp gaveUp -> gaveUp.message();
-            case RequestStatus.Completed completed -> null;
-        };
-    }
-
-    private static String tag(Phase phase) {
-        return switch (phase) {
-            case SETUP -> " [setup]";
-            case TEARDOWN -> " [teardown]";
-            case MAIN -> "";
-        };
     }
 
     /** Pads a request line's marker so that the names after it line up. */
@@ -356,6 +236,6 @@ final class ConsoleRunListener implements RunListener {
     }
 
     private static String duration(long ms) {
-        return ms < 1000 ? ms + " ms" : String.format(Locale.ROOT, "%.1f s", ms / 1000.0);
+        return ReportText.duration(ms);
     }
 }

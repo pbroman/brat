@@ -287,6 +287,10 @@ class OpenApiImporterAuthTest {
 
         var token = request(scaffold, "get a token");
         assertThat(token.get("phase").asString()).isEqualTo("setup");
+        assertThat(token.get("skipCondition").get("a").asString()).isEqualTo("${vars.accessToken}");
+        assertThat(token.get("skipCondition").get("func").asString()).isEqualTo("isNotBlank");
+        assertThat(token.get("skipCondition").has("b")).isFalse();
+        assertThat(lineWith(scaffold, "skipCondition:")).contains("#").contains("vars.accessToken");
         assertThat(token.get("auth").get("type").asString()).isEqualTo("none");
         var definition = token.get("requestDefinition");
         assertThat(definition.get("url").asString()).isEqualTo("${env.tokenUrl}");
@@ -582,6 +586,7 @@ class OpenApiImporterAuthTest {
         var form = partnerToken.get("requestDefinition").get("body").get("form");
         assertThat(form.get("client_id").asString()).isEqualTo("${env.partner.clientId}");
         assertThat(form.get("client_secret").asString()).isEqualTo("${secrets.partner.clientSecret}");
+        assertThat(partnerToken.get("skipCondition").get("a").asString()).isEqualTo("${vars.partner.accessToken}");
         assertThat(partnerToken.get("responseActions").get("setVars").has("partner.accessToken"))
                 .isTrue();
         assertThat(request(scaffold, "partner orders")

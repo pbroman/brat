@@ -1,0 +1,83 @@
+# One request per outcome a test can have, at every phase and one level down.
+name: outcomes
+
+requests:
+  - name: warm up
+    phase: setup
+    requestDefinition:
+      url: "${env.baseUrl}/ok?warm-up"
+
+  - name: passes
+    requestDefinition:
+      url: "${env.baseUrl}/ok"
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: 200
+
+  - name: fails an assertion
+    requestDefinition:
+      url: "${env.baseUrl}/status/500"
+      headers:
+        X-Token: "${secrets.token}"               # shown masked in the failure
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: 200
+          message: must be ok
+
+  - name: warns only
+    requestDefinition:
+      url: "${env.baseUrl}/ok"
+    responseActions:
+      assertions:
+        - a: "${response.statusCode}"
+          func: isEqualTo
+          b: 201
+          severity: WARN                          # recorded, and the request still passes
+
+  - name: fails a capture
+    requestDefinition:
+      url: "${env.baseUrl}/ok"
+    responseActions:
+      setVars:
+        missing: "${response.json.$.no_such_field}"
+
+  - name: errors
+    requestDefinition:
+      url: "${env.noSuchKey}/x"                   # cannot be interpolated
+
+  - name: gives up
+    requestDefinition:
+      url: "${env.baseUrl}/ok?gives-up"
+    flowControl:
+      repeatUntil:
+        condition:
+          a: "${response.statusCode}"
+          func: isEqualTo
+          b: 201                                  # never: the server answers 200
+        maxAttempts: "2"
+        waitBetweenAttempts: "10"
+        messageOnFail: never answered 201
+
+  - name: is skipped
+    skipCondition:
+      a: "yes"
+      func: isEqualTo
+      b: "yes"
+    requestDefinition:
+      url: "${env.baseUrl}/ok?skipped"
+
+  - name: clean up
+    phase: teardown
+    requestDefinition:
+      url: "${env.baseUrl}/ok?clean-up"
+
+subSuites:
+  - name: orders
+    requests:
+      - name: lists orders
+        requestDefinition:
+          url: "${env.baseUrl}/ok?orders"

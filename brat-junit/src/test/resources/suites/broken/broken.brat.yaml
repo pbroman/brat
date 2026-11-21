@@ -1,0 +1,7 @@
+# A request with a key the loader does not know, so loading it fails.
+name: broken
+
+requests:
+  - name: health check
+    requestDefinitio:
+      url: "${env.baseUrl}/health"

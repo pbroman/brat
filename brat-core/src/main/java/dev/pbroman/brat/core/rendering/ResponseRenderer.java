@@ -113,7 +113,7 @@ public final class ResponseRenderer {
         nonNull(mask, "The mask must not be null");
         return result.responseVars()
                 .map(responseVars -> responseVars.get(REDIRECT_NOT_FOLLOWED))
-                .map(location -> "REDIRECT " + ReportText.shown(location.toString(), mask, showSecrets)
+                .map(location -> ReportMarkers.REDIRECT + " " + ReportText.shown(location.toString(), mask, showSecrets)
                         + " not followed — another origin, and the request carries credentials");
     }
 
