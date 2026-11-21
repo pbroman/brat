@@ -1201,9 +1201,14 @@ final class SuiteEmitter {
             return url.endsWith("://") ? url : StringUtils.removeEnd(url, "/");
         }
 
+        /** The host of a url with a scheme: what follows {@code ://} up to a path, port, query or fragment. */
+        private static String hostOf(String url) {
+            return url.substring(url.indexOf("://") + 3).split("[/:?#]", 2)[0];
+        }
+
         /** {@code <label>BaseUrl} for a url, numbered past the keys already given. */
         private String serverKey(String url) {
-            var host = url.substring(url.indexOf("://") + 3).split("[/:?#]", 2)[0];
+            var host = hostOf(url);
             var label = host.split("\\.", 2)[0];
             var clean =
                     label.contains("{") ? "" : label.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
@@ -1227,8 +1232,9 @@ final class SuiteEmitter {
                         ? String.join(", ", names.subList(0, MAX_SERVER_REQUESTS_NAMED)) + " and "
                                 + (names.size() - MAX_SERVER_REQUESTS_NAMED) + " more"
                         : String.join(", ", names);
-                if (VARIABLE.matcher(url).find()) {
-                    var reason = "the spec's server url " + url + " has a variable without a default";
+                if (VARIABLE.matcher(url).find() || hostOf(url).isEmpty()) {
+                    var reason = "the spec's server url " + url
+                            + (hostOf(url).isEmpty() ? " names no host" : " has a variable without a default");
                     lines.add(YamlText.scalar(key) + ": \"\"", YamlText.commentText(reason) + ": fill in");
                     noteIn(envNotes, file, key + ": " + reason + "; fill in the url");
                 } else {

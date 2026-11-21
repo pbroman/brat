@@ -85,11 +85,11 @@ record OpenApiDocument(
 
         /**
          * What makes two parameters of the same name the same parameter: equal for two parameters
-         * exactly when they have the same {@code in}, the same schema {@link Schema#type() type}, the
-         * same {@link Schema#enumValues() enum} in the same order, and — for an array — the same type
-         * and enum of its items. The name, the example, {@code required} and every other part of the
-         * schema do not count. A parameter without a schema has a schema type, enum and items of
-         * none.
+         * exactly when they have the same {@code in}, the same schema {@link Schema#type() type} and
+         * {@link Schema#format() format}, the same {@link Schema#enumValues() enum} in the same order,
+         * and — for an array — the same type, format and enum of its items. The name, the example,
+         * {@code required} and every other part of the schema do not count. A parameter without a schema
+         * has a schema type, format, enum and items of none.
          *
          * @return the identity, to compare with {@code equals}; its text is otherwise unspecified;
          *         never {@code null}
@@ -101,7 +101,7 @@ record OpenApiDocument(
 
         /** A schema's type and enum as text, {@code -} for no schema. */
         private static String shapeOf(Schema schema) {
-            return schema == null ? "-" : schema.type() + schema.enumValues();
+            return schema == null ? "-" : schema.type() + "/" + schema.format() + schema.enumValues();
         }
 
         /**
@@ -168,6 +168,7 @@ record OpenApiDocument(
      * @param type its {@code type}; for a list of types, the first that is not {@code null}; absent, or
      *        a list holding no other: {@code object} if it has {@code properties}, {@code array} if it
      *        has {@code items}, else {@code null}
+     * @param format its {@code format} ({@code uuid}, {@code date-time}), or {@code null} if it has none
      * @param example its {@code example}, else the first of its {@code examples} list; {@code null} if
      *        it has neither, and an {@code examples} that is not a list does not count
      * @param enumValues its {@code enum} values as text, in order, a {@code null}, a mapping or a list
@@ -175,7 +176,13 @@ record OpenApiDocument(
      * @param properties its properties in order; empty if it has none or nesting stopped
      * @param items for an array, its {@code items}; {@code null} if it has none or nesting stopped
      */
-    record Schema(String type, JsonNode example, List<String> enumValues, List<Field> properties, Schema items) {}
+    record Schema(
+            String type,
+            String format,
+            JsonNode example,
+            List<String> enumValues,
+            List<Field> properties,
+            Schema items) {}
 
     /**
      * One property of a schema.

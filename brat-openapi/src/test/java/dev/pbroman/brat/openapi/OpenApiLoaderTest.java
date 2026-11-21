@@ -1005,7 +1005,7 @@ class OpenApiLoaderTest {
                 .schema();
 
         // then
-        assertThat(a).isEqualTo(new Schema(null, null, List.of(), List.of(), null));
+        assertThat(a).isEqualTo(new Schema(null, null, null, List.of(), List.of(), null));
     }
 
     @Test
@@ -1400,7 +1400,7 @@ class OpenApiLoaderTest {
                 .schema();
 
         // then
-        assertThat(a).isEqualTo(new Schema(null, null, List.of(), List.of(), null));
+        assertThat(a).isEqualTo(new Schema(null, null, null, List.of(), List.of(), null));
     }
 
     @Test
@@ -1412,10 +1412,10 @@ class OpenApiLoaderTest {
                 .isNull();
     }
 
-    // --- 10b: the model's derived values ---
+    // --- the model's derived values ---
 
     private static Schema schema(String type, List<String> enumValues, Schema items) {
-        return new Schema(type, null, enumValues, List.of(), items);
+        return new Schema(type, null, null, enumValues, List.of(), items);
     }
 
     private static Parameter parameter(String name, String in, Schema schema, String example) {
@@ -1450,6 +1450,31 @@ class OpenApiLoaderTest {
     }
 
     @Test
+    void identity_differsByFormat() {
+        // given - DigitalOcean's id: a uuid on some operations, free text on others
+        var uuid = parameter("id", "path", new Schema("string", "uuid", null, List.of(), List.of(), null), null);
+        var text = parameter("id", "path", schema("string", List.of(), null), null);
+        var uuidItems = parameter(
+                "ids",
+                "query",
+                schema("array", List.of(), new Schema("string", "uuid", null, List.of(), List.of(), null)),
+                null);
+        var textItems = parameter("ids", "query", schema("array", List.of(), schema("string", List.of(), null)), null);
+
+        // then
+        assertThat(uuid.identity()).isNotEqualTo(text.identity());
+        assertThat(uuidItems.identity()).isNotEqualTo(textItems.identity());
+    }
+
+    @Test
+    void load_readsASchemasFormat() {
+        assertThat(bodySchema(load(withBodySchema("type: string\nformat: uuid\n")))
+                        .format())
+                .isEqualTo("uuid");
+        assertThat(bodySchema(load(withBodySchema("type: string\n"))).format()).isNull();
+    }
+
+    @Test
     void identity_differsByTheItemsOfAnArray() {
         // given
         var strings = parameter("ids", "query", schema("array", List.of(), schema("string", List.of(), null)), null);
@@ -1469,6 +1494,7 @@ class OpenApiLoaderTest {
                 "query",
                 new Schema(
                         "string",
+                        null,
                         StringNode.valueOf("x"),
                         List.of(),
                         List.of(new Field("f", true, schema("string", List.of(), null))),
@@ -1510,6 +1536,7 @@ class OpenApiLoaderTest {
         // given
         var schema = new Schema(
                 "object",
+                null,
                 null,
                 List.of(),
                 List.of(

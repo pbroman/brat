@@ -50,8 +50,9 @@ public final class OpenApiImporter {
      * <p>
      * <strong>Constants.</strong> One per parameter the requests send, in the order the spec first uses
      * each, where a parameter is a name together with what the spec makes it: its {@code in}, its schema's
-     * type and enum, and for an array its items' type and enum. Parameters alike in all of these share a
-     * constant — one {@code ${constants.orderId}} serves every operation sending that {@code orderId}.
+     * type, format and enum, and for an array its items' type, format and enum. Parameters alike in all
+     * of these share a constant — one {@code ${constants.orderId}} serves every operation sending that
+     * {@code orderId}.
      * Of parameters sharing a name and not the rest, the first met keeps the bare name and each other is
      * named {@code <name>_<segment>}: {@code <segment>} is the last segment of its first operation's path
      * that is not a {@code {parameter}}, each run of characters other than a letter or a digit made one
@@ -92,7 +93,10 @@ public final class OpenApiImporter {
      *       object of its properties, each that has a value and each required one, a required one without
      *       a value written as a blank of its type ({@code ""}, {@code 0}, {@code false}, {@code []},
      *       {@code {}} — an object built of its own required properties); an array of one element, its
-     *       items' value. A property neither required nor having a value is left out. A built body
+     *       items' value. A property neither required nor having a value is left out. Nothing else of the
+     *       schema is applied — {@code minItems}, {@code minLength}, {@code maxProperties},
+     *       {@code pattern}, a {@code oneOf}'s other branches — so a built body may not validate against
+     *       it. A built body
      *       carries a comment on {@code body:} — {@code built from the schema's examples}, then
      *       {@code ; fill in: } and the required properties written blank, nested ones as
      *       {@code customer.name} — and, where any is blank, a note. Printed JSON of up to
@@ -150,8 +154,8 @@ public final class OpenApiImporter {
      * {@code baseUrl}, with the url and a comment naming its requests — at most three, then
      * {@code and N more} — and saying it is the same in every environment, since the spec gives one url
      * for all. Its requests' urls start with {@code ${env.<key>}}. A relative url ({@code /v2}) is
-     * {@code ${env.baseUrl}} followed by it, with no key; one keeping a variable without a default gives
-     * the key {@code ""} with a comment and a note.
+     * {@code ${env.baseUrl}} followed by it, with no key; one keeping a variable without a default, or
+     * naming no host ({@code https://}), gives the key {@code ""} with a comment and a note.
      * <p>
      * <strong>Auth.</strong> The document's {@code security} becomes the suite's {@code auth}; a
      * request whose operation's security maps to a different one carries its own, and one that maps to

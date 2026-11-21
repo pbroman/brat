@@ -1585,7 +1585,7 @@ class OpenApiImporterTest {
         assertThat(lineWith(scaffold, "body:")).contains("fill in: a, b");
     }
 
-    // --- review additions ---
+    // --- constants, bodies and the QUERY method: edge cases ---
 
     @Test
     void scaffold_namesWhoseASplitIsWhenTheBareNameBelongsToAnotherParameter() {
@@ -1721,7 +1721,7 @@ class OpenApiImporterTest {
         assertThat(JSON.readTree(raw(onlyRequest(scaffold)))).isEqualTo(JSON.readTree("{\"near\":\"Berlin\"}"));
     }
 
-    // --- step 4: which requests carry a body ---
+    // --- which requests carry a body ---
 
     @ParameterizedTest
     @ValueSource(strings = {"get", "head"})
@@ -1762,7 +1762,7 @@ class OpenApiImporterTest {
         assertThat(JSON.readTree(raw(onlyRequest(scaffold)))).isEqualTo(JSON.readTree("{\"ids\":[1,2]}"));
     }
 
-    // --- step 4: forms ---
+    // --- forms ---
 
     @Test
     void scaffold_writesOnlyTheRequiredFormFieldsAndNamesTheOptionalOnes() {
@@ -1839,7 +1839,7 @@ class OpenApiImporterTest {
         assertThat(lineWith(scaffold, "tags:")).contains("tags[<key>]");
     }
 
-    // --- step 4: an operation's own server ---
+    // --- an operation's own server ---
 
     private static final String TWO_SERVERS = """
             openapi: 3.0.3
@@ -1988,7 +1988,7 @@ class OpenApiImporterTest {
         assertThat(scaffold.files().get("local/env.yaml")).contains("one, two, three and 2 more");
     }
 
-    // --- step 4: grouping by path segment ---
+    // --- grouping by path segment ---
 
     @Test
     void scaffold_groupsByFirstPathSegmentWhenNoOperationIsTagged() {
@@ -2034,7 +2034,7 @@ class OpenApiImporterTest {
         assertThat(names(suite.get("subSuites"))).containsExactly("admin");
     }
 
-    // --- step 4: where auth is written ---
+    // --- where auth is written ---
 
     private static final String KEYS = """
             openapi: 3.0.3
@@ -2106,7 +2106,7 @@ class OpenApiImporterTest {
         assertThat(lineWith(scaffold, "auth:")).contains("the spec's security for every request: token");
     }
 
-    // --- step 4: environment names ---
+    // --- environment names ---
 
     @Test
     void scaffold_namesAnEnvironmentByTheDescriptionsFirstFourWords() {
@@ -2166,7 +2166,7 @@ class OpenApiImporterTest {
         assertThat(scaffold.environments()).containsExactly("supercalifragilisticexpialidoc");
     }
 
-    // --- step 4: what is not imported, and comments ---
+    // --- what is not imported, and comments ---
 
     @Test
     void scaffold_notesWhatTheSpecHoldsThatIsNotImported() {
@@ -2246,7 +2246,7 @@ class OpenApiImporterTest {
         assertThat(lines.get(type + 1).strip()).isEqualTo("args:");
     }
 
-    // --- review additions, step 4 ---
+    // --- forms from examples, hoisting refusals, relative servers ---
 
     @Test
     void scaffold_writesAFormFromItsExampleWhenTheSchemaNamesNoFields() {
@@ -2355,5 +2355,50 @@ class OpenApiImporterTest {
             urls.add(request.get("requestDefinition").get("url").asString());
         }
         assertThat(urls).containsExactly("${env.baseUrl}/v2/orders", "${env.baseUrl}/stock");
+    }
+
+    @Test
+    void scaffold_splitsAConstantWhoseFormatDiffers() {
+        // when - DigitalOcean-shaped: one id a uuid, the other free text
+        var scaffold = withPaths("""
+                /droplets/{id}:
+                  get:
+                    summary: read a droplet
+                    parameters:
+                      - { name: id, in: path, example: "42", schema: { type: string } }
+                /agents/{id}:
+                  get:
+                    summary: read an agent
+                    parameters:
+                      - name: id
+                        in: path
+                        schema: { type: string, format: uuid, example: 3fa85f64-5717-4562-b3fc-2c963f66afa6 }
+                """);
+
+        // then
+        assertThat(constant(scaffold, "id")).isEqualTo("42");
+        assertThat(constant(scaffold, "id_agents")).isEqualTo("3fa85f64-5717-4562-b3fc-2c963f66afa6");
+    }
+
+    @Test
+    void scaffold_leavesAServerKeyWithoutAHostEmptyAndNotesIt() {
+        // when - DigitalOcean's bare https://
+        var scaffold = withServers("""
+                /upload:
+                  put:
+                    summary: upload
+                    servers: [{ url: "https://" }]
+                """);
+
+        // then - the key asks to be filled in rather than giving https:///upload
+        var env = scaffold.files().get("local/env.yaml");
+        assertThat(YAML.readTree(env).get("serverBaseUrl").asString()).isEmpty();
+        assertThat(env.lines()
+                        .filter(line -> line.startsWith("serverBaseUrl:"))
+                        .findFirst()
+                        .orElseThrow())
+                .contains("names no host");
+        assertThat(scaffold.notes())
+                .anySatisfy(note -> assertThat(note.message()).contains("serverBaseUrl"));
     }
 }

@@ -419,11 +419,12 @@ final class OpenApiLoader {
         /** Reads one schema at a nesting level: properties and items only below {@link #MAX_LEVEL}. */
         private Schema readSchema(Located located, int level) {
             if (!isMapping(located)) {
-                return new Schema(null, null, List.of(), List.of(), null);
+                return new Schema(null, null, null, List.of(), List.of(), null);
             }
             var parts = new ArrayList<Located>();
             collectParts(object(resolve(located)), parts, new HashSet<>());
             String type = null;
+            String format = null;
             JsonNode example = null;
             List<String> enumValues = List.of();
             Located items = null;
@@ -431,6 +432,10 @@ final class OpenApiLoader {
             var required = new HashSet<String>();
             for (var part : parts) {
                 type = firstNonNull(typeOf(part), type);
+                var partFormat = part.child("format");
+                format = !partFormat.absent() && partFormat.node().isString()
+                        ? partFormat.node().asString()
+                        : format;
                 example = firstNonNull(schemaExample(part), example);
                 var partEnum = enumOf(part);
                 enumValues = partEnum.isEmpty() ? enumValues : partEnum;
@@ -450,7 +455,7 @@ final class OpenApiLoader {
                 type = !properties.isEmpty() ? "object" : items != null ? "array" : null;
             }
             if (level >= MAX_LEVEL) {
-                return new Schema(type, example, enumValues, List.of(), null);
+                return new Schema(type, format, example, enumValues, List.of(), null);
             }
             var fields = new ArrayList<Field>();
             for (var property : properties.entrySet()) {
@@ -461,6 +466,7 @@ final class OpenApiLoader {
             }
             return new Schema(
                     type,
+                    format,
                     example,
                     enumValues,
                     List.copyOf(fields),

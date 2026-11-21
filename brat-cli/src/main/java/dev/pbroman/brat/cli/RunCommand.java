@@ -58,8 +58,10 @@ import picocli.CommandLine.Spec;
  * has been read, so a launch that cannot be read prints nothing on stdout.
  * <p>
  * <strong>Stderr</strong> carries everything else: the command's own errors, each one line beginning
- * {@code brat: } with no stack trace; the lines a Ctrl-C prints; and the log. Nothing written to either
- * stream holds a secret: core's messages never quote one, and the report masks them.
+ * {@code brat: } with no stack trace; the lines a Ctrl-C prints; and the log. Without {@code --verbose},
+ * nothing written to either stream holds a secret: core's messages never quote one, and the report masks
+ * them. With it, a stack trace's causes may quote the suite file — the YAML parser's own message among
+ * them — and the DEBUG log carries what the libraries beneath BRAT log.
  * <p>
  * <strong>The exit code:</strong>
  * <ul>
@@ -153,7 +155,10 @@ final class RunCommand implements Callable<Integer> {
                     + " A value from a secrets source stays masked.")
     private boolean showSecrets;
 
-    @Option(names = "--verbose", description = "Log at DEBUG, and print the stack trace of an error.")
+    @Option(
+            names = "--verbose",
+            description =
+                    "Log at DEBUG, and print the stack trace of an error; either may quote the suite or its values.")
     private boolean verbose;
 
     @Option(
